@@ -83,7 +83,14 @@ export function PhoneLoginForm() {
         body: JSON.stringify({ phone: fullPhone, password }),
       });
       const data = await res.json();
-      alert("DEBUG status=" + res.status + " body=" + JSON.stringify(data) + " cookies=" + document.cookie);
+      const cookieNames = document.cookie.split(";").map(c => c.split("=")[0].trim()).join(", ");
+      alert(
+        "status=" + res.status +
+        " | nextPath=" + data.nextPath +
+        " | tiene sb-cookie=" + (document.cookie.includes("sb-") ? "SI" : "NO") +
+        " | tiene selected_role=" + (document.cookie.includes("selected_role") ? "SI" : "NO") +
+        " | nombres de cookies=" + cookieNames
+      );
       if (res.status === 401) {
         setError("Contraseña incorrecta");
         return;
