@@ -83,6 +83,7 @@ export function PhoneLoginForm() {
         body: JSON.stringify({ phone: fullPhone, password }),
       });
       const data = await res.json();
+      alert("DEBUG status=" + res.status + " body=" + JSON.stringify(data));
       if (res.status === 401) {
         setError("Contraseña incorrecta");
         return;
