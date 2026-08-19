@@ -1,8 +1,8 @@
 {
-  "name": "drbioescaner-whatsapp-service",
+  "name": "DrNatury-whatsapp-service",
   "version": "1.0.0",
   "private": true,
-  "description": "Servicio WAWEB — gestiona sesiones WhatsApp Web y expone API REST para DrBioescaner",
+  "description": "Servicio WAWEB — gestiona sesiones WhatsApp Web y expone API REST para DrNatury",
   "main": "index.js",
   "scripts": {
     "start":          "node index.js",

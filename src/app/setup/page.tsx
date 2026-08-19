@@ -55,7 +55,7 @@ export default function SetupPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
-          <p className="text-2xl font-bold text-gray-900">DrBioescaner</p>
+          <p className="text-2xl font-bold text-gray-900">DrNatury</p>
           <p className="text-sm text-gray-500 mt-2">Configuración inicial — cuenta Master</p>
           <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-4">
             Esta página solo funciona una vez. Después queda deshabilitada.

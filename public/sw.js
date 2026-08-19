@@ -1,4 +1,4 @@
-﻿const CACHE_NAME = 'drbioescaner-v1';
+const CACHE_NAME = 'DrNatury-v1';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',

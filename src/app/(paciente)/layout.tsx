@@ -8,7 +8,7 @@ export default async function PacienteLayout({ children }: { children: React.Rea
     <div className="min-h-screen bg-gray-50 pb-20">
       <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
         <div>
-          <p className="text-[11px] text-gray-400 leading-none">DrBioescaner</p>
+          <p className="text-[11px] text-gray-400 leading-none">DrNatury</p>
           {profile?.name && (
             <p className="text-sm font-semibold text-gray-900 mt-0.5">{profile.name}</p>
           )}

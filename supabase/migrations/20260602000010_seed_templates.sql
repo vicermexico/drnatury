@@ -9,19 +9,19 @@ INSERT INTO whatsapp_templates (key, body, description) VALUES
 
 (
   'appointment_booked',
-  E'Hola {{patient_name}} 👋\n\nTu cita en *DrBioescaner {{branch_name}}* quedó agendada.\n\n📅 {{date}}\n⏰ {{time}}\n👩‍⚕️ {{therapist_name}}\n📍 {{address}}\n\nConfirma o cancela tu cita:\n{{confirm_url}}',
+  E'Hola {{patient_name}} 👋\n\nTu cita en *DrNatury {{branch_name}}* quedó agendada.\n\n📅 {{date}}\n⏰ {{time}}\n👩‍⚕️ {{therapist_name}}\n📍 {{address}}\n\nConfirma o cancela tu cita:\n{{confirm_url}}',
   'Mensaje al paciente al agendar una cita'
 ),
 
 (
   'appointment_reminder',
-  E'Hola {{patient_name}}, te recordamos tu cita mañana.\n\n📅 {{date}} a las {{time}}\n🏥 DrBioescaner {{branch_name}}\n👩‍⚕️ {{therapist_name}}\n\n¿Confirmas tu asistencia?\n{{confirm_url}}',
+  E'Hola {{patient_name}}, te recordamos tu cita mañana.\n\n📅 {{date}} a las {{time}}\n🏥 DrNatury {{branch_name}}\n👩‍⚕️ {{therapist_name}}\n\n¿Confirmas tu asistencia?\n{{confirm_url}}',
   'Recordatorio antes de la cita — tiempo configurable por Alejandro'
 ),
 
 (
   'appointment_cancelled',
-  E'Hola {{patient_name}},\n\nTu cita del {{date}} a las {{time}} en DrBioescaner *{{branch_name}}* ha sido cancelada.\n\nPara agendar una nueva cita entra a:\n{{app_url}}',
+  E'Hola {{patient_name}},\n\nTu cita del {{date}} a las {{time}} en DrNatury *{{branch_name}}* ha sido cancelada.\n\nPara agendar una nueva cita entra a:\n{{app_url}}',
   'Se envía a paciente, Alejandro y terapeuta al cancelarse una cita'
 ),
 

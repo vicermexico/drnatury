@@ -36,7 +36,7 @@ export default async function MasterDashboard() {
     <div className="max-w-3xl space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-1">DrBioescaner — Panel de administración</p>
+        <p className="text-sm text-gray-500 mt-1">DrNatury — Panel de administración</p>
       </div>
 
       {/* Notificaciones */}

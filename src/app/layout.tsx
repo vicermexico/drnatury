@@ -9,13 +9,13 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "DrBioescaner",
+  title: "DrNatury",
   description: "Gestión de clínica multi-sucursal",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "DrBioescaner",
+    title: "DrNatury",
   },
   icons: {
     apple: "/icons/apple-touch-icon.png",

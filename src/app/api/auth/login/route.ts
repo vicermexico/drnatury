@@ -1,4 +1,4 @@
-﻿import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createRouteClient } from "@/lib/supabase/route-handler";
 import { derivePatientPassword, phoneToEmail } from "@/lib/auth/patient-secret";
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
       sameSite: "none",
       maxAge: 60 * 60 * 8,
       path: "/",
-      domain: ".drbioescaner.com",
+      domain: ".drnatury.com",
     });
   }
 

@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { renderTemplate } from "@/lib/whatsapp/templates";
 import type { TemplateKey } from "@/lib/whatsapp/templates";
@@ -60,7 +60,7 @@ export async function sendPushNotification(
     await getMessaging().send({
       token: profile.push_token,
       notification: {
-        title: "DrBioescaner",
+        title: "DrNatury",
         body: message,
       },
     });

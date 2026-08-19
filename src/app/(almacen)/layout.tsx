@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { getServerProfile } from "@/lib/auth";
 
 const NAV = [
@@ -15,12 +15,12 @@ export default async function AlmacenLayout({ children }: { children: React.Reac
     <div className="flex min-h-screen bg-gray-50">
       <aside className="hidden md:flex w-56 flex-col bg-white border-r border-gray-200 py-6 px-4 shrink-0">
         <div className="mb-6 px-2">
-          <p className="text-[11px] text-gray-400 leading-none">DrBioescaner</p>
+          <p className="text-[11px] text-gray-400 leading-none">DrNatury</p>
           {profile?.name && (
             <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">{profile.name}</p>
           )}
           <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded mt-1 inline-block font-medium">
-            AlmacÃ©n
+            Almacén
           </span>
         </div>
 
@@ -36,7 +36,7 @@ export default async function AlmacenLayout({ children }: { children: React.Reac
         <form action="/api/auth/logout" method="POST" className="mt-4">
           <button type="submit"
             className="w-full text-left px-3 py-2 text-sm text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-50 transition">
-            Cerrar sesiÃ³n
+            Cerrar sesión
           </button>
         </form>
       </aside>
@@ -44,7 +44,7 @@ export default async function AlmacenLayout({ children }: { children: React.Reac
       <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
           <div>
-            <p className="text-[11px] text-gray-400">DrBioescaner Â· AlmacÃ©n</p>
+            <p className="text-[11px] text-gray-400">DrNatury · Almacén</p>
             {profile?.name && <p className="text-sm font-semibold text-gray-900">{profile.name}</p>}
           </div>
           <form action="/api/auth/logout" method="POST">

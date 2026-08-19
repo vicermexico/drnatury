@@ -1,8 +1,8 @@
-# DrBioescaner — Reglas del proyecto para Claude Code
+# DrNatury — Reglas del proyecto para Claude Code
 
 ## Resumen del proyecto
 
-Web app responsiva mobile-first (PWA) de gestión de clínica multi-sucursal para DrBioescaner (Alejandro Cervantes Elizondo). Single-tenant. 4 sucursales iniciales en Monterrey, N.L.
+Web app responsiva mobile-first (PWA) de gestión de clínica multi-sucursal para DrNatury (Alejandro Cervantes Elizondo). Single-tenant. 4 sucursales iniciales en Monterrey, N.L.
 
 **Stack:** Next.js 15 + TypeScript + Supabase + Vercel  
 **Integración core:** WhatsApp — rotación circular de 4 números con whatsapp-web.js + Cloud API como plan de escape  

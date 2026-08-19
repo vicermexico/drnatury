@@ -1,7 +1,7 @@
 {
-  "name": "DrBioescaner",
-  "short_name": "DrBioescaner",
-  "description": "Clínica DrBioescaner — Agenda tu cita y gestiona tu salud",
+  "name": "DrNatury",
+  "short_name": "DrNatury",
+  "description": "Clínica DrNatury — Agenda tu cita y gestiona tu salud",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

@@ -3,8 +3,8 @@ importScripts("https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-comp
 
 firebase.initializeApp({
   apiKey: "AIzaSyAx3_Gzu4l0AZB56QD9XjvuhpGkKT4NNNo",
-  authDomain: "drbioescaner-61eb5.firebaseapp.com",
-  projectId: "drbioescaner-61eb5",
+  authDomain: "DrNatury-61eb5.firebaseapp.com",
+  projectId: "DrNatury-61eb5",
   messagingSenderId: "221457294005",
   appId: "1:221457294005:web:44e1556c224694afad14fc",
 });
@@ -13,7 +13,7 @@ const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
   const { title, body } = payload.notification ?? {};
-  self.registration.showNotification(title ?? "DrBioescaner", {
+  self.registration.showNotification(title ?? "DrNatury", {
     body: body ?? "",
     icon: "/icons/icon-192x192.png",
     data: { url: "/paciente/citas" },
