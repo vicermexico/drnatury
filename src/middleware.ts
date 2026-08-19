@@ -17,6 +17,7 @@ const PUBLIC_PATHS = [
   "/api/auth/register",
   "/api/setup",
   "/api/cron",
+  "/api/debug-session2", // TEMPORAL: diagnostico, quitar despues
   "/resultado",
 ];
 
