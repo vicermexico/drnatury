@@ -1,10 +1,7 @@
 "use client";
-
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-
 type Step = "phone" | "password";
-
 const COUNTRIES = [
   { code: "+52", flag: "🇲🇽", name: "México", maxDigits: 10 },
   { code: "+1",  flag: "🇺🇸", name: "USA/Canadá", maxDigits: 10 },
@@ -21,7 +18,6 @@ const COUNTRIES = [
   { code: "+506", flag: "🇨🇷", name: "Costa Rica", maxDigits: 8 },
   { code: "+507", flag: "🇵🇦", name: "Panamá", maxDigits: 8 },
 ];
-
 export function PhoneLoginForm() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("phone");
@@ -30,14 +26,16 @@ export function PhoneLoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
-
   const selectedCountry = COUNTRIES.find(c => c.code === countryCode) ?? COUNTRIES[0];
   const fullPhone = countryCode.replace("+", "") + phone;
-
   function handlePhoneChange(value: string) {
     setPhone(value.replace(/\D/g, "").slice(0, selectedCountry.maxDigits));
   }
-
+  function goTo(nextPath: string) {
+    // Navegacion completa (no client-side) para garantizar que el
+    // navegador mande las cookies de sesion recien creadas al middleware.
+    window.location.href = nextPath;
+  }
   function submitPhone(e: React.FormEvent) {
     e.preventDefault();
     if (phone.length < selectedCountry.maxDigits) {
@@ -45,7 +43,6 @@ export function PhoneLoginForm() {
       return;
     }
     setError("");
-
     startTransition(async () => {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -53,7 +50,6 @@ export function PhoneLoginForm() {
         body: JSON.stringify({ phone: fullPhone }),
       });
       const data = await res.json();
-
       if (res.status === 404) {
         router.push(`/registro?phone=${encodeURIComponent(fullPhone)}`);
         return;
@@ -70,20 +66,16 @@ export function PhoneLoginForm() {
         setError("Error inesperado. Intenta de nuevo.");
         return;
       }
-
       if (data.requirePassword) {
         setStep("password");
         return;
       }
-
-      router.push(data.nextPath);
+      goTo(data.nextPath);
     });
   }
-
   function submitPassword(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-
     startTransition(async () => {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -91,7 +83,6 @@ export function PhoneLoginForm() {
         body: JSON.stringify({ phone: fullPhone, password }),
       });
       const data = await res.json();
-
       if (res.status === 401) {
         setError("Contraseña incorrecta");
         return;
@@ -104,11 +95,9 @@ export function PhoneLoginForm() {
         setError("Error inesperado. Intenta de nuevo.");
         return;
       }
-
-      router.push(data.nextPath);
+      goTo(data.nextPath);
     });
   }
-
   return (
     <div className="space-y-6">
       {step === "phone" ? (
@@ -144,9 +133,7 @@ export function PhoneLoginForm() {
             </div>
             <p className="text-xs text-gray-400 mt-1">{selectedCountry.flag} {selectedCountry.name} — {countryCode} + {phone || "..."}</p>
           </div>
-
           {error && <p className="text-sm text-red-600">{error}</p>}
-
           <button
             type="submit"
             disabled={isPending}
@@ -154,7 +141,6 @@ export function PhoneLoginForm() {
           >
             {isPending ? "Verificando..." : "Continuar"}
           </button>
-
           <p className="text-center text-sm text-gray-500">
             ¿Primera vez?{" "}
             <a href="/registro" className="text-blue-600 underline">
@@ -167,7 +153,6 @@ export function PhoneLoginForm() {
           <p className="text-sm text-gray-600">
             Número: <span className="font-semibold tracking-widest">{countryCode} {phone}</span>
           </p>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Contraseña
@@ -182,9 +167,7 @@ export function PhoneLoginForm() {
               className="w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
             />
           </div>
-
           {error && <p className="text-sm text-red-600">{error}</p>}
-
           <button
             type="submit"
             disabled={isPending}
@@ -192,7 +175,6 @@ export function PhoneLoginForm() {
           >
             {isPending ? "Entrando..." : "Entrar"}
           </button>
-
           <button
             type="button"
             onClick={() => { setStep("phone"); setPassword(""); setError(""); }}
