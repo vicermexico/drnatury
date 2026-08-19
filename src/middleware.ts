@@ -1,13 +1,12 @@
-﻿import { createServerClient } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-
-// Rutas accesibles sin sesiÃ³n
+// Rutas accesibles sin sesión
 const PUBLIC_PATHS = [
   "/",
   "/inicio/servicio",
   "/login",
   "/registro",
-  "/setup",             // configuraciÃ³n inicial del MASTER (uso Ãºnico)
+  "/setup",             // configuración inicial del MASTER (uso único)
   "/seleccionar-rol",
   "/aviso-privacidad",
   "/terminos-de-uso",
@@ -17,10 +16,10 @@ const PUBLIC_PATHS = [
   "/api/auth/register",
   "/api/setup",
   "/api/cron",
+  "/api/debug-session", // TEMPORAL: diagnostico de sesion, quitar despues
   "/resultado",
 ];
-
-// QuÃ© rol necesita cada prefijo de ruta
+// Qué rol necesita cada prefijo de ruta
 const ROLE_REQUIRED: Record<string, string> = {
   "/master":    "MASTER",
   "/terapeuta": "TERAPEUTA",
@@ -28,10 +27,8 @@ const ROLE_REQUIRED: Record<string, string> = {
   "/almacen":   "ALMACENISTA",
   "/paciente":  "PACIENTE",
 };
-
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
-
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -50,45 +47,34 @@ export async function middleware(request: NextRequest) {
       },
     }
   );
-
   const pathname = request.nextUrl.pathname;
-
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return supabaseResponse;
   }
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
   if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
-
   // Verificar rol para rutas protegidas
   const requiredRole = Object.entries(ROLE_REQUIRED).find(([prefix]) =>
     pathname.startsWith(prefix)
   )?.[1];
-
   if (requiredRole) {
     const selectedRole = request.cookies.get("selected_role")?.value;
-
-    // Si el usuario tiene mÃºltiples roles y no ha seleccionado uno, redirigir al selector
+    // Si el usuario tiene múltiples roles y no ha seleccionado uno, redirigir al selector
     if (!selectedRole) {
       return NextResponse.redirect(new URL("/seleccionar-rol", request.url));
     }
-
     if (selectedRole !== requiredRole) {
       return NextResponse.redirect(new URL("/seleccionar-rol", request.url));
     }
   }
-
   return supabaseResponse;
 }
-
 export const config = {
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|manifest.json|icons|public).*)",
   ],
 };
-
