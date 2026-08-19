@@ -98,7 +98,7 @@ export function CitaWhatsappPdf({
             disabled={uploading}
             className="flex-1 rounded-xl bg-gray-50 border border-gray-200 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 transition disabled:opacity-60"
           >
-            {uploading ? "Subiendo..." : "?? Subir PDF"}
+            {uploading ? "Subiendo..." : "📎 Subir PDF"}
           </button>
         )}
 
@@ -106,7 +106,7 @@ export function CitaWhatsappPdf({
           onClick={handleWhatsApp}
           className="flex-1 rounded-xl bg-green-500 py-2 text-xs font-semibold text-white hover:bg-green-600 transition"
         >
-          ?? WhatsApp
+          💬 WhatsApp
         </button>
       </div>
 

@@ -20,7 +20,7 @@ export default async function AlmacenLayout({ children }: { children: React.Reac
             <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">{profile.name}</p>
           )}
           <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded mt-1 inline-block font-medium">
-            Almacén
+            AlmacÃ©n
           </span>
         </div>
 
@@ -36,7 +36,7 @@ export default async function AlmacenLayout({ children }: { children: React.Reac
         <form action="/api/auth/logout" method="POST" className="mt-4">
           <button type="submit"
             className="w-full text-left px-3 py-2 text-sm text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-50 transition">
-            Cerrar sesión
+            Cerrar sesiÃ³n
           </button>
         </form>
       </aside>
@@ -44,7 +44,7 @@ export default async function AlmacenLayout({ children }: { children: React.Reac
       <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
           <div>
-            <p className="text-[11px] text-gray-400">DrNatury · Almacén</p>
+            <p className="text-[11px] text-gray-400">DrNatury Â· AlmacÃ©n</p>
             {profile?.name && <p className="text-sm font-semibold text-gray-900">{profile.name}</p>}
           </div>
           <form action="/api/auth/logout" method="POST">

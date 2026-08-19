@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
   const response = NextResponse.json({ nextPath: getRolePath(role) });
 
-  // Cookie de sesión de rol — dura lo mismo que un turno de trabajo (8h)
+  // Cookie de sesiÃ³n de rol â€” dura lo mismo que un turno de trabajo (8h)
   response.cookies.set("selected_role", role, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

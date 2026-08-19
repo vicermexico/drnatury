@@ -1,4 +1,4 @@
-﻿import { notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AppointmentActions } from "./AppointmentActions";
@@ -11,7 +11,7 @@ import { createHmac } from "crypto";
 function buildConfirmUrl(id: string): string {
   const secret = process.env.APPOINTMENT_TOKEN_SECRET ?? "";
   const token = createHmac("sha256", secret).update(id).digest("hex").slice(0, 32);
-  return `https://drbioescaner.com/cita/${id}?token=${token}`;
+  return `https://drnatury.com/cita/${id}?token=${token}`;
 }
 
 async function getAppointment(id: string) {
@@ -40,7 +40,7 @@ async function getTemplates() {
   for (const t of data ?? []) map[t.key] = t.body;
   return {
     conPdf: map["cita_con_pdf"] ?? "Hola {nombre}, aqui esta tu resultado: {link}",
-    sinPdf: map["cita_sin_pdf"] ?? "Hola {nombre}, gracias por tu visita en DrBioescaner.",
+    sinPdf: map["cita_sin_pdf"] ?? "Hola {nombre}, gracias por tu visita en DrNatury.",
   };
 }
 
@@ -76,7 +76,7 @@ export default async function AppointmentDetailPage({
 }) {
   const { id } = await params;
   const [appt, templates] = await Promise.all([getAppointment(id), getTemplates()]);
-  const confirmUrl = buildConfirmUrl(id, "https://drbioescaner.com");
+  const confirmUrl = buildConfirmUrl(id, "https://drnatury.com");
   if (!appt) notFound();
 
   type Joined = {

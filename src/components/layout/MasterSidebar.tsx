@@ -4,21 +4,21 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 const NAV = [
-  { href: "/master/dashboard",  label: "Inicio",         icon: "??" },
-  { href: "/master/pacientes",  label: "Pacientes",      icon: "??" },
-  { href: "/master/citas",      label: "Citas",          icon: "??" },
-  { href: "/master/asistentes", label: "Asistentes",     icon: "??" },
-  { href: "/master/whatsapp",   label: "Notificaciones", icon: "??" },
-  { href: "/master/reportes",   label: "Reportes",       icon: "??" },
-  { href: "/master/landing",    label: "Editar inicio",  icon: "??" },
-  { href: "/master/inventario", label: "Productos",      icon: "??" },
-  { href: "/master/terapeutas", label: "Terapeutas",     icon: "?????" },
-  { href: "/master/almacenistas", label: "Almacen",      icon: "??" },
-  { href: "/master/configuracion", label: "Configuracion", icon: "??" },
-  { href: "/master/whatsapp-citas",    label: "WhatsApp Citas",  icon: "??" },
-  { href: "/master/agua-energetica",  label: "Agua Energetica", icon: "??" },
-  { href: "/master/comisiones",     label: "Comisiones",     icon: "??" },
-  { href: "/master/cortes",         label: "Cortes",         icon: "??" },
+  { href: "/master/dashboard",  label: "Inicio",         icon: "🏠" },
+  { href: "/master/pacientes",  label: "Pacientes",      icon: "👤" },
+  { href: "/master/citas",      label: "Citas",          icon: "📅" },
+  { href: "/master/asistentes", label: "Asistentes",     icon: "🤝" },
+  { href: "/master/whatsapp",   label: "Notificaciones", icon: "🔔" },
+  { href: "/master/reportes",   label: "Reportes",       icon: "📊" },
+  { href: "/master/landing",    label: "Editar inicio",  icon: "🌐" },
+  { href: "/master/inventario", label: "Productos",      icon: "📦" },
+  { href: "/master/terapeutas", label: "Terapeutas",     icon: "🧑‍⚕️" },
+  { href: "/master/almacenistas", label: "Almacen",      icon: "📦" },
+  { href: "/master/configuracion", label: "Configuracion", icon: "⚙️" },
+  { href: "/master/whatsapp-citas",    label: "WhatsApp Citas",  icon: "💬" },
+  { href: "/master/agua-energetica",  label: "Agua Energetica", icon: "💧" },
+  { href: "/master/comisiones",     label: "Comisiones",     icon: "💰" },
+  { href: "/master/cortes",         label: "Cortes",         icon: "✂️" },
 ];
 
 interface Props {
@@ -35,7 +35,7 @@ function SidebarContent({ userName, onClose, onLogout }: { userName: string; onC
           <p className="text-xs text-gray-400 mt-0.5">Panel Master</p>
         </div>
         {onClose && (
-          <button className="text-gray-400 hover:text-gray-600 text-lg" onClick={onClose}>?</button>
+          <button className="text-gray-400 hover:text-gray-600 text-lg" onClick={onClose}>✕</button>
         )}
       </div>
       <nav className="flex-1 px-3 py-4 space-y-0.5">
@@ -65,7 +65,7 @@ function SidebarContent({ userName, onClose, onLogout }: { userName: string; onC
           onClick={onLogout}
           className="w-full text-left px-3 py-2.5 text-sm font-medium text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
         >
-          ?? Cerrar sesion
+          🚪 Cerrar sesion
         </button>
       </div>
     </aside>

@@ -1,4 +1,4 @@
-﻿import { notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 async function getCita(id: string) {
@@ -31,7 +31,7 @@ export default async function ResultadoCitaPage({
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-start py-10 px-4">
       <div className="w-full max-w-2xl space-y-6">
         <div className="text-center space-y-1">
-          <h1 className="text-2xl font-bold text-gray-900">DrBioescaner</h1>
+          <h1 className="text-2xl font-bold text-gray-900">DrNatury</h1>
           <p className="text-sm text-gray-500">Resultado de tu consulta</p>
         </div>
 

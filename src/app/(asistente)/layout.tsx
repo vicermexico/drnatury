@@ -38,16 +38,16 @@ export default async function AsistenteLayout({ children }: { children: React.Re
         <form action="/api/auth/logout" method="POST" className="mt-4">
           <button type="submit"
             className="w-full text-left px-3 py-2 text-sm text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-50 transition">
-            Cerrar sesión
+            Cerrar sesiÃ³n
           </button>
         </form>
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header móvil */}
+        {/* Header mÃ³vil */}
         <header className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
           <div>
-            <p className="text-[11px] text-gray-400">DrNatury · Asistente</p>
+            <p className="text-[11px] text-gray-400">DrNatury Â· Asistente</p>
             {profile?.name && <p className="text-sm font-semibold text-gray-900">{profile.name}</p>}
           </div>
           <form action="/api/auth/logout" method="POST">
@@ -55,7 +55,7 @@ export default async function AsistenteLayout({ children }: { children: React.Re
           </form>
         </header>
 
-        {/* Nav móvil */}
+        {/* Nav mÃ³vil */}
         <nav className="md:hidden bg-white border-b border-gray-100 px-4 flex gap-1 overflow-x-auto">
           {NAV.map(({ href, label }) => (
             <Link key={href} href={href}

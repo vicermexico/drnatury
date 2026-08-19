@@ -58,7 +58,7 @@ export default async function CitaPage({
     <main className="flex min-h-screen items-center justify-center p-4 bg-gray-50">
       <div className="max-w-sm w-full space-y-6">
         <div className="text-center">
-          <p className="text-sm text-gray-500">DrBioescaner</p>
+          <p className="text-sm text-gray-500">DrNatury</p>
           <h1 className="text-xl font-bold text-gray-900 mt-1">Tu cita</h1>
         </div>
 
