@@ -1,0 +1,24 @@
+{
+  "name": "drbioescaner-whatsapp-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Servicio WAWEB — gestiona sesiones WhatsApp Web y expone API REST para DrBioescaner",
+  "main": "index.js",
+  "scripts": {
+    "start":          "node index.js",
+    "dev":            "node --watch index.js",
+    "pm2:start":      "pm2 start index.js --name waweb --restart-delay=5000 --max-restarts=10",
+    "pm2:stop":       "pm2 stop waweb",
+    "pm2:restart":    "pm2 restart waweb",
+    "pm2:logs":       "pm2 logs waweb",
+    "pm2:save":       "pm2 save"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "qrcode": "^1.5.4",
+    "whatsapp-web.js": "^1.23.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

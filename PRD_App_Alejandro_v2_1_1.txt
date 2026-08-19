@@ -1,0 +1,453 @@
+﻿# PRD App Alejandro v2.1
+
+> Versión final con las 12 decisiones cerradas. Listo para Claude Code.
+> Parte A eliminada — todas las decisiones integradas en Parte B.
+
+---
+
+# Parte B — PRD completo con todas las decisiones cerradas
+
+---
+
+## 1. Resumen del proyecto
+
+| | |
+| --- | --- |
+| Nombre | DrBioescaner — App de Gestión de Clínica multi-sucursal |
+| Tipo de producto | Web app responsiva, mobile-first (PWA) |
+| Acceso | URL única; rol detectado por número de celular |
+| Stack core | Next.js 15 + TypeScript + Supabase + Vercel |
+| Integración core | WhatsApp — modo rotación circular (4 números, whatsapp-web.js) + Cloud API como plan de escape |
+| Tenancy | Single-tenant — exclusivo para DrBioescaner (Alejandro) |
+| Sucursales V1 | 4 sucursales desde día 1: San Nicolás, Guadalupe, Plaza La Silla, Santa Catarina |
+| Lanzamiento | Cuando Anwar tenga todo construido y probado en staging |
+
+---
+
+## 2. Datos legales
+
+| Campo | Valor |
+| --- | --- |
+| Nombre comercial | DrBioescaner |
+| Dirección | Calle Da Vinci #212, Col. Residencial Nogalar, San Nicolás de los Garza, N.L. |
+| Correo de privacidad | cervanteselizondo@hotmail.com |
+| Responsable | Alejandro Cervantes Elizondo |
+
+---
+
+## 3. Modelo de tenancy
+
+**Camino A — Single-tenant.**
+
+La app es exclusivamente para DrBioescaner (Alejandro). No se planea vender ni licenciar a otras clínicas. No se requiere `organization_id` en las tablas — simplifica el modelo de datos en V1.
+
+---
+
+## 4. Modelo de cobro Víctor → Alejandro
+
+- **Desarrollo:** sin costo — proyecto familiar.
+- **Mantenimiento:** sin costo — Víctor lo da como parte del acuerdo.
+- **Costos operativos** (hosting, dominio, base de datos, WhatsApp): los paga Alejandro.
+- **Alcance del mantenimiento:** pendiente de definir entre Víctor y Alejandro antes del lanzamiento.
+
+---
+
+## 5. Roles del sistema
+
+Todos los usuarios entran a la misma URL. El sistema detecta el rol por número de celular registrado.
+
+| Rol | Descripción |
+| --- | --- |
+| **MASTER** | Alejandro. Administrador total. Configura sucursales, terapeutas, servicios, productos, precios, mensajes WhatsApp, recordatorios. Visibilidad completa. |
+| **TERAPEUTA** | Ve y opera únicamente lo de su sucursal asignada: agenda, ventas, expediente clínico, recibo de mercancía, stock, solicitud de mercancía, agendar citas. |
+| **ASISTENTE** | Apoyo de Alejandro. Ve agenda de todas las sucursales. Gestiona citas. Sin acceso a ventas ni inventario. |
+| **ALMACENISTA** | Gestiona el almacén central único. Recibe mercancía, controla stock, surte a sucursales. Sin acceso a ventas ni agenda. |
+| **PACIENTE** | Ve cita, confirma/cancela, agenda nueva cita. Acceso solo con número de celular, sin contraseña. |
+
+### 5.1 Política de roles múltiples
+
+- **Un solo rol:** entra directo al panel correspondiente.
+- **Dos roles:** pantalla de selector al entrar: *"¿Cómo quieres entrar hoy? [Rol A] / [Rol B]"*
+- Cada sesión es independiente. Para cambiar de rol, el usuario sale y vuelve a entrar.
+
+---
+
+## 6. Autenticación
+
+| Rol | Método de acceso |
+| --- | --- |
+| Paciente | Solo número de celular. Sin contraseña. Entra directo. |
+| Master, Terapeuta, Asistente, Almacenista | Número de celular + contraseña asignada por Alejandro desde el Master. |
+
+---
+
+## 7. Sucursales
+
+### Sucursales iniciales (4)
+
+| Sucursal | Horario L-V | Horario Sáb-Dom |
+| --- | --- | --- |
+| San Nicolás | 10:00am–1:00pm / 2:00pm–6:00pm | 10:00am–2:00pm |
+| Guadalupe | 10:00am–1:00pm / 2:00pm–6:00pm | 10:00am–2:00pm |
+| Plaza La Silla | 10:00am–1:00pm / 2:00pm–6:00pm | 10:00am–2:00pm |
+| Santa Catarina | 10:00am–1:00pm / 2:00pm–6:00pm | 10:00am–2:00pm |
+
+- Horario sin límite de sucursales — Alejandro puede dar de alta más desde el Master en cualquier momento.
+- Cada sucursal tiene su propia capacidad simultánea por bloque de 30 min — Alejandro la configura al darla de alta.
+- Pausa de 1:00pm a 2:00pm de lunes a viernes — sin citas disponibles.
+
+---
+
+## 8. Catálogo de servicios
+
+- Configurado por sucursal: cada sucursal define qué servicios ofrece y a qué precio.
+- Al dar de alta una sucursal, Alejandro asigna los servicios disponibles y el precio de cada uno.
+- Una sucursal puede tener todos los servicios o solo algunos.
+- Los servicios tienen precio fijo — no varía por terapeuta ni por cita.
+
+### Campos por servicio
+
+| Campo | Detalle |
+| --- | --- |
+| Nombre | Texto libre (ej: "Biomagnetismo") |
+| Duración | Múltiplos de 30 min (30, 60, 90, 120...) |
+| Precio | Fijo, configurado por Alejandro en el Master por sucursal |
+
+---
+
+## 9. Algoritmo de disponibilidad de citas
+
+### Configuración por sucursal (Master)
+- Horario de atención por día de la semana
+- Capacidad simultánea por bloque (número de personas al mismo tiempo)
+- Bloque base: **30 minutos**
+
+### Al agendar una cita
+1. Usuario selecciona el servicio — el sistema conoce su duración y precio.
+2. El sistema calcula cuántos bloques de 30 min ocupa ese servicio.
+3. Solo muestra horarios donde **todos los bloques necesarios tienen capacidad disponible**.
+4. No muestra horarios imposibles — solo opciones reales.
+
+### Concurrencia
+- Gana quien confirma primero — el sistema bloquea el slot con transacción SQL `FOR UPDATE` al confirmar.
+- Al segundo: *"Este horario acaba de ser tomado"* + sugerencia de horarios disponibles cercanos.
+
+---
+
+## 10. Estados de cita
+
+| Estado | Visible para | Descripción |
+| --- | --- | --- |
+| Pendiente | Alejandro, Terapeuta, Asistente | Agendada, paciente no ha confirmado |
+| Confirmada | Alejandro, Terapeuta, Asistente | Paciente confirmó |
+| Cancelada | Todos | Cancelada por cualquier motivo. Queda en ROJO en agenda. |
+| No asistió | Alejandro, Terapeuta, Asistente | El paciente no se presentó |
+| Completada | Alejandro, Terapeuta, Asistente | La cita se realizó |
+
+**Vista del paciente:** solo ve Confirmar / Cancelar.
+
+---
+
+## 11. Expediente clínico
+
+- Lo capturan: Alejandro y la Terapeuta asignada a la sucursal.
+- Incluye campo de texto abierto para notas de cada sesión (V1).
+- Queda guardado en la sucursal — no en la terapeuta.
+- Si cambia la terapeuta, la nueva ve el expediente completo.
+- La terapeuta anterior pierde acceso al salir de esa sucursal.
+- Datos de salud encriptados at-rest (obligatorio LFPDPPP).
+
+---
+
+## 12. Política de bajas
+
+### Terapeuta dada de baja
+- Sus citas históricas y expedientes quedan en la sucursal — no se borran.
+- La nueva terapeuta asignada hereda la agenda y expedientes.
+- La terapeuta queda **inactiva** en el sistema, no borrada (soft delete).
+
+### Paciente que solicita borrarse
+- Se **suspende**, no se borra (soft delete).
+- Pierde acceso inmediatamente.
+- Historial y expediente quedan guardados internamente.
+
+---
+
+## 13. Ventas y cobro
+
+- La app registra ventas de **productos** (inventario) y **servicios** (terapias) al momento de realizarlos.
+- No registra método de pago (efectivo/tarjeta) — eso es externo.
+- No genera tickets ni facturas en V1.
+- No integra facturación SAT en V1 — exporta CSV mensual de ventas para el contador.
+- El cobro es en mostrador después del servicio — no se requiere pago adelantado al agendar.
+
+---
+
+## 14. Inventario — movimientos
+
+Cada cambio de stock queda registrado con:
+- Fecha y hora
+- Quién lo hizo (nombre + rol)
+- Tipo de acción: venta, surtido desde almacén, recibo en sucursal, entrada de proveedor
+- Cantidad antes y después
+- Sucursal o almacén donde ocurrió
+
+---
+
+## 15. Reportes
+
+- Rango de fechas libre: fecha inicio / fecha fin.
+- Botón de acceso rápido: **"Hoy"**.
+- Filtro por sucursal en todos los reportes.
+- Sin límite histórico — Alejandro puede consultar desde el primer día.
+
+**Módulos:**
+- Citas (por sucursal, rango de fechas, quién agendó)
+- Ventas de servicios y productos (por sucursal, rango de fechas)
+- Inventario (en tiempo real, por sucursal)
+- Recibo de mercancía (historial)
+- Solicitudes de mercancía
+
+---
+
+## 16. Bitácora de acciones
+
+Exclusiva para Alejandro. Registra toda acción importante:
+- Fecha y hora
+- Quién lo hizo (nombre + rol)
+- Qué acción fue
+- En qué sucursal
+
+Filtrable por sucursal. Cubre: Terapeuta, Asistente, Almacenista y el propio Alejandro.
+
+---
+
+## 17. Sistema de ayuda
+
+Aplica a **todos los paneles** (Master, Terapeuta, Paciente, Asistente, Almacenista):
+- **Ícono ⓘ** en cada sección — abre pantalla emergente con explicación.
+- **Botón "Tutorial completo"** en el menú — opcional, recorre toda la plataforma.
+- Sin tutorial forzado al entrar.
+
+---
+
+## 18. Integración WhatsApp — Modo dual
+
+### Modo A — whatsapp-web.js (activo al arranque)
+- 4 números registrados en el Master.
+- **Rotación circular activa:** mensaje 1 → número 1, mensaje 2 → número 2, mensaje 3 → número 3, mensaje 4 → número 4, mensaje 5 → número 1, y así sucesivamente.
+- Si un número cae o es baneado: se salta automáticamente y la rotación continúa con los restantes.
+- Alejandro recibe alerta cuando un número cae.
+
+### Modo B — WhatsApp Cloud API oficial (plan de escape, inactivo)
+- Construido desde V1 pero inactivo por defecto.
+- Cuando Alejandro decida migrar: activa Modo B, ingresa credenciales de API, el sistema migra sin cambios visibles.
+- Costo aprox: $30 USD/mes para el volumen de la clínica.
+- Switch en el Master: *"Modo activo: whatsapp-web.js / Cloud API"*.
+
+### Tabla de mensajes automáticos
+
+| Evento | Destinatario(s) | Configura |
+| --- | --- | --- |
+| Cita agendada | Paciente | Alejandro (texto libre) |
+| Recordatorio de cita | Paciente | Alejandro (múltiples independientes) |
+| Paciente confirma/cancela por link | Alejandro + Terapeuta asignada | Automático del sistema |
+| Cita cancelada (cualquier origen) | Paciente + Alejandro + Terapeuta | Texto de cancelación de Alejandro |
+| Cancelación automática por no respuesta | Paciente + Alejandro + Terapeuta | Texto de cancelación de Alejandro |
+| Stock bajo en sucursal | Alejandro | Automático del sistema |
+| Solicitud de mercancía | Alejandro + Almacenista | Automático con link de detalle |
+
+### Detalle de mensajes
+
+**Cita agendada → Paciente**
+- Contenido: fecha, hora, nombre de la terapeuta, dirección de la sucursal, link con botones Confirmar / Cancelar.
+
+**Recordatorio de cita → Paciente**
+- Alejandro configura múltiples recordatorios independientes. Cada uno tiene: texto, tiempo de envío antes de la cita, ¿incluye confirmación? (Sí/No), ¿cancela automático si no responde? (Sí/No).
+
+**Stock bajo → Alejandro**
+- Uno por producto al momento en que baja del mínimo. Incluye: nombre del producto, cantidad actual, sucursal.
+
+**Solicitud de mercancía → Alejandro + Almacenista**
+- Nombre de la terapeuta, sucursal, productos requeridos con cantidades, link de detalle.
+
+---
+
+## 19. Paneles del sistema
+
+### Panel INICIO — Acceso público
+
+- Solicita número de celular.
+- Número registrado con un rol → entra directo.
+- Número con dos roles → selector: *"¿Cómo quieres entrar hoy?"*
+- Número no registrado → formulario de registro:
+  - Nombre completo (obligatorio)
+  - Número de teléfono (obligatorio, es el usuario)
+  - Dirección (obligatorio)
+  - Edad (obligatorio)
+  - Sexo (obligatorio)
+  - Ciudad (obligatorio)
+  - Sucursal — listado de sucursales activas (obligatorio)
+  - Correo electrónico (opcional)
+  - Motivo de consulta (opcional)
+  - Aceptación de Aviso de Privacidad (obligatorio)
+
+---
+
+### Panel MASTER
+
+**Configuración de mensajes WhatsApp**
+- Texto de cita agendada, texto de cancelación.
+- Recordatorios: múltiples independientes con texto, tiempo, ¿confirmación?, ¿cancelación automática?
+- Registro de hasta 4 números para rotación (Modo A).
+- Switch Modo A / Modo B.
+
+**Alta de Sucursales**
+- Nombre, dirección, geolocalización.
+- Horario por día de la semana.
+- Capacidad simultánea por bloque de 30 min.
+- Servicios disponibles + precio de cada uno (por sucursal).
+- Terapeutas asignadas.
+- Productos con imagen, nombre y cantidad mínima semanal.
+
+**Alta y gestión de Terapeutas**
+- Nombre, celular, correo, sucursal(es) asignada(s), status, contraseña.
+- Terapeutas no precargadas — Alejandro las da de alta desde el Master.
+
+**Reportes globales** — ver sección 15.
+
+**Bitácora** — ver sección 16.
+
+---
+
+### Panel TERAPEUTA
+
+Solo ve y opera lo de su sucursal asignada.
+
+- **Agenda:** hoy y mañana.
+- **Registrar ventas:** productos y servicios realizados. Stock se descuenta automáticamente.
+- **Expediente clínico:** ver y capturar expediente + notas de sesión (campo texto abierto).
+- **Recibo de mercancía:** asigna piezas recibidas, confirma recibo.
+- **Stock:** imagen y cantidad disponible. Historial de movimientos al dar clic.
+- **Solicitud de mercancía:** selecciona producto y cantidad, envía. WhatsApp a Alejandro + Almacenista.
+- **Agendar citas:** pide número de celular, registra si es nuevo, selecciona servicio, sucursal, fecha y hora disponible.
+
+---
+
+### Panel PACIENTE
+
+- **Ver cita:** estatus actual.
+- **Confirmar / Cancelar cita.**
+- **Agendar cita:** selecciona servicio, sucursal, fecha y hora disponible. Al confirmar: WhatsApp de confirmación.
+
+---
+
+### Panel ASISTENTE
+
+- **Agenda:** todas las sucursales, sin restricción de días. Filtra por sucursal.
+- **Gestión de citas:** agenda y cancela para cualquier sucursal.
+- Sin acceso a ventas ni inventario.
+
+---
+
+### Panel ALMACÉN
+
+- **Inventario central:** imagen, nombre y cantidad por producto. Alertas de stock bajo. Historial de movimientos.
+- **Entrada de proveedor:** registra mercancía recibida. Stock sube automáticamente.
+- **Solicitudes pendientes:** lista activa con sucursal, terapeuta, productos y cantidades. Indicador de stock disponible en almacén para cada producto.
+- **Surtido a sucursales:** selecciona sucursal destino, productos y cantidades. Stock central baja, stock de sucursal sube. Solicitud pendiente se marca como surtida.
+- **Inventario por sucursal:** solo lectura. Filtra por sucursal.
+- **No puede:** registrar ventas, ver agenda, editar productos, ver pacientes ni terapeutas.
+
+---
+
+## 20. Compliance — datos de salud
+
+La app maneja expediente clínico. Aplican:
+- **LFPDPPP** — Ley Federal de Protección de Datos Personales.
+- **NOM-024** — Sistemas de información de registro electrónico para la salud.
+
+**Obligatorio en V1:**
+- `/aviso-privacidad` — el paciente acepta al registrarse.
+- `/terminos-de-uso`
+- `/derechos-arco`
+- Datos de salud encriptados at-rest.
+- Soft delete (suspensión, no borrado permanente).
+
+Los textos legales ya están redactados con los datos reales de DrBioescaner.
+
+---
+
+## 21. Infraestructura y despliegue
+
+| Concepto | Decisión |
+| --- | --- |
+| Hosting / servidor | Decisión de Anwar según su stack preferido. Alejandro cubre el costo. |
+| Backups | Tiempo real / diarios automáticos según tier elegido por Anwar. |
+| Ambiente de staging | Sí — Anwar prueba cambios en staging antes de publicar a producción. |
+| Despliegue a producción | Solo después de validar en staging. Sin publicación directa. |
+| Soporte ante caídas | WhatsApp directo a Víctor. Sin SLA formal. |
+
+---
+
+## 22. Métricas de éxito (30 días post-lanzamiento)
+
+- **% de citas agendadas vía app** vs WhatsApp manual o teléfono. Objetivo: ≥40%.
+- **% de pacientes que confirman vía link de WhatsApp.** Objetivo: ≥70%.
+- **Reducción de no-shows** vs antes de la app. Objetivo: ≥20%.
+- **Tiempo de agendar una cita** (desde abrir URL hasta confirmación). Objetivo: <2 minutos.
+- **Incidentes técnicos resueltos en <4 horas.** Objetivo: ≥90%.
+- **Uptime:** ≥95%.
+
+---
+
+## 23. La primera rebanada vertical (qué construir primero)
+
+Cuando Anwar abra Claude Code, esta es la rebanada V0 que valida toda la arquitectura end-to-end:
+
+1. Master se registra y accede a su panel.
+2. Master da de alta UNA sucursal (dirección, horario, capacidad).
+3. Master da de alta UNA terapeuta vinculada a esa sucursal.
+4. Master define UN servicio (nombre, duración, precio).
+5. Master configura el template de WhatsApp de confirmación.
+6. Un paciente abre la URL, mete su celular, llena formulario, agenda cita.
+7. WhatsApp de confirmación llega al paciente.
+8. Master ve la cita en la agenda de la terapeuta.
+
+**Si esto funciona end-to-end, la arquitectura es sólida.**
+
+---
+
+## 24. Reglas inquebrantables del proyecto (para Claude Code)
+
+Pegar en `CLAUDE.md` en la raíz del repo:
+
+1. **Soft delete en `patients`, `branches`, `services`, `products`, `users`.** Hard delete prohibido.
+2. **Nunca commitear `.env*` files.** `.gitignore` configurado.
+3. **Nunca usar service role key en código client-side.**
+4. **Toda operación que toca `appointments` o `inventory` corre en transacción SQL con FOR UPDATE.**
+5. **Rate limiting obligatorio** en todos los endpoints públicos.
+6. **Audit log obligatorio** en: cancelación de cita, registro de venta, ajuste de inventario, cambio de rol.
+7. **WhatsApp templates NUNCA hardcoded** — siempre desde tabla `whatsapp_templates`.
+8. **Tests obligatorios** para features que tocan agenda, inventario, auth.
+9. **Migrations versionadas en repo.** Nunca cambios de schema directo en dashboard.
+10. **Nunca push directo a `main`.** Siempre PR con CI verde.
+
+---
+
+# Parte C — Historial de versiones
+
+| Versión | Fecha | Cambios |
+| --- | --- | --- |
+| v1.0 – v1.2 | Mayo 2026 | PRD original. Área 01 Producto + WhatsApp + Panel Almacén completo. |
+| v2.0 | Mayo 2026 | Auditoría externa integrada. Decisiones técnicas cerradas con default razonable. 12 decisiones pendientes de Víctor/Alejandro. |
+| v2.1 | Mayo 2026 | Las 12 decisiones cerradas con Víctor y Alejandro. Datos legales reales de DrBioescaner integrados. Rotación circular de 4 números WhatsApp. 4 sucursales iniciales definidas. Catálogo de servicios y precios por sucursal. Horarios completos L-D. Parte A eliminada. Documento listo para Claude Code. |
+
+---
+
+# Próximo paso
+
+1. Anwar arranca con la **rebanada vertical de sección 23**.
+2. Stack sugerido: Next.js 15 + TypeScript + Supabase + Vercel.
+3. Primer PR en `app-alejandro-dev` (staging) antes de tocar producción.
+

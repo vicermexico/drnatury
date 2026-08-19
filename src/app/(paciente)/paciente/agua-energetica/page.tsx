@@ -1,0 +1,83 @@
+import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAuth } from "@/lib/auth";
+import { AguaEnergeticaPanel } from "./AguaEnergeticaPanel";
+import { SolicitarActivacion } from "./SolicitarActivacion";
+
+async function getData(patientId: string) {
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+
+  const [configRes, activacionRes, solicitudRes, branchesRes] = await Promise.all([
+    admin.from("agua_energetica_config").select("*").single(),
+    admin.from("agua_energetica_activaciones")
+      .select("id, fecha_inicio, fecha_fin")
+      .eq("patient_id", patientId)
+      .gte("fecha_fin", now)
+      .order("fecha_fin", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin.from("agua_energetica_solicitudes")
+      .select("id, estado, branch:branches!branch_id(name)")
+      .eq("patient_id", patientId)
+      .eq("estado", "pendiente")
+      .maybeSingle(),
+    admin.from("branches")
+      .select("id, name")
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .order("name"),
+  ]);
+
+  return {
+    config: configRes.data,
+    activacion: activacionRes.data,
+    solicitud: solicitudRes.data,
+    branches: branchesRes.data ?? [],
+  };
+}
+
+export default async function PacienteAguaEnergeticaPage() {
+  const user = await requireAuth();
+  const { config, activacion, solicitud, branches } = await getData(user.id);
+
+  const activo = activacion !== null && new Date(activacion.fecha_fin) > new Date();
+
+  if (!activo) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-950 to-blue-900 flex flex-col">
+        {/* Video de espera ocupa la mayor parte */}
+        <div className="flex-1 relative">
+          {config?.video_espera_url ? (
+            <video src={config.video_espera_url} autoPlay loop muted playsInline
+              className="w-full h-full object-cover" />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-8xl">💧</p>
+            </div>
+          )}
+        </div>
+
+        {/* Boton encima del video en la parte de abajo */}
+        <div className="px-6 pb-24 pt-4 space-y-3 bg-gradient-to-t from-blue-950 to-transparent">
+          <div className="text-center mb-2">
+            <h1 className="text-xl font-bold text-white">Agua Energetica</h1>
+            <p className="text-blue-300 text-sm">Activa este servicio para comenzar</p>
+          </div>
+          <SolicitarActivacion
+            branches={branches}
+            solicitud={solicitud}
+            requisitos={config?.requisitos ?? ""}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <AguaEnergeticaPanel
+      config={config}
+      activacion={activacion}
+      patientId={user.id}
+    />
+  );
+}
