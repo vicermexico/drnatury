@@ -1,6 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
-
+import { createClient } from "@/lib/supabase/client";
 interface Horario { inicio: string; fin: string; }
 interface Config {
   id: string;
@@ -12,7 +12,6 @@ interface Config {
   horarios: Horario[];
   requisitos: string | null;
 }
-
 export function AguaEnergeticaConfig({ config }: { config: Config | null }) {
   const [isPending, startTransition] = useTransition();
   const [dias, setDias] = useState(String(config?.dias_activacion ?? 21));
@@ -27,32 +26,64 @@ export function AguaEnergeticaConfig({ config }: { config: Config | null }) {
     imagen_activa: config?.imagen_activa_url ?? "",
     video_sesion: config?.video_sesion_url ?? "",
   });
-
   function addHorario() {
     setHorarios(prev => [...prev, { inicio: "08:00", fin: "10:00" }]);
   }
-
   function updateHorario(i: number, field: "inicio" | "fin", value: string) {
     setHorarios(prev => prev.map((h, idx) => idx === i ? { ...h, [field]: value } : h));
   }
-
   function removeHorario(i: number) {
     setHorarios(prev => prev.filter((_, idx) => idx !== i));
   }
-
   async function handleUpload(file: File, tipo: string) {
     setUploading(tipo);
-    const form = new FormData();
-    form.append("file", file);
-    form.append("tipo", tipo);
-    const res = await fetch("/api/agua-energetica/upload", { method: "POST", body: form });
-    const data = await res.json() as { url?: string };
-    if (res.ok && data.url) {
-      setUrls(prev => ({ ...prev, [tipo]: data.url! }));
-    }
-    setUploading(null);
-  }
+    setError("");
+    try {
+      // Paso 1: pedirle al servidor un permiso de subida (esto es texto,
+      // pesa nada, no tiene problema con limites de tamano).
+      const ext = file.name.split(".").pop() || "bin";
+      const res = await fetch("/api/agua-energetica/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipo, ext }),
+      });
+      const data = (await res.json()) as {
+        path?: string;
+        token?: string;
+        publicUrl?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.path || !data.token || !data.publicUrl) {
+        setError("No se pudo iniciar la subida. Intenta de nuevo.");
+        return;
+      }
 
+      // Paso 2: subir el archivo DIRECTO a Supabase, sin pasar por Vercel.
+      // Asi los videos grandes ya no tienen problema de tamano.
+      const supabase = createClient();
+      const { error: uploadErr } = await supabase.storage
+        .from("agua-energetica")
+        .uploadToSignedUrl(data.path, data.token, file, {
+          contentType: file.type,
+        });
+
+      if (uploadErr) {
+        setError("Error al subir el archivo: " + uploadErr.message);
+        return;
+      }
+
+      // Paso 3: avisarle al servidor la URL final para que la guarde.
+      await fetch("/api/agua-energetica/upload", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipo, url: data.publicUrl }),
+      });
+
+      setUrls(prev => ({ ...prev, [tipo]: data.publicUrl! }));
+    } finally {
+      setUploading(null);
+    }
+  }
   function handleSave() {
     setError(""); setSuccess("");
     startTransition(async () => {
@@ -71,13 +102,11 @@ export function AguaEnergeticaConfig({ config }: { config: Config | null }) {
       setTimeout(() => setSuccess(""), 3000);
     });
   }
-
   return (
     <div className="space-y-6">
       {/* Videos e imagen */}
       <div className="rounded-2xl bg-white border border-gray-200 p-5 space-y-4">
         <h2 className="text-sm font-semibold text-gray-800">Contenido multimedia</h2>
-
         {[
           { key: "video_espera", label: "Video de espera (pantalla completa si no activo)", accept: "video/*" },
           { key: "imagen_activa", label: "Imagen/GIF cuando esta activo", accept: "image/*,video/*" },
@@ -97,7 +126,6 @@ export function AguaEnergeticaConfig({ config }: { config: Config | null }) {
           </div>
         ))}
       </div>
-
       {/* Horarios */}
       <div className="rounded-2xl bg-white border border-gray-200 p-5 space-y-3">
         <h2 className="text-sm font-semibold text-gray-800">Horarios de activacion</h2>
@@ -117,7 +145,6 @@ export function AguaEnergeticaConfig({ config }: { config: Config | null }) {
         ))}
         <button onClick={addHorario} className="text-sm text-blue-600 font-medium">+ Agregar horario</button>
       </div>
-
       {/* Dias y comision */}
       <div className="rounded-2xl bg-white border border-gray-200 p-5 space-y-4">
         <h2 className="text-sm font-semibold text-gray-800">Activacion</h2>
@@ -136,7 +163,6 @@ export function AguaEnergeticaConfig({ config }: { config: Config | null }) {
           </div>
         </div>
       </div>
-
       {/* Requisitos */}
       <div className="rounded-2xl bg-white border border-gray-200 p-5 space-y-3">
         <h2 className="text-sm font-semibold text-gray-800">Requisitos y terminos</h2>
@@ -145,10 +171,8 @@ export function AguaEnergeticaConfig({ config }: { config: Config | null }) {
           style={{ color: "black" }}
           className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none resize-none" />
       </div>
-
       {error   && <p className="text-sm text-red-600 bg-red-50 rounded-xl px-4 py-3">{error}</p>}
       {success && <p className="text-sm text-green-700 bg-green-50 rounded-xl px-4 py-3">✓ {success}</p>}
-
       <button onClick={handleSave} disabled={isPending}
         className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
         {isPending ? "Guardando..." : "Guardar configuracion"}
