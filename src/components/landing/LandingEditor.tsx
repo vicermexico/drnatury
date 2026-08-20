@@ -1,8 +1,7 @@
-﻿"use client";
-
+"use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-
+import { createClient } from "@/lib/supabase/client";
 interface Config {
   id: string;
   whatsapp_number: string;
@@ -12,7 +11,6 @@ interface Config {
   hero_video_url: string;
   hero_type: string;
 }
-
 interface Service {
   id: string;
   title: string;
@@ -21,40 +19,56 @@ interface Service {
   order_index: number;
   is_active: boolean;
 }
-
 interface Props {
   config: Config;
   services: Service[];
 }
-
 export function LandingEditor({ config, services }: Props) {
   const router = useRouter();
-
   const [form, setForm] = useState({
     whatsapp_number: config?.whatsapp_number ?? "",
     hero_title: config?.hero_title ?? "",
     hero_subtitle: config?.hero_subtitle ?? "",
   });
-
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(config?.splash_gif_url ?? null);
   const [imageType, setImageType] = useState(config?.hero_type === "gif" ? "gif" : "image");
-
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string | null>(config?.hero_video_url ?? null);
-
   const [statusGeneral, setStatusGeneral] = useState<"idle"|"loading"|"ok"|"error">("idle");
   const [statusImage, setStatusImage] = useState<"idle"|"loading"|"ok"|"error">("idle");
   const [statusVideo, setStatusVideo] = useState<"idle"|"loading"|"ok"|"error">("idle");
-
   async function uploadFile(file: File) {
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await fetch("/api/landing/upload", { method: "POST", body: formData });
-    const data = await res.json() as { url: string };
-    return data.url;
-  }
+    // Paso 1: pedirle al servidor un permiso de subida (esto es texto,
+    // pesa nada, no tiene problema con limites de tamano).
+    const res = await fetch("/api/landing/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: file.name }),
+    });
+    const data = (await res.json()) as {
+      path?: string;
+      token?: string;
+      publicUrl?: string;
+      message?: string;
+    };
+    if (!res.ok || !data.path || !data.token || !data.publicUrl) {
+      throw new Error(data.message || "No se pudo iniciar la subida");
+    }
 
+    // Paso 2: subir el archivo DIRECTO a Supabase, sin pasar por Vercel.
+    // Asi los archivos grandes (videos) ya no tienen problema de tamano.
+    const supabase = createClient();
+    const { error: uploadErr } = await supabase.storage
+      .from("landing")
+      .uploadToSignedUrl(data.path, data.token, file, { contentType: file.type });
+
+    if (uploadErr) {
+      throw new Error(uploadErr.message);
+    }
+
+    return data.publicUrl;
+  }
   async function saveConfig(patch: object) {
     const res = await fetch("/api/landing/config", {
       method: "PATCH",
@@ -63,35 +77,38 @@ export function LandingEditor({ config, services }: Props) {
     });
     return res.ok;
   }
-
   async function handleSaveGeneral() {
     setStatusGeneral("loading");
     const ok = await saveConfig(form);
     setStatusGeneral(ok ? "ok" : "error");
     if (ok) router.refresh();
   }
-
   async function handleSaveImage() {
     setStatusImage("loading");
-    let splash_gif_url = config?.splash_gif_url ?? "";
-    if (imageFile) splash_gif_url = await uploadFile(imageFile);
-    const ok = await saveConfig({ splash_gif_url, hero_type: imageType });
-    setStatusImage(ok ? "ok" : "error");
-    if (ok) router.refresh();
+    try {
+      let splash_gif_url = config?.splash_gif_url ?? "";
+      if (imageFile) splash_gif_url = await uploadFile(imageFile);
+      const ok = await saveConfig({ splash_gif_url, hero_type: imageType });
+      setStatusImage(ok ? "ok" : "error");
+      if (ok) router.refresh();
+    } catch {
+      setStatusImage("error");
+    }
   }
-
   async function handleSaveVideo() {
     setStatusVideo("loading");
-    let hero_video_url = config?.hero_video_url ?? "";
-    if (videoFile) hero_video_url = await uploadFile(videoFile);
-    const ok = await saveConfig({ hero_video_url, hero_type: "video" });
-    setStatusVideo(ok ? "ok" : "error");
-    if (ok) router.refresh();
+    try {
+      let hero_video_url = config?.hero_video_url ?? "";
+      if (videoFile) hero_video_url = await uploadFile(videoFile);
+      const ok = await saveConfig({ hero_video_url, hero_type: "video" });
+      setStatusVideo(ok ? "ok" : "error");
+      if (ok) router.refresh();
+    } catch {
+      setStatusVideo("error");
+    }
   }
-
   return (
     <div className="space-y-6">
-
       {/* Configuracion general */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
         <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Configuracion general</h2>
@@ -114,7 +131,6 @@ export function LandingEditor({ config, services }: Props) {
           {statusGeneral === "loading" ? "Guardando..." : "Guardar configuracion"}
         </button>
       </div>
-
       {/* Imagen fija */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
         <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Imagen fija de fondo</h2>
@@ -137,7 +153,6 @@ export function LandingEditor({ config, services }: Props) {
           {statusImage === "loading" ? "Guardando..." : "Guardar imagen"}
         </button>
       </div>
-
       {/* Video */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
         <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Video de fondo</h2>
@@ -153,7 +168,6 @@ export function LandingEditor({ config, services }: Props) {
           {statusVideo === "loading" ? "Guardando..." : "Guardar video"}
         </button>
       </div>
-
       {/* Servicios */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
         <div className="flex items-center justify-between">
@@ -176,7 +190,6 @@ export function LandingEditor({ config, services }: Props) {
           ))}
         </div>
       </div>
-
     </div>
   );
 }
