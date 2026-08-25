@@ -56,14 +56,14 @@ export function LandingPage({ config, services }: Props) {
         )}
         <div className="absolute inset-0 bg-black/30" />
         {showingVideo && heroVideoLogo && (
-          <div className="absolute inset-x-0 top-[8%] flex justify-center pointer-events-none">
+          <div className="absolute inset-x-0 top-[32%] flex justify-center pointer-events-none">
             <Image
               src="/logo-transparente.png"
               alt="DrNatury"
-              width={220}
-              height={165}
+              width={320}
+              height={240}
               unoptimized
-              className={`drop-shadow-2xl w-36 sm:w-48 h-auto transition-all duration-1000 ease-out ${
+              className={`drop-shadow-2xl w-56 sm:w-72 h-auto transition-all duration-1000 ease-out ${
                 logoVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4"
               }`}
             />
@@ -71,7 +71,7 @@ export function LandingPage({ config, services }: Props) {
         )}
         <div className="relative z-10 flex flex-col items-center gap-4 w-full px-8 mb-16">
           <Link
-            href="/registro"
+            href="/login"
             className="group relative inline-flex items-center justify-center gap-2 w-full max-w-sm px-10 py-5 rounded-full text-xl font-bold text-white text-center
                        bg-gradient-to-r from-blue-600 via-emerald-500 to-green-600 bg-[length:200%_auto]
                        shadow-[0_8px_30px_rgba(16,185,129,0.35)]
@@ -82,7 +82,7 @@ export function LandingPage({ config, services }: Props) {
               <path d="M12 3C9 8 4 9 4 14c0 4 4 6 8 7 4-1 8-3 8-7 0-5-5-6-8-11Z" fill="currentColor" fillOpacity="0.15" />
               <path d="M12 21V10M12 10c0-3 2-5 5-6M12 10C11 7 9 6 6 5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            Regístrate
+            Agenda tu cita
           </Link>
           <Link
             href="/login"

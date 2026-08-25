@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import Image from "next/image";
-
 const LEAF_SVGS = [
   `<svg width="26" height="26" viewBox="0 0 24 24" fill="none">
     <path d="M12 2C7 4 3 9 3 14c0 4 3.5 7 9 8 5.5-1 9-4 9-8 0-5-4-10-9-12Z" fill="#2f6b3a" fill-opacity="0.85"/>
@@ -15,7 +14,6 @@ const LEAF_SVGS = [
     <path d="M12 2C7 4 3 9 3 14c0 4 3.5 7 9 8 5.5-1 9-4 9-8 0-5-4-10-9-12Z" fill="#4d8a4f" fill-opacity="0.75"/>
   </svg>`,
 ];
-
 type Leaf = {
   left: number;
   duration: number;
@@ -25,10 +23,8 @@ type Leaf = {
   scale: number;
   svg: string;
 };
-
 function FallingLeaves() {
   const [leaves, setLeaves] = useState<Leaf[]>([]);
-
   useEffect(() => {
     const generated: Leaf[] = Array.from({ length: 20 }, () => ({
       left: Math.random() * 100,
@@ -41,7 +37,6 @@ function FallingLeaves() {
     }));
     setLeaves(generated);
   }, []);
-
   return (
     <>
       <style jsx>{`
@@ -91,7 +86,6 @@ function FallingLeaves() {
     </>
   );
 }
-
 export function SplashScreen({ onFinish }: { onFinish: () => void }) {
   const [phase, setPhase] = useState<"emblema" | "nombre" | "enter">("emblema");
   useEffect(() => {
@@ -140,7 +134,7 @@ export function SplashScreen({ onFinish }: { onFinish: () => void }) {
         {phase === "enter" && (
           <button
             onClick={onFinish}
-            className="bg-blue-600 text-white text-lg font-bold px-12 py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition animate-pulse"
+            className="bg-emerald-400 text-white text-lg font-bold px-12 py-4 rounded-2xl shadow-lg hover:bg-emerald-500 transition animate-pulse"
           >
             Entrar
           </button>
