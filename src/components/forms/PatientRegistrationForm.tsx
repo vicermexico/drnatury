@@ -1,19 +1,15 @@
 "use client";
-
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-
 interface Branch {
   id: string;
   name: string;
   address: string;
 }
-
 interface Props {
   branches: Branch[];
   defaultPhone?: string;
 }
-
 const COUNTRIES = [
   { code: "+52", flag: "🇲🇽", name: "México", maxDigits: 10 },
   { code: "+1",  flag: "🇺🇸", name: "USA/Canadá", maxDigits: 10 },
@@ -30,32 +26,22 @@ const COUNTRIES = [
   { code: "+506",flag: "🇨🇷", name: "Costa Rica", maxDigits: 8 },
   { code: "+507",flag: "🇵🇦", name: "Panamá", maxDigits: 8 },
 ];
-
 export function PatientRegistrationForm({ branches, defaultPhone = "" }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
   const [accepted, setAccepted] = useState(false);
   const [countryCode, setCountryCode] = useState("+52");
-
   const selectedCountry = COUNTRIES.find(c => c.code === countryCode) ?? COUNTRIES[0];
-
   const [form, setForm] = useState({
     phone: defaultPhone,
     name: "",
-    address: "",
-    age: "",
-    sex: "",
-    city: "",
     branch_id: "",
-    email: "",
     consultation_reason: "",
   });
-
   function set(field: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
-
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!accepted) {
@@ -63,10 +49,8 @@ export function PatientRegistrationForm({ branches, defaultPhone = "" }: Props) 
       return;
     }
     setError("");
-
     // Combinar lada + numero
     const fullPhone = countryCode.replace("+", "") + form.phone;
-
     startTransition(async () => {
       const res = await fetch("/api/auth/register", {
         method: "POST",
@@ -74,7 +58,6 @@ export function PatientRegistrationForm({ branches, defaultPhone = "" }: Props) 
         body: JSON.stringify({ ...form, phone: fullPhone }),
       });
       const data = await res.json();
-
       if (res.status === 409) {
         setError("Este número ya está registrado. Inicia sesión.");
         return;
@@ -83,11 +66,9 @@ export function PatientRegistrationForm({ branches, defaultPhone = "" }: Props) 
         setError(data.message ?? "Error al crear la cuenta. Intenta de nuevo.");
         return;
       }
-
       router.push(data.nextPath);
     });
   }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Teléfono con selector de país */}
@@ -118,7 +99,6 @@ export function PatientRegistrationForm({ branches, defaultPhone = "" }: Props) 
         </div>
         <p className="text-xs text-gray-400 mt-1">{selectedCountry.flag} {selectedCountry.name} — {countryCode} + {form.phone || "..."}</p>
       </Field>
-
       {/* Nombre */}
       <Field label="Nombre completo *">
         <input
@@ -130,61 +110,6 @@ export function PatientRegistrationForm({ branches, defaultPhone = "" }: Props) 
           className={inputClass}
         />
       </Field>
-
-      {/* Dirección */}
-      <Field label="Dirección *">
-        <input
-          type="text"
-          required
-          value={form.address}
-          onChange={(e) => set("address", e.target.value)}
-          style={{ color: "black" }}
-          className={inputClass}
-        />
-      </Field>
-
-      {/* Edad y Sexo */}
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Edad *">
-          <input
-            type="number"
-            required
-            min={1}
-            max={120}
-            value={form.age}
-            onChange={(e) => set("age", e.target.value)}
-            style={{ color: "black" }}
-            className={inputClass}
-          />
-        </Field>
-        <Field label="Sexo *">
-          <select
-            required
-            value={form.sex}
-            onChange={(e) => set("sex", e.target.value)}
-            style={{ color: "black" }}
-            className={inputClass}
-          >
-            <option value="">--</option>
-            <option value="M">Masculino</option>
-            <option value="F">Femenino</option>
-            <option value="OTRO">Otro</option>
-          </select>
-        </Field>
-      </div>
-
-      {/* Ciudad */}
-      <Field label="Ciudad *">
-        <input
-          type="text"
-          required
-          value={form.city}
-          onChange={(e) => set("city", e.target.value)}
-          style={{ color: "black" }}
-          className={inputClass}
-        />
-      </Field>
-
       {/* Sucursal */}
       <Field label="Sucursal *">
         <select
@@ -202,19 +127,6 @@ export function PatientRegistrationForm({ branches, defaultPhone = "" }: Props) 
           ))}
         </select>
       </Field>
-
-      {/* Correo (opcional) */}
-      <Field label="Correo electrónico">
-        <input
-          type="email"
-          value={form.email}
-          onChange={(e) => set("email", e.target.value)}
-          style={{ color: "black" }}
-          className={inputClass}
-          placeholder="Opcional"
-        />
-      </Field>
-
       {/* Motivo de consulta (opcional) */}
       <Field label="Motivo de consulta">
         <textarea
@@ -226,7 +138,6 @@ export function PatientRegistrationForm({ branches, defaultPhone = "" }: Props) 
           placeholder="Opcional"
         />
       </Field>
-
       {/* Aviso de privacidad */}
       <label className="flex items-start gap-3 cursor-pointer">
         <input
@@ -247,9 +158,7 @@ export function PatientRegistrationForm({ branches, defaultPhone = "" }: Props) 
           *
         </span>
       </label>
-
       {error && <p className="text-sm text-red-600">{error}</p>}
-
       <button
         type="submit"
         disabled={isPending}
@@ -257,7 +166,6 @@ export function PatientRegistrationForm({ branches, defaultPhone = "" }: Props) 
       >
         {isPending ? "Creando cuenta..." : "Crear cuenta"}
       </button>
-
       <p className="text-center text-sm text-gray-500">
         ¿Ya tienes cuenta?{" "}
         <a href="/login" className="text-blue-600 underline">
@@ -267,7 +175,6 @@ export function PatientRegistrationForm({ branches, defaultPhone = "" }: Props) 
     </form>
   );
 }
-
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -276,5 +183,4 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
-
 const inputClass = "w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100";
