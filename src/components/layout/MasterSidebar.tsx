@@ -1,8 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-
+import { useEffect, useState } from "react";
 const NAV = [
   { href: "/master/dashboard",  label: "Inicio",         icon: "🏠" },
   { href: "/master/pacientes",  label: "Pacientes",      icon: "👤" },
@@ -20,16 +19,14 @@ const NAV = [
   { href: "/master/comisiones",     label: "Comisiones",     icon: "💰" },
   { href: "/master/cortes",         label: "Cortes",         icon: "✂️" },
 ];
-
 interface Props {
   userName: string;
 }
-
 function SidebarContent({ userName, onClose, onLogout }: { userName: string; onClose?: () => void; onLogout: () => void }) {
   const pathname = usePathname();
   return (
-    <aside className="flex flex-col w-60 h-full min-h-screen bg-white border-r border-gray-200">
-      <div className="px-5 py-5 border-b border-gray-100 flex items-center justify-between">
+    <aside className="flex flex-col w-60 h-screen max-h-screen bg-white border-r border-gray-200 overflow-hidden">
+      <div className="shrink-0 px-5 py-5 border-b border-gray-100 flex items-center justify-between">
         <div>
           <p className="text-base font-bold text-gray-900 leading-tight">DrNatury</p>
           <p className="text-xs text-gray-400 mt-0.5">Panel Master</p>
@@ -38,7 +35,7 @@ function SidebarContent({ userName, onClose, onLogout }: { userName: string; onC
           <button className="text-gray-400 hover:text-gray-600 text-lg" onClick={onClose}>✕</button>
         )}
       </div>
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
+      <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-4 space-y-0.5">
         {NAV.map(({ href, label, icon }) => {
           const active = pathname.startsWith(href);
           return (
@@ -59,7 +56,7 @@ function SidebarContent({ userName, onClose, onLogout }: { userName: string; onC
           );
         })}
       </nav>
-      <div className="px-3 pb-4 pt-2 border-t border-gray-100">
+      <div className="shrink-0 px-3 pb-4 pt-2 border-t border-gray-100">
         <p className="px-3 text-xs text-gray-400 mb-2 truncate">{userName}</p>
         <button
           onClick={onLogout}
@@ -71,15 +68,22 @@ function SidebarContent({ userName, onClose, onLogout }: { userName: string; onC
     </aside>
   );
 }
-
 export function MasterSidebar({ userName }: Props) {
   const [open, setOpen] = useState(false);
-
+  useEffect(() => {
+    // Mientras el menu esta abierto en celular, evita que la pagina de
+    // atras se mueva al hacer scroll (por eso no se podia llegar hasta
+    // "Cerrar sesion").
+    if (open) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [open]);
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     window.location.href = "/inicio";
   }
-
   return (
     <>
       <button
@@ -90,11 +94,9 @@ export function MasterSidebar({ userName }: Props) {
         <span className="block w-5 h-0.5 bg-gray-600 mb-1"></span>
         <span className="block w-5 h-0.5 bg-gray-600"></span>
       </button>
-
       <div className="hidden lg:flex shrink-0">
         <SidebarContent userName={userName} onLogout={handleLogout} />
       </div>
-
       {open && (
         <div className="lg:hidden fixed inset-0 z-40 flex">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
@@ -106,11 +108,3 @@ export function MasterSidebar({ userName }: Props) {
     </>
   );
 }
-
-
-
-
-
-
-
-
