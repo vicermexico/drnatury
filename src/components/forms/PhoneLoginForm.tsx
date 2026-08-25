@@ -51,7 +51,7 @@ export function PhoneLoginForm() {
       });
       const data = await res.json();
       if (res.status === 404) {
-        router.push(`/registro?phone=${encodeURIComponent(fullPhone)}`);
+        router.push(`/registro?phone=${encodeURIComponent(phone)}&cc=${encodeURIComponent(countryCode)}`);
         return;
       }
       if (res.status === 403) {

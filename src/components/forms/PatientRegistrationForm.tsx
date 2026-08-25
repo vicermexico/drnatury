@@ -1,6 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 interface Branch {
   id: string;
   name: string;
@@ -28,13 +28,18 @@ const COUNTRIES = [
 ];
 export function PatientRegistrationForm({ branches, defaultPhone = "" }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
   const [accepted, setAccepted] = useState(false);
-  const [countryCode, setCountryCode] = useState("+52");
+  const ccFromUrl = searchParams.get("cc");
+  const phoneFromUrl = searchParams.get("phone");
+  const [countryCode, setCountryCode] = useState(
+    ccFromUrl && COUNTRIES.some((c) => c.code === ccFromUrl) ? ccFromUrl : "+52"
+  );
   const selectedCountry = COUNTRIES.find(c => c.code === countryCode) ?? COUNTRIES[0];
   const [form, setForm] = useState({
-    phone: defaultPhone,
+    phone: phoneFromUrl ?? defaultPhone,
     name: "",
     branch_id: "",
     consultation_reason: "",
@@ -162,7 +167,7 @@ export function PatientRegistrationForm({ branches, defaultPhone = "" }: Props) 
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-xl bg-blue-600 py-3 text-base font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+        className="w-full rounded-xl bg-emerald-400 py-3 text-base font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-60"
       >
         {isPending ? "Creando cuenta..." : "Crear cuenta"}
       </button>
