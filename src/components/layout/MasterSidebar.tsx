@@ -25,7 +25,7 @@ interface Props {
 function SidebarContent({ userName, onClose, onLogout }: { userName: string; onClose?: () => void; onLogout: () => void }) {
   const pathname = usePathname();
   return (
-    <aside className="flex flex-col w-60 h-screen max-h-screen bg-white border-r border-gray-200 overflow-hidden">
+    <aside className="flex flex-col w-60 h-[100dvh] max-h-[100dvh] bg-white border-r border-gray-200 overflow-hidden">
       <div className="shrink-0 px-5 py-5 border-b border-gray-100 flex items-center justify-between">
         <div>
           <p className="text-base font-bold text-gray-900 leading-tight">DrNatury</p>
