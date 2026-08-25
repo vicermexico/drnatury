@@ -1,9 +1,7 @@
-﻿"use client";
-
+"use client";
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-
 interface Config {
   whatsapp_number: string;
   hero_title: string;
@@ -11,52 +9,77 @@ interface Config {
   splash_gif_url: string;
   hero_video_url: string;
   hero_type: string;
+  hero_video_loop: boolean;
+  hero_video_logo: boolean;
 }
-
 interface Service {
   id: string;
   title: string;
   description: string;
   image_url: string;
 }
-
 interface Props {
   config: Config;
   services: Service[];
 }
-
 export function LandingPage({ config, services }: Props) {
   const waLink = `https://api.whatsapp.com/send?phone=${config?.whatsapp_number}&text=Hola%21%20Quisiera%20mas%20informacion.`;
   const heroType = config?.hero_type ?? "image";
   const heroImg = config?.splash_gif_url || "/nombre.jpg";
   const heroVideo = config?.hero_video_url || "";
+  const heroVideoLoop = config?.hero_video_loop ?? false;
+  const heroVideoLogo = config?.hero_video_logo ?? false;
   const [videoEnded, setVideoEnded] = useState(false);
-
+  const showingVideo = heroType === "video" && heroVideo && !videoEnded;
   return (
     <div className="min-h-screen bg-white">
       <div className="relative w-full h-screen flex flex-col items-center justify-end pb-32">
-        {heroType === "video" && heroVideo && !videoEnded ? (
+        {showingVideo ? (
           <video
             src={heroVideo}
             autoPlay
             playsInline
-            onEnded={() => setVideoEnded(true)}
+            muted
+            loop={heroVideoLoop}
+            onEnded={() => { if (!heroVideoLoop) setVideoEnded(true); }}
             className="absolute inset-0 w-full h-full object-cover"
           />
         ) : (
           <Image src={heroImg || "/nombre.jpg"} alt="Dr. BioEscaner" fill className="object-cover" unoptimized priority />
         )}
         <div className="absolute inset-0 bg-black/30" />
-        <div className="relative z-10 flex flex-col items-center gap-4 w-full px-8 mb-16">
-          <Link href="/login" className="w-full max-w-sm bg-blue-600 text-white text-xl font-bold px-10 py-5 rounded-2xl shadow-lg hover:bg-blue-700 transition text-center">
-            Agenda tu cita
+        {showingVideo && heroVideoLogo && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <Image
+              src="/logo.jpg"
+              alt="DrNatury"
+              width={220}
+              height={165}
+              unoptimized
+              className="drop-shadow-2xl opacity-95 w-40 sm:w-56 h-auto"
+            />
+          </div>
+        )}
+        <div className="relative z-10 flex flex-col items-center gap-5 w-full px-8 mb-16">
+          <Link
+            href="/registro"
+            className="group relative inline-flex items-center justify-center gap-2 w-full max-w-sm px-10 py-5 rounded-full text-xl font-bold text-white text-center
+                       bg-gradient-to-r from-blue-600 via-emerald-500 to-green-600 bg-[length:200%_auto]
+                       shadow-[0_8px_30px_rgba(16,185,129,0.35)]
+                       transition-all duration-500 hover:bg-[position:100%_0] hover:shadow-[0_10px_40px_rgba(16,185,129,0.5)] hover:-translate-y-0.5"
+          >
+            <span className="absolute -inset-1 rounded-full bg-emerald-400/30 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10" />
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" className="shrink-0">
+              <path d="M12 3C9 8 4 9 4 14c0 4 4 6 8 7 4-1 8-3 8-7 0-5-5-6-8-11Z" fill="currentColor" fillOpacity="0.15" />
+              <path d="M12 21V10M12 10c0-3 2-5 5-6M12 10C11 7 9 6 6 5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Regístrate
           </Link>
           <Link href="/login" className="text-white text-base font-medium hover:underline transition">
             Iniciar sesion
           </Link>
         </div>
       </div>
-
       {services.length > 0 && (
         <div className="px-6 py-12 max-w-4xl mx-auto">
           <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">Nuestros servicios</h2>
@@ -72,7 +95,6 @@ export function LandingPage({ config, services }: Props) {
           </div>
         </div>
       )}
-
       {config?.whatsapp_number && (
         <a href={waLink} target="_blank" rel="noopener noreferrer" className="fixed bottom-6 right-6 bg-green-500 text-white w-16 h-16 rounded-full flex items-center justify-center shadow-lg hover:bg-green-600 transition z-50">
           <svg viewBox="0 0 24 24" fill="white" width="32" height="32">

@@ -10,6 +10,8 @@ interface Config {
   splash_gif_url: string;
   hero_video_url: string;
   hero_type: string;
+  hero_video_loop: boolean;
+  hero_video_logo: boolean;
 }
 interface Service {
   id: string;
@@ -35,6 +37,8 @@ export function LandingEditor({ config, services }: Props) {
   const [imageType, setImageType] = useState(config?.hero_type === "gif" ? "gif" : "image");
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string | null>(config?.hero_video_url ?? null);
+  const [videoLoop, setVideoLoop] = useState(config?.hero_video_loop ?? false);
+  const [videoLogo, setVideoLogo] = useState(config?.hero_video_logo ?? false);
   const [statusGeneral, setStatusGeneral] = useState<"idle"|"loading"|"ok"|"error">("idle");
   const [statusImage, setStatusImage] = useState<"idle"|"loading"|"ok"|"error">("idle");
   const [statusVideo, setStatusVideo] = useState<"idle"|"loading"|"ok"|"error">("idle");
@@ -57,7 +61,6 @@ export function LandingEditor({ config, services }: Props) {
     }
 
     // Paso 2: subir el archivo DIRECTO a Supabase, sin pasar por Vercel.
-    // Asi los archivos grandes (videos) ya no tienen problema de tamano.
     const supabase = createClient();
     const { error: uploadErr } = await supabase.storage
       .from("landing")
@@ -100,7 +103,12 @@ export function LandingEditor({ config, services }: Props) {
     try {
       let hero_video_url = config?.hero_video_url ?? "";
       if (videoFile) hero_video_url = await uploadFile(videoFile);
-      const ok = await saveConfig({ hero_video_url, hero_type: "video" });
+      const ok = await saveConfig({
+        hero_video_url,
+        hero_type: "video",
+        hero_video_loop: videoLoop,
+        hero_video_logo: videoLogo,
+      });
       setStatusVideo(ok ? "ok" : "error");
       if (ok) router.refresh();
     } catch {
@@ -134,7 +142,7 @@ export function LandingEditor({ config, services }: Props) {
       {/* Imagen fija */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
         <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Imagen fija de fondo</h2>
-        <p className="text-xs text-gray-400">Se muestra cuando termina el video o si no hay video</p>
+        <p className="text-xs text-gray-400">Se muestra cuando termina el video (si elegiste "una sola vez") o si no hay video</p>
         <div className="flex gap-2">
           {["image", "gif"].map(t => (
             <button key={t} onClick={() => setImageType(t)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${imageType === t ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200"}`}>
@@ -162,6 +170,47 @@ export function LandingEditor({ config, services }: Props) {
           <span className="text-sm font-medium text-gray-600">{videoFile ? videoFile.name : "Cambiar video MP4"}</span>
           <input type="file" accept="video/mp4" onChange={e => { const f = e.target.files?.[0]; if (f) { setVideoFile(f); setVideoPreview(URL.createObjectURL(f)); } }} className="hidden" />
         </label>
+
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">¿Como se reproduce?</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setVideoLoop(false)}
+              className={`flex-1 px-3 py-2.5 rounded-lg text-xs font-semibold border transition ${!videoLoop ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200"}`}
+            >
+              Solo una vez (se corta a la imagen)
+            </button>
+            <button
+              type="button"
+              onClick={() => setVideoLoop(true)}
+              className={`flex-1 px-3 py-2.5 rounded-lg text-xs font-semibold border transition ${videoLoop ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200"}`}
+            >
+              Continuo (en bucle)
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Logo encima del video</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setVideoLogo(false)}
+              className={`flex-1 px-3 py-2.5 rounded-lg text-xs font-semibold border transition ${!videoLogo ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200"}`}
+            >
+              Sin logo
+            </button>
+            <button
+              type="button"
+              onClick={() => setVideoLogo(true)}
+              className={`flex-1 px-3 py-2.5 rounded-lg text-xs font-semibold border transition ${videoLogo ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200"}`}
+            >
+              Con logo de DrNatury
+            </button>
+          </div>
+        </div>
+
         {statusVideo === "ok" && <p className="text-sm text-green-600 font-medium">Guardado correctamente</p>}
         {statusVideo === "error" && <p className="text-sm text-red-600">Error al guardar</p>}
         <button onClick={handleSaveVideo} disabled={statusVideo === "loading"} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
