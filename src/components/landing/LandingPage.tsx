@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 interface Config {
@@ -30,7 +30,15 @@ export function LandingPage({ config, services }: Props) {
   const heroVideoLoop = config?.hero_video_loop ?? false;
   const heroVideoLogo = config?.hero_video_logo ?? false;
   const [videoEnded, setVideoEnded] = useState(false);
+  const [logoVisible, setLogoVisible] = useState(false);
   const showingVideo = heroType === "video" && heroVideo && !videoEnded;
+  useEffect(() => {
+    if (showingVideo && heroVideoLogo) {
+      const t = setTimeout(() => setLogoVisible(true), 300);
+      return () => clearTimeout(t);
+    }
+    setLogoVisible(false);
+  }, [showingVideo, heroVideoLogo]);
   return (
     <div className="min-h-screen bg-white">
       <div className="relative w-full h-screen flex flex-col items-center justify-end pb-32">
@@ -39,7 +47,6 @@ export function LandingPage({ config, services }: Props) {
             src={heroVideo}
             autoPlay
             playsInline
-            muted
             loop={heroVideoLoop}
             onEnded={() => { if (!heroVideoLoop) setVideoEnded(true); }}
             className="absolute inset-0 w-full h-full object-cover"
@@ -49,18 +56,20 @@ export function LandingPage({ config, services }: Props) {
         )}
         <div className="absolute inset-0 bg-black/30" />
         {showingVideo && heroVideoLogo && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="absolute inset-x-0 top-[8%] flex justify-center pointer-events-none">
             <Image
-              src="/logo.jpg"
+              src="/logo-transparente.png"
               alt="DrNatury"
               width={220}
               height={165}
               unoptimized
-              className="drop-shadow-2xl opacity-95 w-40 sm:w-56 h-auto"
+              className={`drop-shadow-2xl w-36 sm:w-48 h-auto transition-all duration-1000 ease-out ${
+                logoVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4"
+              }`}
             />
           </div>
         )}
-        <div className="relative z-10 flex flex-col items-center gap-5 w-full px-8 mb-16">
+        <div className="relative z-10 flex flex-col items-center gap-4 w-full px-8 mb-16">
           <Link
             href="/registro"
             className="group relative inline-flex items-center justify-center gap-2 w-full max-w-sm px-10 py-5 rounded-full text-xl font-bold text-white text-center
@@ -75,8 +84,13 @@ export function LandingPage({ config, services }: Props) {
             </svg>
             Regístrate
           </Link>
-          <Link href="/login" className="text-white text-base font-medium hover:underline transition">
-            Iniciar sesion
+          <Link
+            href="/login"
+            className="inline-flex items-center justify-center gap-2 w-full max-w-sm px-8 py-3.5 rounded-full text-base font-semibold text-white text-center
+                       border border-white/70 bg-white/10 backdrop-blur-sm
+                       transition-all duration-300 hover:bg-white/20 hover:border-white"
+          >
+            Iniciar sesión
           </Link>
         </div>
       </div>
