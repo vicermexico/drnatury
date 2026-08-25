@@ -1,16 +1,7 @@
 "use client";
-
 import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
-
 interface Branch { id: string; name: string }
-
-const SEX_OPTIONS = [
-  { value: "M", label: "Masculino" },
-  { value: "F", label: "Femenino" },
-  { value: "OTRO", label: "Prefiero no decir" },
-];
-
 const COUNTRIES = [
   { code: "+52", flag: "🇲🇽", name: "México", maxDigits: 10 },
   { code: "+1",  flag: "🇺🇸", name: "USA/Canadá", maxDigits: 10 },
@@ -27,34 +18,23 @@ const COUNTRIES = [
   { code: "+506", flag: "🇨🇷", name: "Costa Rica", maxDigits: 8 },
   { code: "+507", flag: "🇵🇦", name: "Panamá", maxDigits: 8 },
 ];
-
 export function PatientForm({ branches }: { branches: Branch[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const submitting = useRef(false);
   const [error, setError] = useState("");
   const [countryCode, setCountryCode] = useState("+52");
-
   const selectedCountry = COUNTRIES.find(c => c.code === countryCode) ?? COUNTRIES[0];
-
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [birthDate, setBirthDate] = useState("");
-  const [address, setAddress] = useState("");
-  const [sex, setSex] = useState("");
-  const [city, setCity] = useState("");
-  const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [branchId, setBranchId] = useState("");
-
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (submitting.current) return;
     submitting.current = true;
     setError("");
-
     const fullPhone = countryCode.replace("+", "") + phone;
-
     startTransition(async () => {
       try {
         const res = await fetch("/api/patients", {
@@ -63,11 +43,6 @@ export function PatientForm({ branches }: { branches: Branch[] }) {
           body: JSON.stringify({
             name,
             phone: fullPhone,
-            birth_date: birthDate || undefined,
-            address: address || undefined,
-            sex: sex || undefined,
-            city: city || undefined,
-            email: email || undefined,
             consultation_reason: notes || undefined,
             branch_id: branchId || undefined,
           }),
@@ -80,7 +55,6 @@ export function PatientForm({ branches }: { branches: Branch[] }) {
       }
     });
   }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="grid gap-4">
@@ -89,7 +63,6 @@ export function PatientForm({ branches }: { branches: Branch[] }) {
           <input required value={name} onChange={(e) => setName(e.target.value)}
             placeholder="Nombre del paciente" style={{ color: "black" }} className={ic} />
         </div>
-
         <div>
           <label className={lc}>Teléfono celular *</label>
           <div className="flex gap-2">
@@ -115,34 +88,6 @@ export function PatientForm({ branches }: { branches: Branch[] }) {
           </div>
           <p className="text-xs text-gray-400 mt-1">{selectedCountry.flag} {selectedCountry.name} — {countryCode} + {phone || "..."}</p>
         </div>
-
-        <div>
-          <label className={lc}>Fecha de nacimiento</label>
-          <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)}
-            max={new Date().toISOString().slice(0, 10)} style={{ color: "black" }} className={ic} />
-        </div>
-        <div>
-          <label className={lc}>Sexo</label>
-          <select value={sex} onChange={(e) => setSex(e.target.value)} style={{ color: "black" }} className={sc}>
-            <option value="">Sin especificar</option>
-            {SEX_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className={lc}>Dirección</label>
-          <input value={address} onChange={(e) => setAddress(e.target.value)}
-            placeholder="Calle, colonia, ciudad" style={{ color: "black" }} className={ic} />
-        </div>
-        <div>
-          <label className={lc}>Ciudad</label>
-          <input value={city} onChange={(e) => setCity(e.target.value)}
-            placeholder="Monterrey" style={{ color: "black" }} className={ic} />
-        </div>
-        <div>
-          <label className={lc}>Correo electrónico</label>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-            placeholder="correo@ejemplo.com" style={{ color: "black" }} className={ic} />
-        </div>
         <div>
           <label className={lc}>Sucursal *</label>
           <select required value={branchId} onChange={(e) => setBranchId(e.target.value)} style={{ color: "black" }} className={sc}>
@@ -158,9 +103,7 @@ export function PatientForm({ branches }: { branches: Branch[] }) {
             className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none" />
         </div>
       </div>
-
       {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-3">{error}</p>}
-
       <button type="submit" disabled={isPending}
         className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
         {isPending ? "Registrando..." : "Registrar paciente"}
@@ -168,7 +111,6 @@ export function PatientForm({ branches }: { branches: Branch[] }) {
     </form>
   );
 }
-
 const lc = "block text-sm font-medium text-gray-700 mb-1";
 const ic = "w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100";
 const sc = "w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100";
