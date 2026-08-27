@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
   }
   const admin = createAdminClient();
   // Buscar primero con el numero completo (con lada)
+  let matchedPhone = phone;
   let { data: profile } = await admin
     .from("profiles")
     .select("id, roles, is_active, deleted_at")
@@ -42,7 +43,10 @@ export async function POST(request: NextRequest) {
       .eq("phone", phoneShort)
       .is("deleted_at", null)
       .maybeSingle();
-    profile = profileShort;
+    if (profileShort) {
+      profile = profileShort;
+      matchedPhone = phoneShort;
+    }
   }
   if (!profile) {
     return NextResponse.json(
@@ -61,10 +65,10 @@ export async function POST(request: NextRequest) {
   if (!isPatientOnly && !body.password) {
     return NextResponse.json({ requirePassword: true }, { status: 200 });
   }
-  // Para pacientes con numero corto (sin lada), usar el numero corto para derivar password
-  const phoneForAuth = phone.length > 10
-    ? (profile ? phone.slice(-10) : phone)
-    : phone;
+  // Usar exactamente el numero con el que se encontro el perfil (con o sin
+  // lada, segun quedo guardado), para que la contrasena derivada coincida
+  // con la que se genero al registrar al paciente.
+  const phoneForAuth = matchedPhone;
   const actualPassword = isPatientOnly
     ? derivePatientPassword(phoneForAuth)
     : body.password!;
