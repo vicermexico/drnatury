@@ -171,7 +171,7 @@ export function PhoneLoginForm() {
           <button
             type="submit"
             disabled={isPending}
-            className="w-full rounded-xl bg-blue-600 py-3 text-base font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+            className="w-full rounded-xl bg-emerald-400 py-3 text-base font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-60"
           >
             {isPending ? "Entrando..." : "Entrar"}
           </button>
