@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/auth";
 import { AguaEnergeticaPanel } from "./AguaEnergeticaPanel";
@@ -37,49 +38,41 @@ function PhoneGlassIntro() {
     <div className="flex-1 min-h-0 flex items-center justify-center relative">
       <style>{`
         @keyframes waterScreenGlow {
-          0%, 100% { opacity: 0.35; transform: scale(0.94); }
-          50% { opacity: 0.9; transform: scale(1.05); }
+          0%, 100% { opacity: 0.3; transform: scale(0.94); }
+          50% { opacity: 0.8; transform: scale(1.05); }
         }
         @keyframes glassFloat {
           0%, 100% { transform: translate(-50%, 0); }
-          50% { transform: translate(-50%, -6px); }
+          50% { transform: translate(-50%, -7px); }
         }
         .water-screen-glow { animation: waterScreenGlow 2.4s ease-in-out infinite; }
         .water-glass-float { animation: glassFloat 3s ease-in-out infinite; }
       `}</style>
-      <div className="relative flex flex-col items-center">
+      <div className="relative flex flex-col items-center w-64 sm:w-72">
         {/* Vaso de agua flotando encima del celular */}
-        <div className="water-glass-float relative z-10 -mb-3">
-          <svg width="72" height="88" viewBox="0 0 72 88">
-            <defs>
-              <linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#7fe3ff" />
-                <stop offset="100%" stopColor="#0891b2" />
-              </linearGradient>
-            </defs>
-            <path
-              d="M9 6 L63 6 L55 80 Q54.3 84 50 84 L22 84 Q17.7 84 17 80 Z"
-              fill="url(#waterGrad)"
-              opacity="0.92"
-            />
-            <ellipse cx="36" cy="9" rx="27" ry="3.2" fill="#c9f6ff" opacity="0.9" />
-            <path
-              d="M9 6 L63 6 L55 80 Q54.3 84 50 84 L22 84 Q17.7 84 17 80 Z"
-              fill="none"
-              stroke="#eafcff"
-              strokeWidth="2.2"
-            />
-            <path d="M17.5 13 L23 76" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" opacity="0.45" />
-          </svg>
+        <div className="water-glass-float relative z-10 -mb-4 w-20 sm:w-24">
+          <Image
+            src="/agua-vaso.png"
+            alt="Vaso de agua"
+            width={486}
+            height={665}
+            unoptimized
+            className="w-full h-auto drop-shadow-2xl"
+          />
         </div>
         {/* Celular acostado */}
-        <div className="relative">
-          <svg width="196" height="98" viewBox="0 0 320 160" className="drop-shadow-2xl">
-            <rect x="4" y="4" width="312" height="152" rx="28" fill="#0a1930" stroke="#2b4a72" strokeWidth="3" />
-            <rect x="24" y="16" width="272" height="128" rx="14" fill="#0e2340" />
-            <rect x="306" y="64" width="5" height="32" rx="2.5" fill="#2b4a72" />
-          </svg>
-          <div className="water-screen-glow absolute left-[9%] right-[9%] top-[14%] bottom-[14%] rounded-2xl bg-cyan-400/40 blur-xl" />
+        <div className="relative w-full">
+          <Image
+            src="/agua-celular.png"
+            alt=""
+            width={1568}
+            height={453}
+            unoptimized
+            className="w-full h-auto"
+          />
+          <div className="water-screen-glow absolute left-[5%] right-[7%] top-[6%] bottom-[34%] rounded-2xl bg-cyan-400/40 blur-xl" />
+          {/* Sombra suave debajo del celular */}
+          <div className="absolute left-[8%] right-[8%] -bottom-3 h-4 bg-black/40 blur-md rounded-full" />
         </div>
       </div>
     </div>
