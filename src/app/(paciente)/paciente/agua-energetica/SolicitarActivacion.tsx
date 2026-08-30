@@ -1,9 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
-
 interface Branch { id: string; name: string; }
 interface Solicitud { id: string; estado: string; branch: { name: string } | null; }
-
 export function SolicitarActivacion({ branches, solicitud, requisitos }: {
   branches: Branch[];
   solicitud: Solicitud | null;
@@ -15,13 +13,12 @@ export function SolicitarActivacion({ branches, solicitud, requisitos }: {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [, startTransition] = useTransition();
-
   if (success || solicitud) {
     const branchName = solicitud
       ? (Array.isArray(solicitud.branch) ? solicitud.branch[0]?.name : solicitud.branch?.name) ?? ""
       : "";
     return (
-      <div className="w-full max-w-sm text-center space-y-2 bg-blue-900/50 rounded-2xl p-5 border border-blue-700">
+      <div className="w-full max-w-sm mx-auto text-center space-y-2 bg-blue-900/50 rounded-2xl p-5 border border-blue-700">
         <p className="text-2xl">⏳</p>
         <p className="text-white font-semibold">Solicitud enviada</p>
         <p className="text-blue-300 text-sm">
@@ -30,7 +27,6 @@ export function SolicitarActivacion({ branches, solicitud, requisitos }: {
       </div>
     );
   }
-
   function handleSolicitar() {
     if (!branchId) { setError("Selecciona una sucursal"); return; }
     if (requisitos && !aceptado) { setError("Debes aceptar los requisitos"); return; }
@@ -46,19 +42,17 @@ export function SolicitarActivacion({ branches, solicitud, requisitos }: {
       setSuccess(true);
     });
   }
-
   if (step === "idle") {
     return (
       <button onClick={() => setStep(requisitos ? "requisitos" : "form")}
-        className="w-full max-w-sm rounded-2xl bg-blue-500 py-4 text-base font-bold text-white hover:bg-blue-400 transition active:scale-95 shadow-lg">
-        💧 Solicitar activacion
+        className="w-full max-w-sm mx-auto flex rounded-2xl bg-emerald-400 py-4 text-base font-bold text-white hover:bg-emerald-500 transition active:scale-95 shadow-lg items-center justify-center gap-2">
+        🥛 Activar
       </button>
     );
   }
-
   if (step === "requisitos") {
     return (
-      <div className="w-full max-w-sm bg-blue-900/80 rounded-2xl p-5 space-y-4 border border-blue-700">
+      <div className="w-full max-w-sm mx-auto bg-blue-900/80 rounded-2xl p-5 space-y-4 border border-blue-700">
         <h2 className="text-white font-bold text-center">Requisitos y terminos</h2>
         <div className="bg-blue-950/50 rounded-xl p-4 max-h-48 overflow-y-auto">
           <p className="text-blue-200 text-sm whitespace-pre-wrap">{requisitos}</p>
@@ -75,16 +69,15 @@ export function SolicitarActivacion({ branches, solicitud, requisitos }: {
             Cancelar
           </button>
           <button onClick={() => { if (!aceptado) { setError("Debes aceptar los requisitos"); return; } setStep("form"); }}
-            className="flex-1 rounded-xl bg-blue-500 py-2.5 text-sm font-semibold text-white hover:bg-blue-400 transition">
+            className="flex-1 rounded-xl bg-emerald-400 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 transition">
             Continuar
           </button>
         </div>
       </div>
     );
   }
-
   return (
-    <div className="w-full max-w-sm bg-blue-900/80 rounded-2xl p-5 space-y-4 border border-blue-700">
+    <div className="w-full max-w-sm mx-auto bg-blue-900/80 rounded-2xl p-5 space-y-4 border border-blue-700">
       <h2 className="text-white font-bold text-center">Selecciona una sucursal</h2>
       <select value={branchId} onChange={e => setBranchId(e.target.value)}
         style={{ color: "black" }}
@@ -101,7 +94,7 @@ export function SolicitarActivacion({ branches, solicitud, requisitos }: {
           Cancelar
         </button>
         <button onClick={handleSolicitar}
-          className="flex-1 rounded-xl bg-blue-500 py-2.5 text-sm font-semibold text-white hover:bg-blue-400 transition">
+          className="flex-1 rounded-xl bg-emerald-400 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 transition">
           Enviar solicitud
         </button>
       </div>

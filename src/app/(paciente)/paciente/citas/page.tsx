@@ -5,7 +5,6 @@ import { AppointmentCard, type AppointmentData } from "@/components/agenda/Appoi
 import { CancelAppointmentButton } from "@/components/layout/paciente/CancelAppointmentButton";
 import { RescheduleButton } from "@/components/layout/paciente/RescheduleButton";
 import { NotificacionesButton } from "@/components/layout/paciente/NotificacionesButton";
-
 async function getMyAppointments(userId: string) {
   const supabase = await createClient();
   const { data } = await supabase
@@ -20,7 +19,6 @@ async function getMyAppointments(userId: string) {
     .is("deleted_at", null)
     .order("starts_at", { ascending: false })
     .limit(50);
-
   return (data ?? []).map((a) => {
     const branch = Array.isArray(a.branches) ? a.branches[0] : a.branches as { name: string; address: string; lat?: number; lng?: number } | null;
     return {
@@ -39,7 +37,6 @@ async function getMyAppointments(userId: string) {
     };
   }) as (AppointmentData & { branch_address?: string; branch_lat?: number; branch_lng?: number })[];
 }
-
 function MapsButton({ address, lat, lng }: { address?: string; lat?: number; lng?: number }) {
   if (!address) return null;
   const url = lat && lng
@@ -53,7 +50,30 @@ function MapsButton({ address, lat, lng }: { address?: string; lat?: number; lng
     </a>
   );
 }
-
+function AgendarButton() {
+  return (
+    <Link
+      href="/paciente/agendar"
+      className="agendar-pulse-btn relative flex items-center gap-2 rounded-full bg-emerald-400 pl-4 pr-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-500 active:scale-95"
+    >
+      <style>{`
+        @keyframes agendarPulse {
+          0%, 100% {
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55), 0 4px 10px rgba(16,185,129,0.25);
+          }
+          50% {
+            box-shadow: 0 0 0 14px rgba(16, 185, 129, 0), 0 4px 18px rgba(16,185,129,0.45);
+          }
+        }
+        .agendar-pulse-btn {
+          animation: agendarPulse 2.2s ease-in-out infinite;
+        }
+      `}</style>
+      <span className="flex items-center justify-center w-6 h-6 rounded-full bg-white/25 text-lg leading-none">+</span>
+      Agendar
+    </Link>
+  );
+}
 export default async function MisCitasPage({
   searchParams,
 }: {
@@ -63,34 +83,26 @@ export default async function MisCitasPage({
   const appointments = await getMyAppointments(user.id);
   const { booked } = await searchParams;
   const now = new Date();
-
   const upcoming = appointments.filter(
     (a) => (a.status === "PENDIENTE" || a.status === "CONFIRMADA") && new Date(a.starts_at) >= now
   );
   const past = appointments.filter((a) => !upcoming.includes(a));
-
   return (
     <div className="max-w-md mx-auto py-6 px-4 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">Mis citas</h1>
-        <Link href="/paciente/agendar"
-          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
-          + Agendar
-        </Link>
+        <AgendarButton />
       </div>
-
       <NotificacionesButton />
-
       {booked === "1" && (
         <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
           ¡Cita agendada! Revisa tu WhatsApp para los detalles y el link de confirmación.
         </div>
       )}
-
       {appointments.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-500 text-sm mb-3">No tienes citas registradas</p>
-          <Link href="/paciente/agendar" className="text-blue-600 text-sm underline">
+          <Link href="/paciente/agendar" className="text-emerald-600 text-sm underline">
             Agendar mi primera cita
           </Link>
         </div>
@@ -99,7 +111,7 @@ export default async function MisCitasPage({
           {upcoming.length > 0 && (
             <section className="space-y-3">
               <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Próximas
+                Proximas
               </h2>
               {upcoming.map((a) => (
                 <div key={a.id} className="rounded-2xl border border-green-200 bg-green-50 p-4 space-y-4">
@@ -124,7 +136,6 @@ export default async function MisCitasPage({
               ))}
             </section>
           )}
-
           {past.length > 0 && (
             <section className="space-y-3">
               <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">

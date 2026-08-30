@@ -1,11 +1,8 @@
-﻿"use client";
-
+"use client";
 import { useState, useEffect } from "react";
 import { requestNotificationPermission } from "@/lib/firebase";
-
 export function NotificacionesButton() {
   const [status, setStatus] = useState<"idle" | "loading" | "granted" | "denied" | "default">("default");
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("Notification" in window)) {
@@ -29,7 +26,6 @@ export function NotificacionesButton() {
       });
     }
   }, []);
-
   async function handleClick() {
     if (!("Notification" in window)) {
       setStatus("denied");
@@ -48,7 +44,6 @@ export function NotificacionesButton() {
       setStatus("denied");
     }
   }
-
   if (status === "granted") {
     return (
       <div className="flex items-center gap-2 rounded-xl bg-green-50 border border-green-200 px-4 py-3">
@@ -57,7 +52,6 @@ export function NotificacionesButton() {
       </div>
     );
   }
-
   if (status === "denied") {
     return (
       <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
@@ -66,21 +60,16 @@ export function NotificacionesButton() {
       </div>
     );
   }
-
-  
-
   return (
     <button
       onClick={handleClick}
       disabled={status === "loading"}
-      className="w-full flex items-center gap-2 rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 hover:bg-blue-100 transition"
+      className="w-full flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 hover:bg-emerald-100 transition"
     >
       <span>🔔</span>
-      <p className="text-sm text-blue-700 font-medium">
+      <p className="text-sm text-emerald-700 font-medium">
         {status === "loading" ? "Activando..." : "Activar notificaciones"}
       </p>
     </button>
   );
 }
-
-

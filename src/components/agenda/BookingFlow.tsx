@@ -1,22 +1,18 @@
 "use client";
-
 import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatCSTTime } from "@/lib/appointments/availability";
-
-// ── Tipos ──────────────────────────────────────────────────
+// ── Tipos ────────────────────────────────────────────────
 interface ServiceData {
   id: string;
   name: string;
   duration_minutes: number;
 }
-
 interface BranchServiceItem {
   price: number;
-  // Supabase puede devolver el join como objeto o array según la versión
+  // Supabase puede devolver el join como objeto o array segun la version
   services: ServiceData | ServiceData[] | null;
 }
-
 interface Branch {
   id: string;
   name: string;
@@ -30,32 +26,25 @@ interface Branch {
   }> | null;
   branch_services: BranchServiceItem[];
 }
-
 interface Slot {
   starts_at: string;
   ends_at: string;
 }
-
 // Servicio aplanado para usar dentro del componente (incluye precio)
 interface FlatService extends ServiceData {
   price: number;
 }
-
 interface Props {
   branches: Branch[];
 }
-
 type Step = 1 | 2 | 3 | 4;
-
 // ── Helpers ────────────────────────────────────────────────
 const DAY_KEYS = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"] as const;
-
 /** Normaliza el join de Supabase (objeto o array) a un solo ServiceData */
 function extractService(bs: BranchServiceItem): ServiceData | null {
   if (!bs.services) return null;
   return Array.isArray(bs.services) ? (bs.services[0] ?? null) : bs.services;
 }
-
 /** Obtiene los servicios disponibles de una sucursal en formato aplanado */
 function getBranchServices(branch: Branch): FlatService[] {
   return branch.branch_services
@@ -65,7 +54,6 @@ function getBranchServices(branch: Branch): FlatService[] {
     })
     .filter((s): s is FlatService => s !== null);
 }
-
 function isBranchOpenOnDate(branch: Branch, dateStr: string): boolean {
   if (!branch.schedule) return false;
   const [y, mo, d] = dateStr.split("-").map(Number);
@@ -73,7 +61,6 @@ function isBranchOpenOnDate(branch: Branch, dateStr: string): boolean {
   const dayKey = DAY_KEYS[dayIdx];
   return !!(branch.schedule[dayKey]?.open);
 }
-
 function generateCalendarDays(year: number, month: number): string[] {
   const days: string[] = [];
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -84,11 +71,9 @@ function generateCalendarDays(year: number, month: number): string[] {
   }
   return days;
 }
-
 function todayCST(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Monterrey" });
 }
-
 // ── Step 1: Sucursal + Servicio ────────────────────────────
 function Step1({
   branches,
@@ -103,11 +88,9 @@ function Step1({
 }) {
   const [selBranch, setSelBranch] = useState(branchId);
   const [selService, setSelService] = useState(serviceId);
-
   const availableServices = selBranch
     ? getBranchServices(branches.find((b) => b.id === selBranch)!)
     : [];
-
   if (branches.length === 0) {
     return (
       <p className="text-sm text-gray-500 text-center py-8">
@@ -115,12 +98,11 @@ function Step1({
       </p>
     );
   }
-
   return (
     <div className="space-y-5">
       {/* Sucursal */}
       <div>
-        <p className="text-sm font-medium text-gray-700 mb-2">¿En qué sucursal?</p>
+        <p className="text-sm font-medium text-gray-700 mb-2">¿En que sucursal?</p>
         <div className="space-y-2">
           {branches.map((b) => (
             <button
@@ -135,14 +117,13 @@ function Step1({
           ))}
         </div>
       </div>
-
       {/* Servicios de la sucursal seleccionada */}
       {selBranch && (
         <div>
-          <p className="text-sm font-medium text-gray-700 mb-2">¿Qué servicio?</p>
+          <p className="text-sm font-medium text-gray-700 mb-2">¿Que servicio?</p>
           {availableServices.length === 0 ? (
             <p className="text-sm text-gray-400 bg-gray-50 rounded-xl px-4 py-3">
-              Esta sucursal aún no tiene servicios configurados.
+              Esta sucursal aun no tiene servicios configurados.
             </p>
           ) : (
             <div className="space-y-2">
@@ -164,7 +145,6 @@ function Step1({
           )}
         </div>
       )}
-
       <button
         disabled={!selBranch || !selService}
         onClick={() => onSelect(selBranch, selService)}
@@ -175,8 +155,7 @@ function Step1({
     </div>
   );
 }
-
-// ── Step 2: Fecha ──────────────────────────────────────────
+// ── Step 2: Fecha ────────────────────────────────────────
 function Step2({
   branch,
   onSelect,
@@ -188,25 +167,20 @@ function Step2({
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth());
   const days = generateCalendarDays(year, month);
-
   const firstDay = new Date(year, month, 1).getDay();
   const maxDate = new Date();
   maxDate.setDate(maxDate.getDate() + 30);
   const maxStr = maxDate.toLocaleDateString("en-CA", { timeZone: "America/Monterrey" });
-
   const monthName = new Date(year, month, 1).toLocaleDateString("es-MX", { month: "long", year: "numeric" });
-
   const hasAnyOpenDay = !branch.schedule ||
     Object.values(branch.schedule).some((d) => d.open);
-
   if (!hasAnyOpenDay) {
     return (
       <p className="text-sm text-gray-500 text-center py-8">
-        Esta sucursal no tiene horarios configurados todavía.
+        Esta sucursal no tiene horarios configurados todavia.
       </p>
     );
   }
-
   function prevMonth() {
     if (month === 0) { setMonth(11); setYear(y => y - 1); }
     else setMonth(m => m - 1);
@@ -215,7 +189,6 @@ function Step2({
     if (month === 11) { setMonth(0); setYear(y => y + 1); }
     else setMonth(m => m + 1);
   }
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -223,7 +196,6 @@ function Step2({
         <p className="text-sm font-semibold capitalize">{monthName}</p>
         <button onClick={nextMonth} className="p-2 text-gray-500 hover:text-gray-900">→</button>
       </div>
-
       <div className="grid grid-cols-7 gap-1 text-center">
         {["Do","Lu","Ma","Mi","Ju","Vi","Sa"].map((d) => (
           <p key={d} className="text-[11px] text-gray-400 font-medium pb-1">{d}</p>
@@ -243,8 +215,8 @@ function Step2({
               onClick={() => onSelect(dateStr)}
               className={[
                 "rounded-lg py-2 text-sm transition",
-                disabled ? "text-gray-300 cursor-default" : "text-gray-900 hover:bg-blue-50 hover:text-blue-700 font-medium",
-                isToday && !disabled ? "ring-2 ring-blue-500" : "",
+                disabled ? "text-gray-300 cursor-default" : "text-gray-900 hover:bg-emerald-50 hover:text-emerald-700 font-medium",
+                isToday && !disabled ? "ring-2 ring-emerald-500" : "",
               ].join(" ")}
             >
               {dayNum}
@@ -252,14 +224,12 @@ function Step2({
           );
         })}
       </div>
-
       <p className="text-xs text-gray-400 text-center">
-        Solo días en que la sucursal está abierta están disponibles.
+        Solo dias en que la sucursal esta abierta estan disponibles.
       </p>
     </div>
   );
 }
-
 // ── Step 3: Horario ────────────────────────────────────────
 function Step3({
   branchId,
@@ -275,13 +245,11 @@ function Step3({
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(false);
     setSlots([]);
-
     fetch(
       `/api/appointments/availability?branch_id=${branchId}&service_id=${serviceId}&date=${dateStr}`
     )
@@ -292,10 +260,8 @@ function Step3({
       })
       .catch(() => { if (!cancelled) setError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
-
     return () => { cancelled = true; };
   }, [branchId, serviceId, dateStr]);
-
   if (loading) {
     return <p className="text-sm text-gray-400 text-center py-8">Cargando horarios…</p>;
   }
@@ -309,19 +275,18 @@ function Step3({
   if (slots.length === 0) {
     return (
       <p className="text-sm text-gray-500 text-center py-8">
-        No hay horarios disponibles para este día.
+        No hay horarios disponibles para este dia.
         <br />Elige otra fecha.
       </p>
     );
   }
-
   return (
     <div className="grid grid-cols-3 gap-2">
       {slots.map((slot) => (
         <button
           key={slot.starts_at}
           onClick={() => onSelect(slot)}
-          className="rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 transition"
+          className="rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-700 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 transition"
         >
           {formatCSTTime(slot.starts_at)}
         </button>
@@ -329,8 +294,7 @@ function Step3({
     </div>
   );
 }
-
-// ── Step 4: Confirmación ───────────────────────────────────
+// ── Step 4: Confirmacion ────────────────────────────────────
 function Step4({
   branch,
   service,
@@ -349,7 +313,6 @@ function Step4({
   const date = new Date(`${dateStr}T12:00:00`).toLocaleDateString("es-MX", {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
-
   return (
     <div className="space-y-5">
       <div className="rounded-2xl bg-gray-50 border border-gray-200 p-5 space-y-3">
@@ -362,7 +325,7 @@ function Step4({
         <Row label="Hora" value={formatCSTTime(slot.starts_at)} />
       </div>
       <p className="text-xs text-gray-500 text-center">
-        Al confirmar recibirás un mensaje de WhatsApp con los detalles.
+        Al confirmar recibiras un mensaje de WhatsApp con los detalles.
       </p>
       <button onClick={onConfirm} disabled={isPending} className={btnPrimary}>
         {isPending ? "Agendando…" : "Confirmar cita"}
@@ -370,7 +333,6 @@ function Step4({
     </div>
   );
 }
-
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between text-sm">
@@ -379,8 +341,7 @@ function Row({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
-// ── Componente principal ───────────────────────────────────
+// ── Componente principal ────────────────────────────────────
 export function BookingFlow({ branches }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -390,14 +351,11 @@ export function BookingFlow({ branches }: Props) {
   const [dateStr, setDateStr] = useState("");
   const [slot, setSlot] = useState<Slot | null>(null);
   const [error, setError] = useState("");
-
   const branch = branches.find((b) => b.id === branchId);
   const service = branch
     ? getBranchServices(branch).find((s) => s.id === serviceId) ?? null
     : null;
-
-  const STEP_LABELS = ["Sucursal y servicio", "Fecha", "Horario", "Confirmación"];
-
+  const STEP_LABELS = ["Sucursal y servicio", "Fecha", "Horario", "Confirmacion"];
   function handleConfirm() {
     if (!slot) return;
     setError("");
@@ -413,7 +371,6 @@ export function BookingFlow({ branches }: Props) {
         }),
       });
       const data = await res.json() as { error?: string; message?: string };
-
       if (res.status === 409) {
         setError("Este horario acaba de ser tomado. Elige otro.");
         setStep(3);
@@ -427,11 +384,9 @@ export function BookingFlow({ branches }: Props) {
         setError(msg + extra);
         return;
       }
-
       router.push("/paciente/citas?booked=1");
     });
   }
-
   return (
     <div className="space-y-6">
       {/* Barra de progreso */}
@@ -441,13 +396,12 @@ export function BookingFlow({ branches }: Props) {
             key={i}
             className={[
               "flex-1 h-1 rounded-full transition-colors",
-              i + 1 <= step ? "bg-blue-600" : "bg-gray-200",
+              i + 1 <= step ? "bg-emerald-500" : "bg-gray-200",
             ].join(" ")}
           />
         ))}
       </div>
       <p className="text-xs text-gray-500 font-medium">{STEP_LABELS[step - 1]}</p>
-
       {step === 1 && (
         <Step1
           branches={branches}
@@ -456,14 +410,12 @@ export function BookingFlow({ branches }: Props) {
           onSelect={(b, s) => { setBranchId(b); setServiceId(s); setStep(2); }}
         />
       )}
-
       {step === 2 && branch && (
         <>
           <Step2 branch={branch} onSelect={(d) => { setDateStr(d); setStep(3); }} />
           <BackButton onClick={() => setStep(1)} />
         </>
       )}
-
       {step === 3 && (
         <>
           <Step3
@@ -475,7 +427,6 @@ export function BookingFlow({ branches }: Props) {
           <BackButton onClick={() => { setDateStr(""); setStep(2); }} />
         </>
       )}
-
       {step === 4 && branch && service && slot && (
         <>
           <Step4
@@ -495,7 +446,6 @@ export function BookingFlow({ branches }: Props) {
     </div>
   );
 }
-
 function BackButton({ onClick }: { onClick: () => void }) {
   return (
     <button
@@ -506,12 +456,10 @@ function BackButton({ onClick }: { onClick: () => void }) {
     </button>
   );
 }
-
 const card = (active: boolean) =>
   [
     "w-full text-left rounded-xl border-2 px-4 py-3 transition text-gray-900",
-    active ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300",
+    active ? "border-emerald-500 bg-emerald-50" : "border-gray-200 hover:border-gray-300",
   ].join(" ");
-
 const btnPrimary =
-  "w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60";
+  "w-full rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-white hover:bg-emerald-500 transition disabled:opacity-60";

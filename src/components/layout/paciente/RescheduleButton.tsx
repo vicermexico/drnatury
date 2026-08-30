@@ -1,19 +1,14 @@
 "use client";
-
 import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatCSTTime, formatCSTDateShort } from "@/lib/appointments/availability";
-
 interface Slot { starts_at: string; ends_at: string; }
 type Step = "idle" | "date" | "time" | "confirm";
-
-const DAY_KEYS = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"] as const;
 const MONTH_NAMES = [
   "enero","febrero","marzo","abril","mayo","junio",
   "julio","agosto","septiembre","octubre","noviembre","diciembre",
 ] as const;
 const DAY_LABELS = ["Do","Lu","Ma","Mi","Ju","Vi","Sa"] as const;
-
 function todayCST() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Monterrey" });
 }
@@ -25,7 +20,6 @@ function generateCalendarDays(year: number, month: number): string[] {
   }
   return days;
 }
-
 function DatePicker({
   initialDate,
   onSelect,
@@ -40,14 +34,11 @@ function DatePicker({
   const initMonth = parseInt(initialDate.split("-")[1], 10) - 1;
   const [year, setYear]   = useState(initYear);
   const [month, setMonth] = useState(initMonth);
-
   const maxDate = new Date();
   maxDate.setDate(maxDate.getDate() + 60);
   const maxStr = maxDate.toLocaleDateString("en-CA", { timeZone: "America/Monterrey" });
-
   const days     = generateCalendarDays(year, month);
   const firstDay = new Date(year, month, 1).getDay();
-
   function prevMonth() {
     if (month === 0) { setMonth(11); setYear(y => y - 1); }
     else setMonth(m => m - 1);
@@ -56,7 +47,6 @@ function DatePicker({
     if (month === 11) { setMonth(0); setYear(y => y + 1); }
     else setMonth(m => m + 1);
   }
-
   return (
     <div className="space-y-3">
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Elige nueva fecha</p>
@@ -84,7 +74,7 @@ function DatePicker({
                 "rounded-lg py-2 text-sm transition",
                 disabled
                   ? "text-gray-300 cursor-default"
-                  : "text-gray-900 font-medium hover:bg-blue-50 hover:text-blue-700",
+                  : "text-gray-900 font-medium hover:bg-emerald-50 hover:text-emerald-700",
               ].join(" ")}
             >
               {dayNum}
@@ -98,7 +88,6 @@ function DatePicker({
     </div>
   );
 }
-
 function TimePicker({
   branchId,
   serviceId,
@@ -115,7 +104,6 @@ function TimePicker({
   const [slots, setSlots]   = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState(false);
-
   useEffect(() => {
     let cancelled = false;
     setLoading(true); setError(false); setSlots([]);
@@ -129,7 +117,6 @@ function TimePicker({
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [branchId, serviceId, dateStr]);
-
   return (
     <div className="space-y-3">
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -146,7 +133,7 @@ function TimePicker({
             <button
               key={slot.starts_at}
               onClick={() => onSelect(slot)}
-              className="rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-800 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 transition"
+              className="rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-800 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 transition"
             >
               {formatCSTTime(slot.starts_at)}
             </button>
@@ -159,7 +146,6 @@ function TimePicker({
     </div>
   );
 }
-
 function ConfirmReschedule({
   slot,
   onConfirm,
@@ -176,7 +162,7 @@ function ConfirmReschedule({
   return (
     <div className="space-y-3">
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Confirmar cambio</p>
-      <div className="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 space-y-0.5">
+      <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 space-y-0.5">
         <p className="text-base font-bold text-gray-900">{formatCSTTime(slot.starts_at)}</p>
         <p className="text-sm font-medium text-gray-700">{formatCSTDateShort(slot.starts_at)}</p>
       </div>
@@ -184,7 +170,7 @@ function ConfirmReschedule({
       <button
         onClick={onConfirm}
         disabled={isPending}
-        className="w-full rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60"
+        className="w-full rounded-xl bg-emerald-400 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 transition disabled:opacity-60"
       >
         {isPending ? "Reagendando…" : "Confirmar reagendado"}
       </button>
@@ -194,7 +180,6 @@ function ConfirmReschedule({
     </div>
   );
 }
-
 export function RescheduleButton({
   appointmentId,
   branchId,
@@ -212,10 +197,8 @@ export function RescheduleButton({
   const [dateStr, setDateStr] = useState("");
   const [slot, setSlot]   = useState<Slot | null>(null);
   const [error, setError] = useState("");
-
   const initDate = new Date(currentStartsAt)
     .toLocaleDateString("en-CA", { timeZone: "America/Monterrey" });
-
   function handleConfirm() {
     if (!slot) return;
     setError("");
@@ -239,7 +222,6 @@ export function RescheduleButton({
       router.refresh();
     });
   }
-
   if (step === "idle") {
     return (
       <button
@@ -250,9 +232,8 @@ export function RescheduleButton({
       </button>
     );
   }
-
   return (
-    <div className="mt-3 rounded-2xl border border-blue-100 bg-white p-4">
+    <div className="mt-3 rounded-2xl border border-emerald-100 bg-white p-4">
       {step === "date" && (
         <DatePicker
           initialDate={initDate}
