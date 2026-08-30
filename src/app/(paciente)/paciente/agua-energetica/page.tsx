@@ -47,15 +47,39 @@ function PhoneGlassIntro() {
         .water-screen-glow { animation: waterScreenGlow 2.4s ease-in-out infinite; }
         .water-glass-float { animation: glassFloat 3s ease-in-out infinite; }
       `}</style>
-      <div className="relative w-28 sm:w-36">
-        <svg viewBox="0 0 160 320" className="w-full h-auto drop-shadow-2xl">
-          <rect x="4" y="4" width="152" height="312" rx="28" fill="#0a1930" stroke="#2b4a72" strokeWidth="3" />
-          <rect x="16" y="22" width="128" height="276" rx="14" fill="#0e2340" />
-          <rect x="62" y="11" width="36" height="5" rx="2.5" fill="#2b4a72" />
-        </svg>
-        <div className="water-screen-glow absolute left-[10%] right-[10%] top-[7%] bottom-[8%] rounded-2xl bg-cyan-400/40 blur-xl" />
-        <div className="water-glass-float absolute -bottom-6 left-1/2 text-5xl sm:text-6xl drop-shadow-2xl">
-          🥛
+      <div className="relative flex flex-col items-center">
+        {/* Vaso de agua flotando encima del celular */}
+        <div className="water-glass-float relative z-10 -mb-3">
+          <svg width="72" height="88" viewBox="0 0 72 88">
+            <defs>
+              <linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#7fe3ff" />
+                <stop offset="100%" stopColor="#0891b2" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M9 6 L63 6 L55 80 Q54.3 84 50 84 L22 84 Q17.7 84 17 80 Z"
+              fill="url(#waterGrad)"
+              opacity="0.92"
+            />
+            <ellipse cx="36" cy="9" rx="27" ry="3.2" fill="#c9f6ff" opacity="0.9" />
+            <path
+              d="M9 6 L63 6 L55 80 Q54.3 84 50 84 L22 84 Q17.7 84 17 80 Z"
+              fill="none"
+              stroke="#eafcff"
+              strokeWidth="2.2"
+            />
+            <path d="M17.5 13 L23 76" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" opacity="0.45" />
+          </svg>
+        </div>
+        {/* Celular acostado */}
+        <div className="relative">
+          <svg width="196" height="98" viewBox="0 0 320 160" className="drop-shadow-2xl">
+            <rect x="4" y="4" width="312" height="152" rx="28" fill="#0a1930" stroke="#2b4a72" strokeWidth="3" />
+            <rect x="24" y="16" width="272" height="128" rx="14" fill="#0e2340" />
+            <rect x="306" y="64" width="5" height="32" rx="2.5" fill="#2b4a72" />
+          </svg>
+          <div className="water-screen-glow absolute left-[9%] right-[9%] top-[14%] bottom-[14%] rounded-2xl bg-cyan-400/40 blur-xl" />
         </div>
       </div>
     </div>

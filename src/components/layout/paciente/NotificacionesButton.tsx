@@ -54,9 +54,9 @@ export function NotificacionesButton() {
   }
   if (status === "denied") {
     return (
-      <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
+      <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 px-4 py-3">
         <span>🔕</span>
-        <p className="text-sm text-red-700">Notificaciones no disponibles en este dispositivo</p>
+        <p className="text-sm text-rose-600">Notificaciones no disponibles en este dispositivo</p>
       </div>
     );
   }
@@ -64,10 +64,10 @@ export function NotificacionesButton() {
     <button
       onClick={handleClick}
       disabled={status === "loading"}
-      className="w-full flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 hover:bg-emerald-100 transition"
+      className="w-full flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 hover:bg-rose-100 transition"
     >
-      <span>🔔</span>
-      <p className="text-sm text-emerald-700 font-medium">
+      <span>🔕</span>
+      <p className="text-sm text-rose-600 font-medium">
         {status === "loading" ? "Activando..." : "Activar notificaciones"}
       </p>
     </button>

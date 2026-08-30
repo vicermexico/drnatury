@@ -233,32 +233,49 @@ export function RescheduleButton({
     );
   }
   return (
-    <div className="mt-3 rounded-2xl border border-emerald-100 bg-white p-4">
-      {step === "date" && (
-        <DatePicker
-          initialDate={initDate}
-          onSelect={d => { setDateStr(d); setSlot(null); setError(""); setStep("time"); }}
-          onCancel={() => setStep("idle")}
-        />
-      )}
-      {step === "time" && (
-        <TimePicker
-          branchId={branchId}
-          serviceId={serviceId}
-          dateStr={dateStr}
-          onSelect={s => { setSlot(s); setError(""); setStep("confirm"); }}
-          onBack={() => setStep("date")}
-        />
-      )}
-      {step === "confirm" && slot && (
-        <ConfirmReschedule
-          slot={slot}
-          onConfirm={handleConfirm}
-          onBack={() => setStep("time")}
-          isPending={isPending}
-          error={error}
-        />
-      )}
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50"
+      onClick={() => setStep("idle")}
+    >
+      <div
+        className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 max-h-[92vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-bold text-gray-900">Reagendar cita</p>
+          <button
+            onClick={() => setStep("idle")}
+            className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1"
+          >
+            ✕
+          </button>
+        </div>
+        {step === "date" && (
+          <DatePicker
+            initialDate={initDate}
+            onSelect={d => { setDateStr(d); setSlot(null); setError(""); setStep("time"); }}
+            onCancel={() => setStep("idle")}
+          />
+        )}
+        {step === "time" && (
+          <TimePicker
+            branchId={branchId}
+            serviceId={serviceId}
+            dateStr={dateStr}
+            onSelect={s => { setSlot(s); setError(""); setStep("confirm"); }}
+            onBack={() => setStep("date")}
+          />
+        )}
+        {step === "confirm" && slot && (
+          <ConfirmReschedule
+            slot={slot}
+            onConfirm={handleConfirm}
+            onBack={() => setStep("time")}
+            isPending={isPending}
+            error={error}
+          />
+        )}
+      </div>
     </div>
   );
 }
