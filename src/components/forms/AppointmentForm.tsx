@@ -1,18 +1,15 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatCSTTime } from "@/lib/appointments/availability";
-
 interface Patient   { id: string; name: string; phone: string }
 interface Branch    { id: string; name: string }
 interface Service   { id: string; name: string; duration_minutes: number }
 interface Therapist { id: string; name: string; branch_id: string | null }
 interface Slot      { starts_at: string; ends_at: string }
-
 const MONTHS = ["enero","febrero","marzo","abril","mayo","junio",
                 "julio","agosto","septiembre","octubre","noviembre","diciembre"] as const;
 const DAYS = ["Do","Lu","Ma","Mi","Ju","Vi","Sa"] as const;
-
 const COUNTRIES = [
   { code: "+52", flag: "🇲🇽", maxDigits: 10 },
   { code: "+1",  flag: "🇺🇸", maxDigits: 10 },
@@ -23,18 +20,39 @@ const COUNTRIES = [
   { code: "+51", flag: "🇵🇪", maxDigits: 9 },
   { code: "+58", flag: "🇻🇪", maxDigits: 10 },
 ];
-
 function todayCST() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Monterrey" });
 }
-
 function calDays(year: number, month: number) {
   const n = new Date(year, month + 1, 0).getDate();
   return Array.from({ length: n }, (_, i) =>
     `${year}-${String(month + 1).padStart(2,"0")}-${String(i + 1).padStart(2,"0")}`
   );
 }
-
+function CopiarHorariosButton({ slots, dateStr }: { slots: Slot[]; dateStr: string }) {
+  const [copied, setCopied] = useState(false);
+  function handleCopy() {
+    const fecha = new Date(dateStr + "T12:00:00").toLocaleDateString("es-MX", {
+      weekday: "long", day: "numeric", month: "long",
+    });
+    const text =
+      `Horarios disponibles (${fecha}):\n` +
+      slots.map(s => formatCSTTime(s.starts_at)).join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="w-full flex items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition"
+    >
+      {copied ? "✅ Copiado — pégalo en WhatsApp" : "📋 Copiar horarios para WhatsApp"}
+    </button>
+  );
+}
 function StepFecha({ onSelect }: { onSelect: (d: string) => void }) {
   const today = todayCST();
   const [year, setYear] = useState(new Date().getFullYear());
@@ -74,7 +92,6 @@ function StepFecha({ onSelect }: { onSelect: (d: string) => void }) {
     </div>
   );
 }
-
 function StepSucursalServicio({ branches, services, onSelect }: {
   branches: Branch[];
   services: Service[];
@@ -110,7 +127,6 @@ function StepSucursalServicio({ branches, services, onSelect }: {
     </div>
   );
 }
-
 function StepHorario({ branchId, serviceId, dateStr, onSelect }: {
   branchId: string; serviceId: string; dateStr: string; onSelect: (s: Slot) => void;
 }) {
@@ -128,6 +144,7 @@ function StepHorario({ branchId, serviceId, dateStr, onSelect }: {
   return (
     <div className="space-y-3">
       <p className="text-sm font-medium text-gray-700">Selecciona un horario</p>
+      <CopiarHorariosButton slots={slots} dateStr={dateStr} />
       <div className="grid grid-cols-3 gap-2">
         {slots.map(s => (
           <button key={s.starts_at} onClick={() => onSelect(s)}
@@ -139,7 +156,6 @@ function StepHorario({ branchId, serviceId, dateStr, onSelect }: {
     </div>
   );
 }
-
 function StepPaciente({ patients, onSelect }: {
   patients: Patient[];
   onSelect: (p: Patient) => void;
@@ -151,9 +167,7 @@ function StepPaciente({ patients, onSelect }: {
   const [registering, setRegistering] = useState(false);
   const [regError, setRegError] = useState("");
   const [, startTransition] = useTransition();
-
   const selectedCountry = COUNTRIES.find(c => c.code === countryCode) ?? COUNTRIES[0];
-
   const filtered = q.length >= 2
     ? patients.filter(p =>
         p.name.toLowerCase().includes(q.toLowerCase()) ||
@@ -161,7 +175,6 @@ function StepPaciente({ patients, onSelect }: {
         p.phone.includes(q.slice(-10))
       )
     : [];
-
   function handleRegistrar() {
     const fullPhone = countryCode.replace("+", "") + newPhone;
     if (!newName.trim()) { setRegError("Nombre requerido"); return; }
@@ -178,7 +191,6 @@ function StepPaciente({ patients, onSelect }: {
       onSelect({ id: data.id, name: newName.trim(), phone: fullPhone });
     });
   }
-
   return (
     <div className="space-y-3">
       <p className="text-sm font-medium text-gray-700">Buscar paciente</p>
@@ -186,7 +198,6 @@ function StepPaciente({ patients, onSelect }: {
         placeholder="Buscar por nombre o telefono..."
         style={{ color: "black" }}
         className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none" />
-
       {q.length >= 2 && filtered.length === 0 && !registering && (
         <div className="text-center space-y-2 py-2">
           <p className="text-sm text-gray-400">No se encontro ningun paciente</p>
@@ -196,7 +207,6 @@ function StepPaciente({ patients, onSelect }: {
           </button>
         </div>
       )}
-
       {registering && (
         <div className="rounded-2xl bg-blue-50 border border-blue-200 p-4 space-y-3">
           <p className="text-sm font-semibold text-blue-800">Nuevo paciente</p>
@@ -236,7 +246,6 @@ function StepPaciente({ patients, onSelect }: {
           </div>
         </div>
       )}
-
       <div className="space-y-2 max-h-60 overflow-y-auto">
         {filtered.map(p => (
           <button key={p.id} onClick={() => onSelect(p)}
@@ -249,7 +258,6 @@ function StepPaciente({ patients, onSelect }: {
     </div>
   );
 }
-
 function StepConfirmacion({ branch, service, dateStr, slot, patient, therapists, onConfirm, isPending }: {
   branch: Branch; service: Service; dateStr: string; slot: Slot;
   patient: Patient; therapists: Therapist[]; branchId: string;
@@ -290,7 +298,6 @@ function StepConfirmacion({ branch, service, dateStr, slot, patient, therapists,
     </div>
   );
 }
-
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-4">
@@ -299,9 +306,7 @@ function Row({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
 const STEP_LABELS = ["Fecha", "Sucursal", "Horario", "Paciente", "Confirmacion"];
-
 export function AppointmentForm({ patients, branches, services, therapists, redirectTo }: {
   patients: Patient[];
   branches: Branch[];
@@ -318,10 +323,8 @@ export function AppointmentForm({ patients, branches, services, therapists, redi
   const [slot, setSlot]           = useState<Slot | null>(null);
   const [patient, setPatient]     = useState<Patient | null>(null);
   const [error, setError]         = useState("");
-
   const branch  = branches.find(b => b.id === branchId) ?? null;
   const service = services.find(s => s.id === serviceId) ?? null;
-
   function handleConfirm(therapistId: string | null, notes: string) {
     if (!patient || !slot) return;
     setError("");
@@ -353,7 +356,6 @@ export function AppointmentForm({ patients, branches, services, therapists, redi
       router.refresh();
     });
   }
-
   return (
     <div className="space-y-6">
       <div className="flex gap-1">
@@ -363,9 +365,7 @@ export function AppointmentForm({ patients, branches, services, therapists, redi
         ))}
       </div>
       <p className="text-xs text-gray-500 font-medium">{STEP_LABELS[step - 1]}</p>
-
       {step === 1 && <StepFecha onSelect={(d) => { setDateStr(d); setStep(2); }} />}
-
       {step === 2 && (
         <>
           <StepSucursalServicio branches={branches} services={services}
@@ -373,7 +373,6 @@ export function AppointmentForm({ patients, branches, services, therapists, redi
           <button onClick={() => setStep(1)} className="w-full text-sm text-gray-400 hover:text-gray-600 py-2">&#8592; Cambiar fecha</button>
         </>
       )}
-
       {step === 3 && (
         <>
           <StepHorario branchId={branchId} serviceId={serviceId} dateStr={dateStr}
@@ -381,14 +380,12 @@ export function AppointmentForm({ patients, branches, services, therapists, redi
           <button onClick={() => setStep(2)} className="w-full text-sm text-gray-400 hover:text-gray-600 py-2">&#8592; Cambiar sucursal</button>
         </>
       )}
-
       {step === 4 && (
         <>
           <StepPaciente patients={patients} onSelect={(p) => { setPatient(p); setStep(5); }} />
           <button onClick={() => setStep(3)} className="w-full text-sm text-gray-400 hover:text-gray-600 py-2">&#8592; Cambiar horario</button>
         </>
       )}
-
       {step === 5 && branch && service && slot && patient && (
         <>
           <StepConfirmacion

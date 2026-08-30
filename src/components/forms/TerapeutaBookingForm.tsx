@@ -1,13 +1,10 @@
-﻿"use client";
-
+"use client";
 import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatCSTTime, formatCSTDateShort } from "@/lib/appointments/availability";
-
 interface Patient { id: string; name: string; phone: string; }
 interface Service { id: string; name: string; duration_minutes: number; price: number; }
 interface Slot    { starts_at: string; ends_at: string; }
-
 interface Props {
   patients:    Patient[];
   services:    Service[];
@@ -15,13 +12,10 @@ interface Props {
   branchName:  string;
   therapistId: string;
 }
-
 type Step = 1 | 2 | 3 | 4 | 5;
-
 const MONTHS = ["enero","febrero","marzo","abril","mayo","junio",
                 "julio","agosto","septiembre","octubre","noviembre","diciembre"] as const;
 const DAYS   = ["Do","Lu","Ma","Mi","Ju","Vi","Sa"] as const;
-
 function todayCST() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Monterrey" });
 }
@@ -31,13 +25,35 @@ function calDays(year: number, month: number) {
     `${year}-${String(month + 1).padStart(2,"0")}-${String(i + 1).padStart(2,"0")}`
   );
 }
-
+function CopiarHorariosButton({ slots, dateStr }: { slots: Slot[]; dateStr: string }) {
+  const [copied, setCopied] = useState(false);
+  function handleCopy() {
+    const fecha = new Date(dateStr + "T12:00:00").toLocaleDateString("es-MX", {
+      weekday: "long", day: "numeric", month: "long",
+    });
+    const text =
+      `Horarios disponibles (${fecha}):\n` +
+      slots.map(s => formatCSTTime(s.starts_at)).join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="w-full flex items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition"
+    >
+      {copied ? "✅ Copiado — pégalo en WhatsApp" : "📋 Copiar horarios para WhatsApp"}
+    </button>
+  );
+}
 function QuickRegisterForm({ onSuccess, onCancel }: { onSuccess: (p: Patient) => void; onCancel: () => void; }) {
   const [isPending, startTransition] = useTransition();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
-
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -53,7 +69,6 @@ function QuickRegisterForm({ onSuccess, onCancel }: { onSuccess: (p: Patient) =>
       onSuccess({ id: data.id!, name: data.name!, phone: data.phone! });
     });
   }
-
   return (
     <form onSubmit={handleSubmit} className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-3 mt-2">
       <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Registrar nuevo paciente</p>
@@ -79,7 +94,6 @@ function QuickRegisterForm({ onSuccess, onCancel }: { onSuccess: (p: Patient) =>
     </form>
   );
 }
-
 // Step 1: Fecha
 function Step1({ onSelect }: { onSelect: (d: string) => void }) {
   const today = todayCST();
@@ -90,7 +104,6 @@ function Step1({ onSelect }: { onSelect: (d: string) => void }) {
   const maxDate = new Date();
   maxDate.setDate(maxDate.getDate() + 60);
   const maxStr = maxDate.toLocaleDateString("en-CA", { timeZone: "America/Monterrey" });
-
   return (
     <div className="space-y-4">
       <p className="text-sm font-medium text-gray-700">Selecciona una fecha</p>
@@ -120,7 +133,6 @@ function Step1({ onSelect }: { onSelect: (d: string) => void }) {
     </div>
   );
 }
-
 // Step 2: Servicio
 function Step2({ services, onSelect, onBack }: { services: Service[]; onSelect: (s: Service) => void; onBack: () => void; }) {
   return (
@@ -143,7 +155,6 @@ function Step2({ services, onSelect, onBack }: { services: Service[]; onSelect: 
     </div>
   );
 }
-
 // Step 3: Horario
 function Step3({ branchId, serviceId, dateStr, onSelect, onBack }: {
   branchId: string; serviceId: string; dateStr: string;
@@ -152,7 +163,6 @@ function Step3({ branchId, serviceId, dateStr, onSelect, onBack }: {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
-
   useEffect(() => {
     let cancelled = false;
     setLoading(true); setFetchError(false); setSlots([]);
@@ -166,7 +176,6 @@ function Step3({ branchId, serviceId, dateStr, onSelect, onBack }: {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [branchId, serviceId, dateStr]);
-
   return (
     <div className="space-y-4">
       <p className="text-sm font-medium text-gray-700">Horario - {formatCSTDateShort(new Date(dateStr + "T12:00:00").toISOString())}</p>
@@ -176,20 +185,22 @@ function Step3({ branchId, serviceId, dateStr, onSelect, onBack }: {
         <p className="text-sm text-gray-500 text-center py-6">No hay horarios disponibles este dia.</p>
       )}
       {!loading && !fetchError && slots.length > 0 && (
-        <div className="grid grid-cols-3 gap-2">
-          {slots.map(slot => (
-            <button key={slot.starts_at} onClick={() => onSelect(slot)}
-              className="rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-800 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 transition">
-              {formatCSTTime(slot.starts_at)}
-            </button>
-          ))}
-        </div>
+        <>
+          <CopiarHorariosButton slots={slots} dateStr={dateStr} />
+          <div className="grid grid-cols-3 gap-2">
+            {slots.map(slot => (
+              <button key={slot.starts_at} onClick={() => onSelect(slot)}
+                className="rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-800 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 transition">
+                {formatCSTTime(slot.starts_at)}
+              </button>
+            ))}
+          </div>
+        </>
       )}
       <button onClick={onBack} className="w-full text-sm text-gray-400 hover:text-gray-600 py-1.5 transition">&#8592; Cambiar servicio</button>
     </div>
   );
 }
-
 // Step 4: Paciente
 function Step4({ patients, onNext, onBack }: {
   patients: Patient[];
@@ -200,13 +211,11 @@ function Step4({ patients, onNext, onBack }: {
   const [selPatient, setSelPatient] = useState<Patient | null>(null);
   const [showRegister, setShowRegister] = useState(false);
   const [extraPatients, setExtraPatients] = useState<Patient[]>([]);
-
   const allPatients = [...extraPatients, ...patients];
   const filtered = query.trim().length >= 2
     ? allPatients.filter(p => p.name.toLowerCase().includes(query.toLowerCase()) || p.phone.includes(query.trim())).slice(0, 8)
     : [];
   const noResults = query.trim().length >= 2 && filtered.length === 0;
-
   return (
     <div className="space-y-4">
       <p className="text-sm font-medium text-gray-700">Buscar paciente</p>
@@ -260,7 +269,6 @@ function Step4({ patients, onNext, onBack }: {
     </div>
   );
 }
-
 // Step 5: Confirmacion
 function Step5({ patient, service, branchName, dateStr, slot, onConfirm, onBack, isPending, error }: {
   patient: Patient; service: Service; branchName: string;
@@ -303,7 +311,6 @@ function Step5({ patient, service, branchName, dateStr, slot, onConfirm, onBack,
     </div>
   );
 }
-
 // Componente principal
 export function TerapeutaBookingForm({ patients, services, branchId, branchName, therapistId }: Props) {
   const router = useRouter();
@@ -314,9 +321,7 @@ export function TerapeutaBookingForm({ patients, services, branchId, branchName,
   const [slot, setSlot] = useState<Slot | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [error, setError] = useState("");
-
   const LABELS = ["Fecha", "Servicio", "Horario", "Paciente", "Confirmacion"];
-
   function handleConfirm(notes: string) {
     if (!slot || !selectedPatient || !selectedService) return;
     setError("");
@@ -340,7 +345,6 @@ export function TerapeutaBookingForm({ patients, services, branchId, branchName,
       window.location.href = "/terapeuta/agenda";
     });
   }
-
   return (
     <div className="space-y-6">
       <div className="flex gap-1">
@@ -350,7 +354,6 @@ export function TerapeutaBookingForm({ patients, services, branchId, branchName,
         ))}
       </div>
       <p className="text-xs text-gray-500 font-medium">{LABELS[step - 1]}</p>
-
       {step === 1 && <Step1 onSelect={d => { setDateStr(d); setStep(2); }} />}
       {step === 2 && <Step2 services={services} onSelect={s => { setSelectedService(s); setStep(3); }} onBack={() => setStep(1)} />}
       {step === 3 && selectedService && (
@@ -368,6 +371,3 @@ export function TerapeutaBookingForm({ patients, services, branchId, branchName,
     </div>
   );
 }
-
-
-
