@@ -4,7 +4,7 @@ import { NotificationModal } from "@/components/layout/paciente/NotificationModa
 export default async function PacienteLayout({ children }: { children: React.ReactNode }) {
   const profile = await getServerProfile();
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 pb-24">
       <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
         <div>
           <p className="text-[11px] text-gray-400 leading-none">DrNatury</p>

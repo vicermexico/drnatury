@@ -124,10 +124,11 @@ export function SplashScreen({ onFinish }: { onFinish: () => void }) {
         }}
       >
         <Image
-          src="/nombre.jpg"
-          alt="Dr Natury - Bienestar integral y natural"
+          src="/drnatury-logo-full.png"
+          alt="DrNatury - Bienestar integral y natural"
           width={340}
-          height={137}
+          height={170}
+          unoptimized
           className="object-contain"
           priority
         />

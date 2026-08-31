@@ -94,7 +94,7 @@ export default async function PacienteAguaEnergeticaPage() {
   const activo = activacion !== null && new Date(activacion.fecha_fin) > new Date();
   if (!activo) {
     return (
-      <div className="fixed inset-0 z-30 bg-gradient-to-b from-blue-950 to-blue-900 flex flex-col pb-20 overflow-hidden">
+      <div className="fixed inset-0 z-30 bg-gradient-to-b from-blue-950 to-blue-900 flex flex-col pb-24 overflow-hidden">
         <PhoneGlassIntro />
         <div className="shrink-0 px-6 pb-4 pt-2 space-y-2">
           <div className="text-center">
