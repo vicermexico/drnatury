@@ -20,9 +20,9 @@ async function getFormData(branchId: string) {
     admin.from("branch_services")
       .select("price, services(id, name, duration_minutes)")
       .eq("branch_id", branchId),
-    // Nombre de la sucursal
+    // Datos de la sucursal (nombre y ubicacion para el link de mapa)
     admin.from("branches")
-      .select("name")
+      .select("name, address, lat, lng")
       .eq("id", branchId)
       .single(),
   ]);
@@ -35,9 +35,12 @@ async function getFormData(branchId: string) {
     .filter((s): s is ServiceRow & { price: number } => s !== null);
 
   return {
-    patients:   patientsRes.data ?? [],
+    patients:      patientsRes.data ?? [],
     services,
-    branchName: branchRes.data?.name ?? "",
+    branchName:    branchRes.data?.name ?? "",
+    branchAddress: branchRes.data?.address ?? null,
+    branchLat:     branchRes.data?.lat ?? null,
+    branchLng:     branchRes.data?.lng ?? null,
   };
 }
 
@@ -57,7 +60,7 @@ export default async function TerapeutaNuevaCitaPage() {
     );
   }
 
-  const { patients, services, branchName } = await getFormData(therapist.branch_id);
+  const { patients, services, branchName, branchAddress, branchLat, branchLng } = await getFormData(therapist.branch_id);
 
   return (
     <div className="space-y-5">
@@ -74,6 +77,9 @@ export default async function TerapeutaNuevaCitaPage() {
           services={services}
           branchId={therapist.branch_id}
           branchName={branchName}
+          branchAddress={branchAddress}
+          branchLat={branchLat}
+          branchLng={branchLng}
           therapistId={therapist.id}
         />
       </div>

@@ -7,7 +7,7 @@ async function getData() {
   const [patientsRes, branchesRes, servicesRes, therapistsRes] = await Promise.all([
     admin.from("profiles").select("id, name, phone")
       .contains("roles", ["PACIENTE"]).eq("is_active", true).is("deleted_at", null).order("name"),
-    admin.from("branches").select("id, name")
+    admin.from("branches").select("id, name, address, lat, lng")
       .eq("is_active", true).is("deleted_at", null).order("name"),
     admin.from("services").select("id, name, duration_minutes")
       .eq("is_active", true).is("deleted_at", null).order("name"),

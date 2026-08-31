@@ -14,7 +14,7 @@ async function getData() {
       .order("name"),
     admin
       .from("branches")
-      .select("id, name")
+      .select("id, name, address, lat, lng")
       .eq("is_active", true)
       .is("deleted_at", null)
       .order("name"),

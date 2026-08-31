@@ -3,7 +3,7 @@ import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatCSTTime } from "@/lib/appointments/availability";
 interface Patient   { id: string; name: string; phone: string }
-interface Branch    { id: string; name: string }
+interface Branch    { id: string; name: string; address?: string | null; lat?: number | null; lng?: number | null }
 interface Service   { id: string; name: string; duration_minutes: number }
 interface Therapist { id: string; name: string; branch_id: string | null }
 interface Slot      { starts_at: string; ends_at: string }
@@ -37,6 +37,15 @@ function fechaLarga(dateStr: string) {
 function buildWhatsappUrl(patient: Patient, mensaje: string) {
   const digits = patient.phone.replace(/\D/g, "");
   return `https://wa.me/${digits}?text=${encodeURIComponent(mensaje)}`;
+}
+function buildMapsUrl(branch: Branch): string | null {
+  if (branch.lat && branch.lng) {
+    return `https://www.google.com/maps?q=${branch.lat},${branch.lng}`;
+  }
+  if (branch.address) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(branch.address)}`;
+  }
+  return null;
 }
 function CopiarHorariosButton({ slots, dateStr }: { slots: Slot[]; dateStr: string }) {
   const [copied, setCopied] = useState(false);
@@ -314,6 +323,7 @@ function StepResumen({ patient, branch, service, dateStr, slot, therapistName, o
   therapistName: string | null;
   onDone: () => void;
 }) {
+  const mapsUrl = buildMapsUrl(branch);
   const mensaje =
     `Hola ${patient.name} 👋\n\n` +
     `Tu cita en DrNatury ha sido agendada:\n\n` +
@@ -322,6 +332,7 @@ function StepResumen({ patient, branch, service, dateStr, slot, therapistName, o
     `💆 Servicio: ${service.name}\n` +
     `📍 Sucursal: ${branch.name}\n` +
     (therapistName ? `🧑‍⚕️ Terapeuta: ${therapistName}\n` : "") +
+    (mapsUrl ? `🗺️ Cómo llegar: ${mapsUrl}\n` : "") +
     `\n¡Te esperamos!`;
   return (
     <div className="space-y-5">

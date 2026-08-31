@@ -6,11 +6,14 @@ interface Patient { id: string; name: string; phone: string; }
 interface Service { id: string; name: string; duration_minutes: number; price: number; }
 interface Slot    { starts_at: string; ends_at: string; }
 interface Props {
-  patients:    Patient[];
-  services:    Service[];
-  branchId:    string;
-  branchName:  string;
-  therapistId: string;
+  patients:      Patient[];
+  services:      Service[];
+  branchId:      string;
+  branchName:    string;
+  branchAddress?: string | null;
+  branchLat?:     number | null;
+  branchLng?:     number | null;
+  therapistId:   string;
 }
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 const MONTHS = ["enero","febrero","marzo","abril","mayo","junio",
@@ -33,6 +36,11 @@ function fechaLarga(dateStr: string) {
 function buildWhatsappUrl(patient: Patient, mensaje: string) {
   const digits = patient.phone.replace(/\D/g, "");
   return `https://wa.me/${digits}?text=${encodeURIComponent(mensaje)}`;
+}
+function buildMapsUrl(address?: string | null, lat?: number | null, lng?: number | null): string | null {
+  if (lat && lng) return `https://www.google.com/maps?q=${lat},${lng}`;
+  if (address) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+  return null;
 }
 function CopiarHorariosButton({ slots, dateStr }: { slots: Slot[]; dateStr: string }) {
   const [copied, setCopied] = useState(false);
@@ -321,11 +329,13 @@ function Step5({ patient, service, branchName, dateStr, slot, onConfirm, onBack,
   );
 }
 // Step 6: Resumen + WhatsApp
-function StepResumen({ patient, service, branchName, dateStr, slot, onDone }: {
+function StepResumen({ patient, service, branchName, branchAddress, branchLat, branchLng, dateStr, slot, onDone }: {
   patient: Patient; service: Service; branchName: string;
+  branchAddress?: string | null; branchLat?: number | null; branchLng?: number | null;
   dateStr: string; slot: Slot;
   onDone: () => void;
 }) {
+  const mapsUrl = buildMapsUrl(branchAddress, branchLat, branchLng);
   const mensaje =
     `Hola ${patient.name} 👋\n\n` +
     `Tu cita en DrNatury ha sido agendada:\n\n` +
@@ -333,6 +343,7 @@ function StepResumen({ patient, service, branchName, dateStr, slot, onDone }: {
     `🕐 Hora: ${formatCSTTime(slot.starts_at)}\n` +
     `💆 Servicio: ${service.name}\n` +
     `📍 Sucursal: ${branchName}\n` +
+    (mapsUrl ? `🗺️ Cómo llegar: ${mapsUrl}\n` : "") +
     `\n¡Te esperamos!`;
   return (
     <div className="space-y-5">
@@ -379,7 +390,7 @@ function StepResumen({ patient, service, branchName, dateStr, slot, onDone }: {
   );
 }
 // Componente principal
-export function TerapeutaBookingForm({ patients, services, branchId, branchName, therapistId }: Props) {
+export function TerapeutaBookingForm({ patients, services, branchId, branchName, branchAddress, branchLat, branchLng, therapistId }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [step, setStep] = useState<Step>(1);
@@ -445,6 +456,7 @@ export function TerapeutaBookingForm({ patients, services, branchId, branchName,
       )}
       {step === 6 && selectedPatient && selectedService && slot && (
         <StepResumen patient={selectedPatient} service={selectedService} branchName={branchName}
+          branchAddress={branchAddress} branchLat={branchLat} branchLng={branchLng}
           dateStr={dateStr} slot={slot} onDone={handleDone} />
       )}
     </div>
