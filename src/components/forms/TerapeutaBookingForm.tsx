@@ -79,24 +79,24 @@ function QuickRegisterForm({ onSuccess, onCancel }: { onSuccess: (p: Patient) =>
     });
   }
   return (
-    <form onSubmit={handleSubmit} className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-3 mt-2">
-      <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Registrar nuevo paciente</p>
+    <form onSubmit={handleSubmit} className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-3 mt-2">
+      <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Registrar nuevo paciente</p>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo *</label>
         <input required value={name} onChange={e => setName(e.target.value)} style={{ color: "black" }}
-          className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm bg-white focus:border-blue-500 focus:outline-none" />
+          className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm bg-white focus:border-emerald-500 focus:outline-none" />
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Telefono *</label>
         <input type="tel" inputMode="numeric" required value={phone}
           onChange={e => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
           placeholder="10 digitos" style={{ color: "black" }}
-          className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm bg-white focus:border-blue-500 focus:outline-none" />
+          className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm bg-white focus:border-emerald-500 focus:outline-none" />
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-2">
         <button type="button" onClick={onCancel} className="flex-1 rounded-xl border border-gray-300 py-2.5 text-sm text-gray-600 hover:bg-white transition">Cancelar</button>
-        <button type="submit" disabled={isPending} className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
+        <button type="submit" disabled={isPending} className="flex-1 rounded-xl bg-emerald-100 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-200 transition disabled:opacity-60">
           {isPending ? "Registrando..." : "Registrar"}
         </button>
       </div>
@@ -132,7 +132,7 @@ function Step1({ onSelect }: { onSelect: (d: string) => void }) {
           return (
             <button key={dateStr} disabled={disabled} onClick={() => onSelect(dateStr)}
               className={["rounded-lg py-2 text-sm transition",
-                disabled ? "text-gray-300 cursor-default" : "text-gray-900 font-medium hover:bg-blue-50 hover:text-blue-700",
+                disabled ? "text-gray-300 cursor-default" : "text-gray-900 font-medium hover:bg-emerald-50 hover:text-emerald-700",
               ].join(" ")}>
               {dayNum}
             </button>
@@ -153,7 +153,7 @@ function Step2({ services, onSelect, onBack }: { services: Service[]; onSelect: 
         <div className="space-y-2">
           {services.map(s => (
             <button key={s.id} type="button" onClick={() => onSelect(s)}
-              className="w-full text-left rounded-xl border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 px-4 py-3 transition">
+              className="w-full text-left rounded-xl border-2 border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 px-4 py-3 transition">
               <p className="text-sm font-semibold text-gray-900">{s.name}</p>
               <p className="text-xs text-gray-500 mt-0.5">{s.duration_minutes} min{s.price > 0 ? ` · $${s.price.toLocaleString("es-MX")}` : ""}</p>
             </button>
@@ -199,7 +199,7 @@ function Step3({ branchId, serviceId, dateStr, onSelect, onBack }: {
           <div className="grid grid-cols-3 gap-2">
             {slots.map(slot => (
               <button key={slot.starts_at} onClick={() => onSelect(slot)}
-                className="rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-800 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 transition">
+                className="rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-800 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 transition">
                 {formatCSTTime(slot.starts_at)}
               </button>
             ))}
@@ -229,13 +229,13 @@ function Step4({ patients, onNext, onBack }: {
     <div className="space-y-4">
       <p className="text-sm font-medium text-gray-700">Buscar paciente</p>
       {selPatient && !showRegister ? (
-        <div className="flex items-center justify-between rounded-xl border-2 border-blue-500 bg-blue-50 px-4 py-3">
+        <div className="flex items-center justify-between rounded-xl border-2 border-emerald-500 bg-emerald-50 px-4 py-3">
           <div>
             <p className="text-sm font-semibold text-gray-900">{selPatient.name}</p>
             <p className="text-xs text-gray-500">{selPatient.phone}</p>
           </div>
           <button type="button" onClick={() => { setSelPatient(null); setQuery(""); }}
-            className="text-xs text-blue-600 hover:text-blue-800 underline transition">Cambiar</button>
+            className="text-xs text-emerald-600 hover:text-emerald-800 underline transition">Cambiar</button>
         </div>
       ) : (
         <div className="space-y-1">
@@ -243,13 +243,13 @@ function Step4({ patients, onNext, onBack }: {
             onChange={e => { setQuery(e.target.value); setShowRegister(false); }}
             placeholder="Buscar por nombre o telefono..."
             style={{ color: "black" }}
-            className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm bg-white focus:border-blue-500 focus:outline-none" />
+            className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm bg-white focus:border-emerald-500 focus:outline-none" />
           {filtered.length > 0 && (
             <div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
               {filtered.map(p => (
                 <button key={p.id} type="button"
                   onClick={() => { setSelPatient(p); setQuery(""); setShowRegister(false); }}
-                  className="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 transition border-b border-gray-100 last:border-0">
+                  className="w-full text-left px-4 py-3 text-sm hover:bg-emerald-50 transition border-b border-gray-100 last:border-0">
                   <p className="font-medium text-gray-900">{p.name}</p>
                   <p className="text-xs text-gray-500">{p.phone}</p>
                 </button>
@@ -260,7 +260,7 @@ function Step4({ patients, onNext, onBack }: {
             <div className="rounded-xl border border-dashed border-gray-200 px-4 py-3 text-sm text-center space-y-2">
               <p className="text-gray-500">No encontrado</p>
               <button type="button" onClick={() => setShowRegister(true)}
-                className="text-blue-600 hover:text-blue-800 font-medium underline transition">+ Registrar nuevo paciente</button>
+                className="text-emerald-600 hover:text-emerald-800 font-medium underline transition">+ Registrar nuevo paciente</button>
             </div>
           )}
           {showRegister && (
@@ -271,7 +271,7 @@ function Step4({ patients, onNext, onBack }: {
         </div>
       )}
       <button disabled={!selPatient} onClick={() => { if (selPatient) onNext(selPatient); }}
-        className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50">
+        className="w-full rounded-xl bg-emerald-100 py-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-200 transition disabled:opacity-50">
         Continuar
       </button>
       <button onClick={onBack} className="w-full text-sm text-gray-400 hover:text-gray-600 py-1.5 transition">&#8592; Cambiar horario</button>
@@ -309,11 +309,11 @@ function Step5({ patient, service, branchName, dateStr, slot, onConfirm, onBack,
         <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
           placeholder="Notas internas sobre esta cita..."
           style={{ color: "black" }}
-          className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm bg-white focus:border-blue-500 focus:outline-none" />
+          className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm bg-white focus:border-emerald-500 focus:outline-none" />
       </div>
       {error && <p className="text-sm text-red-600 bg-red-50 rounded-xl px-4 py-3">{error}</p>}
       <button onClick={() => onConfirm(notes)} disabled={isPending}
-        className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
+        className="w-full rounded-xl bg-emerald-100 py-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-200 transition disabled:opacity-60">
         {isPending ? "Agendando..." : "Confirmar cita"}
       </button>
       <button onClick={onBack} className="w-full text-sm text-gray-400 hover:text-gray-600 py-1.5 transition">&#8592; Cambiar paciente</button>
@@ -423,7 +423,7 @@ export function TerapeutaBookingForm({ patients, services, branchId, branchName,
           <div className="flex gap-1">
             {LABELS.map((_, i) => (
               <div key={i} className={["flex-1 h-1 rounded-full transition-colors",
-                i + 1 <= step ? "bg-blue-600" : "bg-gray-200"].join(" ")} />
+                i + 1 <= step ? "bg-emerald-400" : "bg-gray-200"].join(" ")} />
             ))}
           </div>
           <p className="text-xs text-gray-500 font-medium">{LABELS[step - 1]}</p>

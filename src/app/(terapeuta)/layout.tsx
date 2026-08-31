@@ -1,15 +1,14 @@
 import Link from "next/link";
 import { getServerProfile } from "@/lib/auth";
+import { TerapeutaMobileMenu } from "@/components/layout/terapeuta/TerapeutaMobileMenu";
 
 const NAV = [
-  { href: "/terapeuta/dashboard",       label: "Inicio"            },
-  { href: "/terapeuta/agenda",          label: "Agenda de hoy"     },
-  { href: "/terapeuta/pacientes",       label: "Pacientes"         },
-  { href: "/terapeuta/inventario",      label: "Inventario"        },
-  { href: "/terapeuta/pedidos-biored",  label: "Pedidos BIORED"    },
-  { href: "/terapeuta/agua-energetica", label: "Agua Energetica"   },
-  { href: "/terapeuta/estado-cuenta",   label: "Estado de Cuenta"  },
-  { href: "/terapeuta/registro-biored", label: "Registrar en DrBioRed", red: true },
+  { href: "/terapeuta/dashboard",       label: "Inicio"             },
+  { href: "/terapeuta/agenda",          label: "Agenda de hoy"      },
+  { href: "/terapeuta/pacientes",       label: "Pacientes"          },
+  { href: "/terapeuta/inventario",      label: "Inventario"         },
+  { href: "/terapeuta/agua-energetica", label: "Activación de agua" },
+  { href: "/terapeuta/estado-cuenta",   label: "Estado de Cuenta"   },
 ];
 
 export default async function TerapeutaLayout({ children }: { children: React.ReactNode }) {
@@ -39,13 +38,9 @@ export default async function TerapeutaLayout({ children }: { children: React.Re
           </div>
         </div>
         <nav className="flex-1 space-y-1">
-          {NAV.map(({ href, label, red }) => (
+          {NAV.map(({ href, label }) => (
             <Link key={href} href={href}
-              className={`flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition ${
-                red
-                  ? 'text-red-600 hover:bg-red-50 hover:text-red-700'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}>
+              className="flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition text-gray-600 hover:bg-gray-50 hover:text-gray-900">
               {label}
             </Link>
           ))}
@@ -53,9 +48,9 @@ export default async function TerapeutaLayout({ children }: { children: React.Re
         <div className="mt-4 px-2">
           <Link
             href="/terapeuta/citas/nueva"
-            className="block w-full text-center text-xs font-semibold bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition mb-2"
+            className="block w-full text-center text-xs font-semibold bg-emerald-100 text-emerald-700 px-3 py-2 rounded-lg hover:bg-emerald-200 transition mb-2"
           >
-            + Nueva cita
+            Agendar cita paciente
           </Link>
           <form action="/api/auth/logout" method="POST">
             <button type="submit"
@@ -66,25 +61,7 @@ export default async function TerapeutaLayout({ children }: { children: React.Re
         </div>
       </aside>
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-          <div>
-            <p className="text-[11px] text-gray-400">DrNatury · Terapeuta</p>
-            {profile?.name && <p className="text-sm font-semibold text-gray-900">{profile.name}</p>}
-          </div>
-          <form action="/api/auth/logout" method="POST">
-            <button type="submit" className="text-xs text-gray-400 hover:text-gray-600">Salir</button>
-          </form>
-        </header>
-        <nav className="md:hidden bg-white border-b border-gray-100 px-4 flex gap-1 overflow-x-auto">
-          {NAV.map(({ href, label, red }) => (
-            <Link key={href} href={href}
-              className={`shrink-0 py-2.5 px-3 text-sm font-medium transition whitespace-nowrap ${
-                red ? 'text-red-600 hover:text-red-700' : 'text-gray-600 hover:text-blue-600'
-              }`}>
-              {label}
-            </Link>
-          ))}
-        </nav>
+        <TerapeutaMobileMenu nav={NAV} profileName={profile?.name ?? null} branchName={branchName} />
         <main className="flex-1 p-6">{children}</main>
       </div>
     </div>

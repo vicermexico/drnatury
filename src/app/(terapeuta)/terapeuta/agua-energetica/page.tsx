@@ -52,7 +52,7 @@ export default async function TerapeutaAguaEnergeticaPage() {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Agua Energetica</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Activación de agua</h1>
         <p className="text-sm text-gray-500 mt-1">Gestiona solicitudes y activa pacientes</p>
       </div>
       <ActivarAguaForm pacientes={pacientes} solicitudes={solicitudes} />

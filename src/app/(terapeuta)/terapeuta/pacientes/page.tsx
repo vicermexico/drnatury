@@ -66,7 +66,7 @@ export default async function TerapeutaPacientesPage({
         </div>
         <Link
           href="/terapeuta/pacientes/nueva"
-          className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition shrink-0"
+          className="rounded-xl bg-emerald-100 px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-200 transition shrink-0"
         >
           + Nuevo paciente
         </Link>

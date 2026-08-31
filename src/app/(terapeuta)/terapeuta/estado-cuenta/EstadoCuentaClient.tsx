@@ -77,7 +77,7 @@ export function EstadoCuentaClient({ tab, desde, hasta, historial, cortes }: Pro
             </div>
             <button
               onClick={() => updateParams({ tab: "historial", desde: desdeLocal, hasta: hastaLocal })}
-              className="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition"
+              className="px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition"
             >
               Buscar
             </button>

@@ -115,7 +115,7 @@ export function ActivarAguaForm({ pacientes, solicitudes }: {
                     Rechazar
                   </button>
                   <button onClick={() => handleAprobarSolicitud(s)}
-                    className="flex-1 rounded-xl bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
+                    className="flex-1 rounded-xl bg-emerald-100 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-200 transition">
                     Activar
                   </button>
                 </div>
@@ -134,7 +134,7 @@ export function ActivarAguaForm({ pacientes, solicitudes }: {
         <input type="text" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Buscar paciente por nombre o celular..."
           style={{ color: "black" }}
-          className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none" />
+          className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none" />
 
         <div className="space-y-2">
           {filtered.length === 0 && (
@@ -161,7 +161,7 @@ export function ActivarAguaForm({ pacientes, solicitudes }: {
                       ? "bg-green-100 text-green-700 cursor-default"
                       : activando === p.id
                       ? "bg-gray-100 text-gray-400 cursor-wait"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
+                      : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
                   ].join(" ")}
                 >
                   {estaActivo ? "✓ Activo" : activando === p.id ? "Activando..." : "Activar"}
