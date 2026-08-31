@@ -12,7 +12,7 @@ interface Props {
   branchName:  string;
   therapistId: string;
 }
-type Step = 1 | 2 | 3 | 4 | 5;
+type Step = 1 | 2 | 3 | 4 | 5 | 6;
 const MONTHS = ["enero","febrero","marzo","abril","mayo","junio",
                 "julio","agosto","septiembre","octubre","noviembre","diciembre"] as const;
 const DAYS   = ["Do","Lu","Ma","Mi","Ju","Vi","Sa"] as const;
@@ -24,6 +24,15 @@ function calDays(year: number, month: number) {
   return Array.from({ length: n }, (_, i) =>
     `${year}-${String(month + 1).padStart(2,"0")}-${String(i + 1).padStart(2,"0")}`
   );
+}
+function fechaLarga(dateStr: string) {
+  return new Date(`${dateStr}T12:00:00`).toLocaleDateString("es-MX", {
+    weekday: "long", day: "numeric", month: "long",
+  });
+}
+function buildWhatsappUrl(patient: Patient, mensaje: string) {
+  const digits = patient.phone.replace(/\D/g, "");
+  return `https://wa.me/${digits}?text=${encodeURIComponent(mensaje)}`;
 }
 function CopiarHorariosButton({ slots, dateStr }: { slots: Slot[]; dateStr: string }) {
   const [copied, setCopied] = useState(false);
@@ -311,6 +320,64 @@ function Step5({ patient, service, branchName, dateStr, slot, onConfirm, onBack,
     </div>
   );
 }
+// Step 6: Resumen + WhatsApp
+function StepResumen({ patient, service, branchName, dateStr, slot, onDone }: {
+  patient: Patient; service: Service; branchName: string;
+  dateStr: string; slot: Slot;
+  onDone: () => void;
+}) {
+  const mensaje =
+    `Hola ${patient.name} 👋\n\n` +
+    `Tu cita en DrNatury ha sido agendada:\n\n` +
+    `📅 Fecha: ${fechaLarga(dateStr)}\n` +
+    `🕐 Hora: ${formatCSTTime(slot.starts_at)}\n` +
+    `💆 Servicio: ${service.name}\n` +
+    `📍 Sucursal: ${branchName}\n` +
+    `\n¡Te esperamos!`;
+  return (
+    <div className="space-y-5">
+      <div className="text-center space-y-1">
+        <p className="text-3xl">✅</p>
+        <p className="text-base font-bold text-gray-900">¡Cita agendada!</p>
+        <p className="text-sm text-gray-500">Envía el resumen al paciente por WhatsApp</p>
+      </div>
+      <div className="rounded-2xl bg-gray-50 border border-gray-200 p-4 space-y-2 text-sm">
+        <div className="flex justify-between gap-4">
+          <span className="text-gray-500 shrink-0">Paciente</span>
+          <span className="font-medium text-gray-900 text-right">{patient.name} · {patient.phone}</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-gray-500 shrink-0">Sucursal</span>
+          <span className="font-medium text-gray-900 text-right">{branchName}</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-gray-500 shrink-0">Servicio</span>
+          <span className="font-medium text-gray-900 text-right">{service.name}</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-gray-500 shrink-0">Fecha</span>
+          <span className="font-medium text-gray-900 text-right">{fechaLarga(dateStr)}</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-gray-500 shrink-0">Horario</span>
+          <span className="font-medium text-gray-900 text-right">{formatCSTTime(slot.starts_at)}</span>
+        </div>
+      </div>
+      <a
+        href={buildWhatsappUrl(patient, mensaje)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-bold text-white hover:bg-emerald-600 transition"
+      >
+        💬 Enviar por WhatsApp
+      </a>
+      <button onClick={onDone}
+        className="w-full rounded-xl border border-gray-300 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
+        Listo
+      </button>
+    </div>
+  );
+}
 // Componente principal
 export function TerapeutaBookingForm({ patients, services, branchId, branchName, therapistId }: Props) {
   const router = useRouter();
@@ -342,18 +409,26 @@ export function TerapeutaBookingForm({ patients, services, branchId, branchName,
       const data = await res.json() as { error?: string; message?: string };
       if (res.status === 409) { setError("Ese horario acaba de ser tomado. Elige otro."); setStep(3); return; }
       if (!res.ok) { setError(data.message ?? "Error al agendar. Intenta de nuevo."); return; }
-      window.location.href = "/terapeuta/agenda";
+      setStep(6);
     });
+  }
+  function handleDone() {
+    router.push("/terapeuta/agenda");
+    router.refresh();
   }
   return (
     <div className="space-y-6">
-      <div className="flex gap-1">
-        {LABELS.map((_, i) => (
-          <div key={i} className={["flex-1 h-1 rounded-full transition-colors",
-            i + 1 <= step ? "bg-blue-600" : "bg-gray-200"].join(" ")} />
-        ))}
-      </div>
-      <p className="text-xs text-gray-500 font-medium">{LABELS[step - 1]}</p>
+      {step <= 5 && (
+        <>
+          <div className="flex gap-1">
+            {LABELS.map((_, i) => (
+              <div key={i} className={["flex-1 h-1 rounded-full transition-colors",
+                i + 1 <= step ? "bg-blue-600" : "bg-gray-200"].join(" ")} />
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 font-medium">{LABELS[step - 1]}</p>
+        </>
+      )}
       {step === 1 && <Step1 onSelect={d => { setDateStr(d); setStep(2); }} />}
       {step === 2 && <Step2 services={services} onSelect={s => { setSelectedService(s); setStep(3); }} onBack={() => setStep(1)} />}
       {step === 3 && selectedService && (
@@ -367,6 +442,10 @@ export function TerapeutaBookingForm({ patients, services, branchId, branchName,
         <Step5 patient={selectedPatient} service={selectedService} branchName={branchName}
           dateStr={dateStr} slot={slot} onConfirm={handleConfirm} onBack={() => setStep(4)}
           isPending={isPending} error={error} />
+      )}
+      {step === 6 && selectedPatient && selectedService && slot && (
+        <StepResumen patient={selectedPatient} service={selectedService} branchName={branchName}
+          dateStr={dateStr} slot={slot} onDone={handleDone} />
       )}
     </div>
   );

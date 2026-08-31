@@ -29,12 +29,19 @@ function calDays(year: number, month: number) {
     `${year}-${String(month + 1).padStart(2,"0")}-${String(i + 1).padStart(2,"0")}`
   );
 }
+function fechaLarga(dateStr: string) {
+  return new Date(`${dateStr}T12:00:00`).toLocaleDateString("es-MX", {
+    weekday: "long", day: "numeric", month: "long",
+  });
+}
+function buildWhatsappUrl(patient: Patient, mensaje: string) {
+  const digits = patient.phone.replace(/\D/g, "");
+  return `https://wa.me/${digits}?text=${encodeURIComponent(mensaje)}`;
+}
 function CopiarHorariosButton({ slots, dateStr }: { slots: Slot[]; dateStr: string }) {
   const [copied, setCopied] = useState(false);
   function handleCopy() {
-    const fecha = new Date(dateStr + "T12:00:00").toLocaleDateString("es-MX", {
-      weekday: "long", day: "numeric", month: "long",
-    });
+    const fecha = fechaLarga(dateStr);
     const text =
       `Horarios disponibles (${fecha}):\n` +
       slots.map(s => formatCSTTime(s.starts_at)).join("\n");
@@ -261,7 +268,7 @@ function StepPaciente({ patients, onSelect }: {
 function StepConfirmacion({ branch, service, dateStr, slot, patient, therapists, onConfirm, isPending }: {
   branch: Branch; service: Service; dateStr: string; slot: Slot;
   patient: Patient; therapists: Therapist[]; branchId: string;
-  onConfirm: (therapistId: string | null, notes: string) => void;
+  onConfirm: (therapistId: string | null, therapistName: string | null, notes: string) => void;
   isPending: boolean;
 }) {
   const [therapistId, setTherapistId] = useState("");
@@ -272,7 +279,7 @@ function StepConfirmacion({ branch, service, dateStr, slot, patient, therapists,
         <Row label="Paciente"  value={patient.name} />
         <Row label="Sucursal"  value={branch.name} />
         <Row label="Servicio"  value={service.name} />
-        <Row label="Fecha"     value={new Date(dateStr + "T12:00:00").toLocaleDateString("es-MX", { weekday:"long", day:"numeric", month:"long" })} />
+        <Row label="Fecha"     value={fechaLarga(dateStr)} />
         <Row label="Horario"   value={`${formatCSTTime(slot.starts_at)} - ${formatCSTTime(slot.ends_at)}`} />
       </div>
       <div>
@@ -290,10 +297,58 @@ function StepConfirmacion({ branch, service, dateStr, slot, patient, therapists,
           style={{ color: "black" }}
           className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none resize-none" />
       </div>
-      <button onClick={() => onConfirm(therapistId || null, notes)}
+      <button
+        onClick={() => {
+          const t = therapists.find(t => t.id === therapistId) ?? null;
+          onConfirm(therapistId || null, t?.name ?? null, notes);
+        }}
         disabled={isPending}
         className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
         {isPending ? "Agendando..." : "Confirmar cita"}
+      </button>
+    </div>
+  );
+}
+function StepResumen({ patient, branch, service, dateStr, slot, therapistName, onDone }: {
+  patient: Patient; branch: Branch; service: Service; dateStr: string; slot: Slot;
+  therapistName: string | null;
+  onDone: () => void;
+}) {
+  const mensaje =
+    `Hola ${patient.name} 👋\n\n` +
+    `Tu cita en DrNatury ha sido agendada:\n\n` +
+    `📅 Fecha: ${fechaLarga(dateStr)}\n` +
+    `🕐 Hora: ${formatCSTTime(slot.starts_at)}\n` +
+    `💆 Servicio: ${service.name}\n` +
+    `📍 Sucursal: ${branch.name}\n` +
+    (therapistName ? `🧑‍⚕️ Terapeuta: ${therapistName}\n` : "") +
+    `\n¡Te esperamos!`;
+  return (
+    <div className="space-y-5">
+      <div className="text-center space-y-1">
+        <p className="text-3xl">✅</p>
+        <p className="text-base font-bold text-gray-900">¡Cita agendada!</p>
+        <p className="text-sm text-gray-500">Envía el resumen al paciente por WhatsApp</p>
+      </div>
+      <div className="rounded-2xl bg-gray-50 border border-gray-200 p-4 space-y-2 text-sm">
+        <Row label="Paciente"  value={`${patient.name} · ${patient.phone}`} />
+        <Row label="Sucursal"  value={branch.name} />
+        <Row label="Servicio"  value={service.name} />
+        <Row label="Fecha"     value={fechaLarga(dateStr)} />
+        <Row label="Horario"   value={formatCSTTime(slot.starts_at)} />
+        {therapistName && <Row label="Terapeuta" value={therapistName} />}
+      </div>
+      <a
+        href={buildWhatsappUrl(patient, mensaje)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-bold text-white hover:bg-emerald-600 transition"
+      >
+        💬 Enviar por WhatsApp
+      </a>
+      <button onClick={onDone}
+        className="w-full rounded-xl border border-gray-300 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
+        Listo
       </button>
     </div>
   );
@@ -322,10 +377,11 @@ export function AppointmentForm({ patients, branches, services, therapists, redi
   const [serviceId, setServiceId] = useState("");
   const [slot, setSlot]           = useState<Slot | null>(null);
   const [patient, setPatient]     = useState<Patient | null>(null);
+  const [therapistName, setTherapistName] = useState<string | null>(null);
   const [error, setError]         = useState("");
   const branch  = branches.find(b => b.id === branchId) ?? null;
   const service = services.find(s => s.id === serviceId) ?? null;
-  function handleConfirm(therapistId: string | null, notes: string) {
+  function handleConfirm(therapistId: string | null, tName: string | null, notes: string) {
     if (!patient || !slot) return;
     setError("");
     startTransition(async () => {
@@ -352,19 +408,27 @@ export function AppointmentForm({ patients, branches, services, therapists, redi
         setError(data.message ?? "Error al agendar. Intenta de nuevo.");
         return;
       }
-      router.push(redirectTo ?? "/master/citas");
-      router.refresh();
+      setTherapistName(tName);
+      setStep(6);
     });
+  }
+  function handleDone() {
+    router.push(redirectTo ?? "/master/citas");
+    router.refresh();
   }
   return (
     <div className="space-y-6">
-      <div className="flex gap-1">
-        {STEP_LABELS.map((_, i) => (
-          <div key={i} className={["flex-1 h-1 rounded-full transition-colors",
-            i + 1 <= step ? "bg-blue-600" : "bg-gray-200"].join(" ")} />
-        ))}
-      </div>
-      <p className="text-xs text-gray-500 font-medium">{STEP_LABELS[step - 1]}</p>
+      {step <= 5 && (
+        <>
+          <div className="flex gap-1">
+            {STEP_LABELS.map((_, i) => (
+              <div key={i} className={["flex-1 h-1 rounded-full transition-colors",
+                i + 1 <= step ? "bg-blue-600" : "bg-gray-200"].join(" ")} />
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 font-medium">{STEP_LABELS[step - 1]}</p>
+        </>
+      )}
       {step === 1 && <StepFecha onSelect={(d) => { setDateStr(d); setStep(2); }} />}
       {step === 2 && (
         <>
@@ -397,6 +461,13 @@ export function AppointmentForm({ patients, branches, services, therapists, redi
           {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-3">{error}</p>}
           <button onClick={() => setStep(4)} className="w-full text-sm text-gray-400 hover:text-gray-600 py-2">&#8592; Cambiar paciente</button>
         </>
+      )}
+      {step === 6 && branch && service && slot && patient && (
+        <StepResumen
+          patient={patient} branch={branch} service={service}
+          dateStr={dateStr} slot={slot} therapistName={therapistName}
+          onDone={handleDone}
+        />
       )}
     </div>
   );
