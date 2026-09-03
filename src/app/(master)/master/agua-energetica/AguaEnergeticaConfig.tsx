@@ -29,6 +29,12 @@ export function AguaEnergeticaConfig({ config }: { config: Config | null }) {
   function addHorario() {
     setHorarios(prev => [...prev, { inicio: "08:00", fin: "10:00" }]);
   }
+  function addHorario24() {
+    setHorarios([{ inicio: "00:00", fin: "23:59" }]);
+  }
+  function es24Horas(h: Horario) {
+    return h.inicio === "00:00" && (h.fin === "23:59" || h.fin === "24:00");
+  }
   function updateHorario(i: number, field: "inicio" | "fin", value: string) {
     setHorarios(prev => prev.map((h, idx) => idx === i ? { ...h, [field]: value } : h));
   }
@@ -132,18 +138,29 @@ export function AguaEnergeticaConfig({ config }: { config: Config | null }) {
         <p className="text-xs text-gray-400">En estos horarios el boton Iniciar estara disponible</p>
         {horarios.map((h, i) => (
           <div key={i} className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 w-8">De</span>
-            <input type="time" value={h.inicio} onChange={e => updateHorario(i, "inicio", e.target.value)}
-              style={{ color: "black" }}
-              className="rounded-xl border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none" />
-            <span className="text-xs text-gray-500">a</span>
-            <input type="time" value={h.fin} onChange={e => updateHorario(i, "fin", e.target.value)}
-              style={{ color: "black" }}
-              className="rounded-xl border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none" />
+            {es24Horas(h) ? (
+              <span className="text-sm font-medium text-emerald-700 bg-emerald-50 rounded-xl px-3 py-2">
+                🕐 Disponible las 24 horas
+              </span>
+            ) : (
+              <>
+                <span className="text-xs text-gray-500 w-8">De</span>
+                <input type="time" value={h.inicio} onChange={e => updateHorario(i, "inicio", e.target.value)}
+                  style={{ color: "black" }}
+                  className="rounded-xl border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none" />
+                <span className="text-xs text-gray-500">a</span>
+                <input type="time" value={h.fin} onChange={e => updateHorario(i, "fin", e.target.value)}
+                  style={{ color: "black" }}
+                  className="rounded-xl border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none" />
+              </>
+            )}
             <button onClick={() => removeHorario(i)} className="text-red-400 hover:text-red-600 text-lg">×</button>
           </div>
         ))}
-        <button onClick={addHorario} className="text-sm text-blue-600 font-medium">+ Agregar horario</button>
+        <div className="flex flex-wrap gap-4 pt-1">
+          <button onClick={addHorario} className="text-sm text-blue-600 font-medium">+ Agregar horario</button>
+          <button onClick={addHorario24} className="text-sm text-emerald-600 font-medium">🕐 Disponible las 24 horas</button>
+        </div>
       </div>
       {/* Dias y comision */}
       <div className="rounded-2xl bg-white border border-gray-200 p-5 space-y-4">

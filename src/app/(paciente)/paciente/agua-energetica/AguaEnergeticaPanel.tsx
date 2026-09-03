@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { PhoneGlassIntro } from "@/components/agua/PhoneGlassIntro";
 interface Horario { inicio: string; fin: string; }
 interface Config {
   video_espera_url: string | null;
@@ -21,7 +22,11 @@ function useNow() {
   }, []);
   return now;
 }
+function es24Horas(h: Horario): boolean {
+  return h.inicio === "00:00" && (h.fin === "23:59" || h.fin === "24:00");
+}
 function estaEnHorario(horarios: Horario[], now: Date): boolean {
+  if (horarios.some(es24Horas)) return true;
   const cst = new Date(now.toLocaleString("en-US", { timeZone: "America/Monterrey" }));
   const hh = cst.getHours();
   const mm = cst.getMinutes();
@@ -150,7 +155,7 @@ export function AguaEnergeticaPanel({ config, activacion }: {
         </p>
       </div>
       {/* Imagen/gif activo */}
-      <div className="flex-1 flex items-center justify-center px-6">
+      <div className="flex-1 min-h-0 flex items-center justify-center px-6">
         {config?.imagen_activa_url ? (
           config.imagen_activa_url.match(/\.(mp4|webm|mov)$/i) ? (
             <video src={config.imagen_activa_url} autoPlay loop muted playsInline
@@ -160,7 +165,7 @@ export function AguaEnergeticaPanel({ config, activacion }: {
               className="w-full max-w-sm rounded-3xl shadow-2xl" />
           )
         ) : (
-          <div className="text-8xl">🥛</div>
+          <PhoneGlassIntro />
         )}
       </div>
       {/* Boton iniciar o contador */}
