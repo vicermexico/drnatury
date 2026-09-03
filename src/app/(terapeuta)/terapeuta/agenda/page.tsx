@@ -4,6 +4,7 @@ export const revalidate = 0;
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/auth";
 import { formatCSTTime } from "@/lib/appointments/availability";
+import { MapsLink } from "@/components/agenda/MapsLink";
 import type { AppointmentStatus } from "@/types";
 
 async function getMisCitas(therapistId: string, branchId: string | null, dateStr: string) {
@@ -199,11 +200,7 @@ function CitaCard({ appt, mostrarCelular }: { appt: RawAppt; mostrarCelular: boo
             {direccion && (
               <>
                 {" "}·{" "}
-                <a href={buildMapsUrlFromAddress(direccion)} target="_blank" rel="noopener noreferrer"
-                  onClick={e => e.stopPropagation()}
-                  className="underline font-semibold text-blue-600">
-                  🗺️ Cómo llegar
-                </a>
+                <MapsLink href={buildMapsUrlFromAddress(direccion)} label="🗺️ Cómo llegar" />
               </>
             )}
           </p>
