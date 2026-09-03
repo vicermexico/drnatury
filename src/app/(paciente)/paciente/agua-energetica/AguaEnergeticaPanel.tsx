@@ -146,9 +146,9 @@ export function AguaEnergeticaPanel({ config, activacion }: {
   }
   // Con activacion
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-950 to-blue-900 flex flex-col">
+    <div className="fixed inset-0 z-30 bg-gradient-to-b from-blue-950 to-blue-900 flex flex-col pb-24 overflow-hidden">
       {/* Tiempo restante de activacion */}
-      <div className="text-center pt-8 pb-4 px-4">
+      <div className="shrink-0 text-center pt-8 pb-2 px-4">
         <p className="text-blue-300 text-xs font-medium uppercase tracking-wide">Tu servicio vence en</p>
         <p className="text-white text-lg font-bold mt-1">
           {formatDiasRestantes(activacion!.fecha_fin, now)}
@@ -169,16 +169,16 @@ export function AguaEnergeticaPanel({ config, activacion }: {
         )}
       </div>
       {/* Boton iniciar o contador */}
-      <div className="px-6 pb-12 pt-4 space-y-4">
+      <div className="shrink-0 px-6 pb-4 pt-2 space-y-3">
         {enHorario ? (
           <button onClick={handleIniciar}
-            className="w-full rounded-2xl bg-emerald-400 py-5 text-lg font-bold text-white shadow-lg hover:bg-emerald-500 transition active:scale-95">
+            className="w-full rounded-2xl bg-emerald-400 py-4 text-lg font-bold text-white shadow-lg hover:bg-emerald-500 transition active:scale-95">
             🥛 Iniciar
           </button>
         ) : (
-          <div className="text-center space-y-2">
+          <div className="text-center space-y-1">
             <p className="text-blue-300 text-sm">Proxima activacion en</p>
-            <p className="text-white text-5xl font-bold tracking-wider font-mono">
+            <p className="text-white text-4xl font-bold tracking-wider font-mono">
               {formatCountdown(msProximo)}
             </p>
             {proximo && (
