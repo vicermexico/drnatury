@@ -247,8 +247,8 @@ function Step3Servicio({ services, onSelect, onBack }: { services: Service[]; on
   );
 }
 // Step 4: Horario
-function Step4Horario({ branchId, serviceId, dateStr, modalidad, onSelect, onBack }: {
-  branchId: string; serviceId: string; dateStr: string; modalidad: Modalidad;
+function Step4Horario({ branchId, serviceId, dateStr, modalidad, therapistId, onSelect, onBack }: {
+  branchId: string; serviceId: string; dateStr: string; modalidad: Modalidad; therapistId: string;
   onSelect: (s: Slot) => void; onBack: () => void;
 }) {
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -258,7 +258,7 @@ function Step4Horario({ branchId, serviceId, dateStr, modalidad, onSelect, onBac
     let cancelled = false;
     setLoading(true); setFetchError(false); setSlots([]);
     const qs = modalidad === "DOMICILIO"
-      ? `service_id=${serviceId}&date=${dateStr}&modalidad=DOMICILIO`
+      ? `service_id=${serviceId}&date=${dateStr}&modalidad=DOMICILIO&therapist_id=${therapistId}`
       : `branch_id=${branchId}&service_id=${serviceId}&date=${dateStr}`;
     fetch(`/api/appointments/availability?${qs}`)
       .then(async r => {
@@ -269,7 +269,7 @@ function Step4Horario({ branchId, serviceId, dateStr, modalidad, onSelect, onBac
       .catch(() => { if (!cancelled) setFetchError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [branchId, serviceId, dateStr, modalidad]);
+  }, [branchId, serviceId, dateStr, modalidad, therapistId]);
   return (
     <div className="space-y-4">
       <p className="text-sm font-medium text-gray-700">Horario - {formatCSTDateShort(new Date(dateStr + "T12:00:00").toISOString())}</p>
@@ -536,7 +536,7 @@ export function TerapeutaBookingForm({ patients, services, branchId, branchName,
       {step === 2 && <Step2Fecha onSelect={d => { setDateStr(d); setStep(3); }} onBack={() => setStep(1)} />}
       {step === 3 && <Step3Servicio services={services} onSelect={s => { setSelectedService(s); setStep(4); }} onBack={() => setStep(2)} />}
       {step === 4 && selectedService && modalidad && (
-        <Step4Horario branchId={branchId} serviceId={selectedService.id} dateStr={dateStr} modalidad={modalidad}
+        <Step4Horario branchId={branchId} serviceId={selectedService.id} dateStr={dateStr} modalidad={modalidad} therapistId={therapistId}
           onSelect={s => { setSlot(s); setError(""); setStep(5); }} onBack={() => setStep(3)} />
       )}
       {step === 5 && (

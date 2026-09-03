@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
   const serviceId = searchParams.get("service_id");
   const dateStr   = searchParams.get("date");
   const modalidad = searchParams.get("modalidad") === "DOMICILIO" ? "DOMICILIO" : "CONSULTORIO";
+  const therapistId = searchParams.get("therapist_id");
   if (!serviceId || !dateStr || (modalidad === "CONSULTORIO" && !branchId)) {
     return NextResponse.json({ error: "MISSING_PARAMS" }, { status: 400 });
   }
@@ -36,9 +37,28 @@ export async function GET(request: NextRequest) {
     const { data: blockedData } = await admin.from("blocked_slots").select("all_day, start_time, end_time, branch_id").eq("date", dateStr).is("branch_id", null);
     if ((blockedData ?? []).some(b => b.all_day)) return NextResponse.json([]);
     const blockedHours = (blockedData ?? []).filter(b => !b.all_day && b.start_time && b.end_time).map(b => ({ start_time: b.start_time!, end_time: b.end_time! }));
-    // No se filtra por citas existentes aqui: a esta altura todavia no se
-    // eligio terapeuta. El choque real se valida al confirmar (book_appointment).
-    const slots = getAvailableSlots(dateStr, DOMICILIO_SCHEDULE, duration_minutes, 999, [], blockedHours);
+    // Si ya se conoce el terapeuta (por ejemplo, el terapeuta agendando su
+    // propia cita), se descartan los horarios donde ya tiene otra cita —
+    // asi evitamos que luego book_appointment rechace el slot como ocupado.
+    // Cuando no se conoce el terapeuta todavia (master/asistente antes de
+    // elegirlo), no se puede filtrar y el choque real se valida al confirmar.
+    let existing: { starts_at: string; ends_at: string }[] = [];
+    let capacity = 999;
+    if (therapistId) {
+      const dayStartUTC = cstToUTC(dateStr, "00:00").toISOString();
+      const dayEndUTC   = cstToUTC(dateStr, "23:59").toISOString();
+      const { data } = await admin
+        .from("appointments")
+        .select("starts_at, ends_at")
+        .eq("therapist_id", therapistId)
+        .is("deleted_at", null)
+        .not("status", "in", '("CANCELADA","NO_ASISTIO")')
+        .gte("starts_at", dayStartUTC)
+        .lte("starts_at", dayEndUTC);
+      existing = data ?? [];
+      capacity = 1;
+    }
+    const slots = getAvailableSlots(dateStr, DOMICILIO_SCHEDULE, duration_minutes, capacity, existing, blockedHours);
     return NextResponse.json(slots);
   }
 
