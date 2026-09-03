@@ -46,6 +46,55 @@ function buildMapsUrl(address?: string | null, lat?: number | null, lng?: number
 function buildMapsUrlFromAddress(address: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
+interface DireccionPartes { calle: string; numero: string; colonia: string; municipio: string; estado: string; cp: string; }
+function buildDireccionCompleta(d: DireccionPartes): string {
+  const partes = [
+    [d.calle.trim(), d.numero.trim()].filter(Boolean).join(" "),
+    d.colonia.trim() ? `Col. ${d.colonia.trim()}` : "",
+    d.municipio.trim(),
+    d.estado.trim(),
+    d.cp.trim() ? `CP ${d.cp.trim()}` : "",
+  ].filter(Boolean);
+  return partes.join(", ");
+}
+function DireccionFields({ value, onChange }: { value: DireccionPartes; onChange: (d: DireccionPartes) => void }) {
+  const set = (field: keyof DireccionPartes) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    onChange({ ...value, [field]: e.target.value });
+  const inputClass = "w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm bg-white focus:border-emerald-500 focus:outline-none";
+  return (
+    <div className="space-y-3">
+      <p className="text-sm font-medium text-gray-700">Dirección del domicilio *</p>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="col-span-2">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Calle *</label>
+          <input type="text" value={value.calle} onChange={set("calle")} style={{ color: "black" }} className={inputClass} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Número *</label>
+          <input type="text" value={value.numero} onChange={set("numero")} style={{ color: "black" }} className={inputClass} />
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">Colonia *</label>
+        <input type="text" value={value.colonia} onChange={set("colonia")} style={{ color: "black" }} className={inputClass} />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Municipio/Ciudad *</label>
+          <input type="text" value={value.municipio} onChange={set("municipio")} style={{ color: "black" }} className={inputClass} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Estado *</label>
+          <input type="text" value={value.estado} onChange={set("estado")} style={{ color: "black" }} className={inputClass} />
+        </div>
+      </div>
+      <div className="w-1/2 pr-1">
+        <label className="block text-xs font-medium text-gray-600 mb-1">C.P. (opcional)</label>
+        <input type="text" inputMode="numeric" value={value.cp} onChange={set("cp")} style={{ color: "black" }} className={inputClass} />
+      </div>
+    </div>
+  );
+}
 function CopiarHorariosButton({ slots, dateStr }: { slots: Slot[]; dateStr: string }) {
   const [copied, setCopied] = useState(false);
   function handleCopy() {
@@ -322,8 +371,10 @@ function Step6Confirmacion({ patient, service, branchName, modalidad, dateStr, s
   isPending: boolean; error: string;
 }) {
   const [notes, setNotes] = useState("");
-  const [direccion, setDireccion] = useState("");
-  const puedeConfirmar = modalidad === "CONSULTORIO" || direccion.trim().length > 0;
+  const [dir, setDir] = useState<DireccionPartes>({ calle: "", numero: "", colonia: "", municipio: "", estado: "", cp: "" });
+  const direccion = modalidad === "DOMICILIO" ? buildDireccionCompleta(dir) : "";
+  const puedeConfirmar = modalidad === "CONSULTORIO" ||
+    (dir.calle.trim() && dir.numero.trim() && dir.colonia.trim() && dir.municipio.trim() && dir.estado.trim());
   const rows: [string, string][] = [
     ["Paciente", `${patient.name} · ${patient.phone}`],
     ["Servicio", `${service.name} (${service.duration_minutes} min)`],
@@ -343,13 +394,7 @@ function Step6Confirmacion({ patient, service, branchName, modalidad, dateStr, s
         ))}
       </div>
       {modalidad === "DOMICILIO" && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Dirección del domicilio *</label>
-          <textarea value={direccion} onChange={e => setDireccion(e.target.value)} rows={2}
-            placeholder="Calle, número, colonia, ciudad..."
-            style={{ color: "black" }}
-            className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm bg-white focus:border-emerald-500 focus:outline-none resize-none" />
-        </div>
+        <DireccionFields value={dir} onChange={setDir} />
       )}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Observaciones (opcional)</label>
@@ -359,7 +404,7 @@ function Step6Confirmacion({ patient, service, branchName, modalidad, dateStr, s
           className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm bg-white focus:border-emerald-500 focus:outline-none" />
       </div>
       {error && <p className="text-sm text-red-600 bg-red-50 rounded-xl px-4 py-3">{error}</p>}
-      <button onClick={() => onConfirm(notes, direccion.trim())} disabled={isPending || !puedeConfirmar}
+      <button onClick={() => onConfirm(notes, direccion)} disabled={isPending || !puedeConfirmar}
         className="w-full rounded-xl bg-emerald-100 py-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-200 transition disabled:opacity-50">
         {isPending ? "Agendando..." : "Confirmar cita"}
       </button>
