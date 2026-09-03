@@ -5,6 +5,8 @@ export type TemplateKey =
   | "appointment_booked"
   | "appointment_reminder"
   | "appointment_cancelled"
+  | "appointment_confirmed_notify"
+  | "appointment_cancelled_by_patient"
   | "low_stock_alert"
   | "supply_request";
 
