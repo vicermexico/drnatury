@@ -13,7 +13,7 @@ async function getMisCitas(therapistId: string, branchId: string | null, dateStr
 
   const { data: misCitas } = await admin
     .from("appointments")
-    .select(`id, starts_at, ends_at, status,
+    .select(`id, starts_at, ends_at, status, modalidad, domicilio_direccion,
       patient:profiles!patient_id(name, phone),
       services(name, duration_minutes),
       branches(name)`)
@@ -27,7 +27,7 @@ async function getMisCitas(therapistId: string, branchId: string | null, dateStr
   if (branchId) {
     const { data } = await admin
       .from("appointments")
-      .select(`id, starts_at, ends_at, status,
+      .select(`id, starts_at, ends_at, status, modalidad, domicilio_direccion,
         patient:profiles!patient_id(name, phone),
         services(name, duration_minutes),
         branches(name)`)
@@ -159,11 +159,17 @@ export default async function TerapeutaAgendaPage({
 
 type RawAppt = Awaited<ReturnType<typeof getMisCitas>>[number];
 
+function buildMapsUrlFromAddress(address: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}
+
 function CitaCard({ appt, mostrarCelular }: { appt: RawAppt; mostrarCelular: boolean }) {
   const status  = appt.status as AppointmentStatus;
   const patient = Array.isArray(appt.patient)  ? appt.patient[0]  : appt.patient  as { name: string; phone: string } | null;
   const service = Array.isArray(appt.services) ? appt.services[0] : appt.services as { name: string; duration_minutes: number } | null;
   const branch  = Array.isArray(appt.branches) ? appt.branches[0] : appt.branches as { name: string } | null;
+  const esDomicilio = (appt as unknown as { modalidad?: string }).modalidad === "DOMICILIO";
+  const direccion = (appt as unknown as { domicilio_direccion?: string | null }).domicilio_direccion;
 
   return (
     <Link href={`/terapeuta/citas/${appt.id}`}
@@ -186,7 +192,22 @@ function CitaCard({ appt, mostrarCelular }: { appt: RawAppt; mostrarCelular: boo
       <div className="space-y-0.5">
         {patient && <p className="text-sm font-medium text-gray-800">{patient.name}</p>}
         {mostrarCelular && patient?.phone && <p className="text-xs text-gray-500">{patient.phone}</p>}
-        {branch && <p className="text-xs text-gray-500">{branch.name}</p>}
+        {!esDomicilio && branch && <p className="text-xs text-gray-500">{branch.name}</p>}
+        {esDomicilio && (
+          <p className="text-xs text-gray-500">
+            🏠 A domicilio{direccion ? `: ${direccion}` : ""}
+            {direccion && (
+              <>
+                {" "}·{" "}
+                <a href={buildMapsUrlFromAddress(direccion)} target="_blank" rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="underline font-semibold text-blue-600">
+                  🗺️ Cómo llegar
+                </a>
+              </>
+            )}
+          </p>
+        )}
       </div>
     </Link>
   );

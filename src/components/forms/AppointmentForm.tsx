@@ -2,6 +2,7 @@
 import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatCSTTime } from "@/lib/appointments/availability";
+type Modalidad = "CONSULTORIO" | "DOMICILIO";
 interface Patient   { id: string; name: string; phone: string }
 interface Branch    { id: string; name: string; address?: string | null; lat?: number | null; lng?: number | null }
 interface Service   { id: string; name: string; duration_minutes: number }
@@ -47,6 +48,9 @@ function buildMapsUrl(branch: Branch): string | null {
   }
   return null;
 }
+function buildMapsUrlFromAddress(address: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}
 function CopiarHorariosButton({ slots, dateStr }: { slots: Slot[]; dateStr: string }) {
   const [copied, setCopied] = useState(false);
   function handleCopy() {
@@ -67,6 +71,25 @@ function CopiarHorariosButton({ slots, dateStr }: { slots: Slot[]; dateStr: stri
     >
       {copied ? "✅ Copiado — pégalo en WhatsApp" : "📋 Copiar horarios para WhatsApp"}
     </button>
+  );
+}
+function StepModalidad({ onSelect }: { onSelect: (m: Modalidad) => void }) {
+  return (
+    <div className="space-y-4">
+      <p className="text-sm font-medium text-gray-700">¿Consultorio o a domicilio?</p>
+      <div className="grid grid-cols-2 gap-3">
+        <button onClick={() => onSelect("CONSULTORIO")}
+          className="rounded-2xl border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition p-5 flex flex-col items-center gap-2">
+          <span className="text-3xl">🏥</span>
+          <span className="text-sm font-semibold text-gray-800">Consultorio</span>
+        </button>
+        <button onClick={() => onSelect("DOMICILIO")}
+          className="rounded-2xl border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition p-5 flex flex-col items-center gap-2">
+          <span className="text-3xl">🏠</span>
+          <span className="text-sm font-semibold text-gray-800">A domicilio</span>
+        </button>
+      </div>
+    </div>
   );
 }
 function StepFecha({ onSelect }: { onSelect: (d: string) => void }) {
@@ -143,18 +166,45 @@ function StepSucursalServicio({ branches, services, onSelect }: {
     </div>
   );
 }
-function StepHorario({ branchId, serviceId, dateStr, onSelect }: {
-  branchId: string; serviceId: string; dateStr: string; onSelect: (s: Slot) => void;
+function StepServicioSolo({ services, onSelect }: {
+  services: Service[];
+  onSelect: (s: string) => void;
+}) {
+  const [serviceId, setServiceId] = useState("");
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Servicio *</label>
+        <select value={serviceId} onChange={e => setServiceId(e.target.value)}
+          style={{ color: "black" }}
+          className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm bg-white focus:border-blue-500 focus:outline-none">
+          <option value="">Selecciona servicio</option>
+          {services.map(s => <option key={s.id} value={s.id}>{s.name} ({s.duration_minutes} min)</option>)}
+        </select>
+      </div>
+      <button onClick={() => serviceId && onSelect(serviceId)}
+        disabled={!serviceId}
+        className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-40">
+        Continuar
+      </button>
+    </div>
+  );
+}
+function StepHorario({ branchId, serviceId, dateStr, modalidad, onSelect }: {
+  branchId: string; serviceId: string; dateStr: string; modalidad: Modalidad; onSelect: (s: Slot) => void;
 }) {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/appointments/availability?branch_id=${branchId}&service_id=${serviceId}&date=${dateStr}`)
+    const qs = modalidad === "DOMICILIO"
+      ? `service_id=${serviceId}&date=${dateStr}&modalidad=DOMICILIO`
+      : `branch_id=${branchId}&service_id=${serviceId}&date=${dateStr}`;
+    fetch(`/api/appointments/availability?${qs}`)
       .then(r => r.json())
       .then((data: Slot[]) => { setSlots(data); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [branchId, serviceId, dateStr]);
+  }, [branchId, serviceId, dateStr, modalidad]);
   if (loading) return <p className="text-sm text-gray-400 text-center py-6">Cargando horarios...</p>;
   if (!slots.length) return <p className="text-sm text-gray-500 text-center py-6">No hay horarios disponibles para este dia.</p>;
   return (
@@ -274,23 +324,35 @@ function StepPaciente({ patients, onSelect }: {
     </div>
   );
 }
-function StepConfirmacion({ branch, service, dateStr, slot, patient, therapists, onConfirm, isPending }: {
-  branch: Branch; service: Service; dateStr: string; slot: Slot;
-  patient: Patient; therapists: Therapist[]; branchId: string;
-  onConfirm: (therapistId: string | null, therapistName: string | null, notes: string) => void;
+function StepConfirmacion({ branch, service, dateStr, slot, patient, therapists, modalidad, onConfirm, isPending }: {
+  branch: Branch | null; service: Service; dateStr: string; slot: Slot;
+  patient: Patient; therapists: Therapist[]; modalidad: Modalidad;
+  onConfirm: (therapistId: string | null, therapistName: string | null, notes: string, direccion: string) => void;
   isPending: boolean;
 }) {
   const [therapistId, setTherapistId] = useState("");
   const [notes, setNotes] = useState("");
+  const [direccion, setDireccion] = useState("");
+  const puedeConfirmar = modalidad === "CONSULTORIO" || direccion.trim().length > 0;
   return (
     <div className="space-y-4">
       <div className="rounded-2xl bg-gray-50 border border-gray-200 p-4 space-y-2 text-sm">
         <Row label="Paciente"  value={patient.name} />
-        <Row label="Sucursal"  value={branch.name} />
+        {modalidad === "CONSULTORIO" && branch && <Row label="Sucursal" value={branch.name} />}
+        {modalidad === "DOMICILIO" && <Row label="Modalidad" value="A domicilio" />}
         <Row label="Servicio"  value={service.name} />
         <Row label="Fecha"     value={fechaLarga(dateStr)} />
         <Row label="Horario"   value={`${formatCSTTime(slot.starts_at)} - ${formatCSTTime(slot.ends_at)}`} />
       </div>
+      {modalidad === "DOMICILIO" && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Dirección del domicilio *</label>
+          <textarea value={direccion} onChange={e => setDireccion(e.target.value)} rows={2}
+            placeholder="Calle, número, colonia, ciudad..."
+            style={{ color: "black" }}
+            className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none resize-none" />
+        </div>
+      )}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Terapeuta (opcional)</label>
         <select value={therapistId} onChange={e => setTherapistId(e.target.value)}
@@ -309,28 +371,32 @@ function StepConfirmacion({ branch, service, dateStr, slot, patient, therapists,
       <button
         onClick={() => {
           const t = therapists.find(t => t.id === therapistId) ?? null;
-          onConfirm(therapistId || null, t?.name ?? null, notes);
+          onConfirm(therapistId || null, t?.name ?? null, notes, direccion.trim());
         }}
-        disabled={isPending}
-        className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
+        disabled={isPending || !puedeConfirmar}
+        className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-40">
         {isPending ? "Agendando..." : "Confirmar cita"}
       </button>
     </div>
   );
 }
-function StepResumen({ patient, branch, service, dateStr, slot, therapistName, onDone }: {
-  patient: Patient; branch: Branch; service: Service; dateStr: string; slot: Slot;
-  therapistName: string | null;
+function StepResumen({ patient, branch, service, dateStr, slot, therapistName, modalidad, direccion, onDone }: {
+  patient: Patient; branch: Branch | null; service: Service; dateStr: string; slot: Slot;
+  therapistName: string | null; modalidad: Modalidad; direccion: string | null;
   onDone: () => void;
 }) {
-  const mapsUrl = buildMapsUrl(branch);
+  const mapsUrl = modalidad === "DOMICILIO"
+    ? (direccion ? buildMapsUrlFromAddress(direccion) : null)
+    : (branch ? buildMapsUrl(branch) : null);
   const mensaje =
     `Hola ${patient.name} 👋\n\n` +
     `Tu cita en DrNatury ha sido agendada:\n\n` +
     `📅 Fecha: ${fechaLarga(dateStr)}\n` +
     `🕐 Hora: ${formatCSTTime(slot.starts_at)}\n` +
     `💆 Servicio: ${service.name}\n` +
-    `📍 Sucursal: ${branch.name}\n` +
+    (modalidad === "DOMICILIO"
+      ? `🏠 Domicilio: ${direccion ?? ""}\n`
+      : `📍 Sucursal: ${branch?.name ?? ""}\n`) +
     (therapistName ? `🧑‍⚕️ Terapeuta: ${therapistName}\n` : "") +
     (mapsUrl ? `🗺️ Cómo llegar: ${mapsUrl}\n` : "") +
     `\n¡Te esperamos!`;
@@ -343,7 +409,11 @@ function StepResumen({ patient, branch, service, dateStr, slot, therapistName, o
       </div>
       <div className="rounded-2xl bg-gray-50 border border-gray-200 p-4 space-y-2 text-sm">
         <Row label="Paciente"  value={`${patient.name} · ${patient.phone}`} />
-        <Row label="Sucursal"  value={branch.name} />
+        {modalidad === "DOMICILIO" ? (
+          <Row label="Domicilio" value={direccion ?? ""} />
+        ) : (
+          <Row label="Sucursal"  value={branch?.name ?? ""} />
+        )}
         <Row label="Servicio"  value={service.name} />
         <Row label="Fecha"     value={fechaLarga(dateStr)} />
         <Row label="Horario"   value={formatCSTTime(slot.starts_at)} />
@@ -372,7 +442,7 @@ function Row({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-const STEP_LABELS = ["Fecha", "Sucursal", "Horario", "Paciente", "Confirmacion"];
+const STEP_LABELS = ["Modalidad", "Fecha", "Servicio", "Horario", "Paciente", "Confirmacion"];
 export function AppointmentForm({ patients, branches, services, therapists, redirectTo }: {
   patients: Patient[];
   branches: Branch[];
@@ -383,17 +453,19 @@ export function AppointmentForm({ patients, branches, services, therapists, redi
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [step, setStep] = useState(1);
+  const [modalidad, setModalidad] = useState<Modalidad | null>(null);
   const [dateStr, setDateStr]     = useState("");
   const [branchId, setBranchId]   = useState("");
   const [serviceId, setServiceId] = useState("");
   const [slot, setSlot]           = useState<Slot | null>(null);
   const [patient, setPatient]     = useState<Patient | null>(null);
   const [therapistName, setTherapistName] = useState<string | null>(null);
+  const [direccion, setDireccion] = useState<string | null>(null);
   const [error, setError]         = useState("");
   const branch  = branches.find(b => b.id === branchId) ?? null;
   const service = services.find(s => s.id === serviceId) ?? null;
-  function handleConfirm(therapistId: string | null, tName: string | null, notes: string) {
-    if (!patient || !slot) return;
+  function handleConfirm(therapistId: string | null, tName: string | null, notes: string, direccionInput: string) {
+    if (!patient || !slot || !modalidad) return;
     setError("");
     startTransition(async () => {
       const res = await fetch("/api/appointments", {
@@ -407,12 +479,14 @@ export function AppointmentForm({ patients, branches, services, therapists, redi
           ends_at:      slot.ends_at,
           therapist_id: therapistId,
           notes:        notes || null,
+          modalidad,
+          domicilio_direccion: modalidad === "DOMICILIO" ? direccionInput : null,
         }),
       });
       const data = await res.json();
       if (data.error === "SLOT_TAKEN") {
         setError("Este horario acaba de ser tomado. Elige otro.");
-        setStep(3);
+        setStep(4);
         return;
       }
       if (!res.ok) {
@@ -420,7 +494,8 @@ export function AppointmentForm({ patients, branches, services, therapists, redi
         return;
       }
       setTherapistName(tName);
-      setStep(6);
+      setDireccion(modalidad === "DOMICILIO" ? direccionInput : null);
+      setStep(7);
     });
   }
   function handleDone() {
@@ -429,7 +504,7 @@ export function AppointmentForm({ patients, branches, services, therapists, redi
   }
   return (
     <div className="space-y-6">
-      {step <= 5 && (
+      {step <= 6 && (
         <>
           <div className="flex gap-1">
             {STEP_LABELS.map((_, i) => (
@@ -440,43 +515,58 @@ export function AppointmentForm({ patients, branches, services, therapists, redi
           <p className="text-xs text-gray-500 font-medium">{STEP_LABELS[step - 1]}</p>
         </>
       )}
-      {step === 1 && <StepFecha onSelect={(d) => { setDateStr(d); setStep(2); }} />}
+      {step === 1 && (
+        <StepModalidad onSelect={(m) => { setModalidad(m); setStep(2); }} />
+      )}
       {step === 2 && (
         <>
+          <StepFecha onSelect={(d) => { setDateStr(d); setStep(3); }} />
+          <button onClick={() => setStep(1)} className="w-full text-sm text-gray-400 hover:text-gray-600 py-2">&#8592; Cambiar modalidad</button>
+        </>
+      )}
+      {step === 3 && modalidad === "CONSULTORIO" && (
+        <>
           <StepSucursalServicio branches={branches} services={services}
-            onSelect={(b, s) => { setBranchId(b); setServiceId(s); setStep(3); }} />
-          <button onClick={() => setStep(1)} className="w-full text-sm text-gray-400 hover:text-gray-600 py-2">&#8592; Cambiar fecha</button>
+            onSelect={(b, s) => { setBranchId(b); setServiceId(s); setStep(4); }} />
+          <button onClick={() => setStep(2)} className="w-full text-sm text-gray-400 hover:text-gray-600 py-2">&#8592; Cambiar fecha</button>
         </>
       )}
-      {step === 3 && (
+      {step === 3 && modalidad === "DOMICILIO" && (
         <>
-          <StepHorario branchId={branchId} serviceId={serviceId} dateStr={dateStr}
-            onSelect={(s) => { setSlot(s); setStep(4); }} />
-          <button onClick={() => setStep(2)} className="w-full text-sm text-gray-400 hover:text-gray-600 py-2">&#8592; Cambiar sucursal</button>
+          <StepServicioSolo services={services}
+            onSelect={(s) => { setServiceId(s); setBranchId(branches[0]?.id ?? ""); setStep(4); }} />
+          <button onClick={() => setStep(2)} className="w-full text-sm text-gray-400 hover:text-gray-600 py-2">&#8592; Cambiar fecha</button>
         </>
       )}
-      {step === 4 && (
+      {step === 4 && modalidad && (
         <>
-          <StepPaciente patients={patients} onSelect={(p) => { setPatient(p); setStep(5); }} />
-          <button onClick={() => setStep(3)} className="w-full text-sm text-gray-400 hover:text-gray-600 py-2">&#8592; Cambiar horario</button>
+          <StepHorario branchId={branchId} serviceId={serviceId} dateStr={dateStr} modalidad={modalidad}
+            onSelect={(s) => { setSlot(s); setStep(5); }} />
+          <button onClick={() => setStep(3)} className="w-full text-sm text-gray-400 hover:text-gray-600 py-2">&#8592; Cambiar servicio</button>
         </>
       )}
-      {step === 5 && branch && service && slot && patient && (
+      {step === 5 && (
+        <>
+          <StepPaciente patients={patients} onSelect={(p) => { setPatient(p); setStep(6); }} />
+          <button onClick={() => setStep(4)} className="w-full text-sm text-gray-400 hover:text-gray-600 py-2">&#8592; Cambiar horario</button>
+        </>
+      )}
+      {step === 6 && service && slot && patient && modalidad && (
         <>
           <StepConfirmacion
             branch={branch} service={service} dateStr={dateStr}
-            slot={slot} patient={patient} therapists={therapists}
-            branchId={branchId}
+            slot={slot} patient={patient} therapists={therapists} modalidad={modalidad}
             onConfirm={handleConfirm} isPending={isPending}
           />
           {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-3">{error}</p>}
-          <button onClick={() => setStep(4)} className="w-full text-sm text-gray-400 hover:text-gray-600 py-2">&#8592; Cambiar paciente</button>
+          <button onClick={() => setStep(5)} className="w-full text-sm text-gray-400 hover:text-gray-600 py-2">&#8592; Cambiar paciente</button>
         </>
       )}
-      {step === 6 && branch && service && slot && patient && (
+      {step === 7 && service && slot && patient && modalidad && (
         <StepResumen
           patient={patient} branch={branch} service={service}
           dateStr={dateStr} slot={slot} therapistName={therapistName}
+          modalidad={modalidad} direccion={direccion}
           onDone={handleDone}
         />
       )}

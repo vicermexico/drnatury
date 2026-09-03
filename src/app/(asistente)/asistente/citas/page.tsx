@@ -21,7 +21,7 @@ async function getAppointments(date: string, branchId?: string) {
   let query = admin
     .from("appointments")
     .select(`
-      id, starts_at, ends_at, status,
+      id, starts_at, ends_at, status, modalidad, domicilio_direccion,
       patient:profiles!patient_id(name, phone),
       services(name),
       branches(id, name),
@@ -55,6 +55,7 @@ export default async function AsistenteCitasPage({
 
   type ApptRow = {
     id: string; starts_at: string; ends_at: string; status: AppointmentStatus;
+    modalidad?: "CONSULTORIO" | "DOMICILIO"; domicilio_direccion?: string | null;
     patient: { name: string; phone: string } | null;
     services: { name: string } | null;
     branches: { id: string; name: string } | null;
@@ -76,6 +77,7 @@ export default async function AsistenteCitasPage({
         id: a.id, starts_at: a.starts_at, ends_at: a.ends_at, status: a.status,
         patient_name: patient?.name, patient_phone: patient?.phone,
         service_name: service?.name, therapist_name: therapist?.name,
+        modalidad: a.modalidad, domicilio_direccion: a.domicilio_direccion,
       },
     });
   }

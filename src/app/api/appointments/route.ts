@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
   const body = await request.json().catch(() => ({})) as Record<string, string>;
-  const { branch_id, service_id, starts_at, ends_at, patient_id, notes, therapist_id } = body;
+  const { branch_id, service_id, starts_at, ends_at, patient_id, notes, therapist_id, modalidad, domicilio_direccion } = body;
 
   if (!branch_id || !service_id || !starts_at || !ends_at) {
     return NextResponse.json(
@@ -81,6 +81,8 @@ export async function POST(request: NextRequest) {
     p_created_by: user.id,
     p_therapist_id: therapist_id ?? null,
     p_notes: notes ?? null,
+    p_modalidad: modalidad === "DOMICILIO" ? "DOMICILIO" : "CONSULTORIO",
+    p_domicilio_direccion: modalidad === "DOMICILIO" ? (domicilio_direccion ?? null) : null,
   });
 
   if (rpcError) {

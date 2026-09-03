@@ -34,6 +34,10 @@ const PATIENT_CARD_BG: Record<AppointmentStatus, string> = {
   COMPLETADA: "bg-gray-50   border-gray-200",
 };
 
+function buildMapsUrlFromAddress(address: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}
+
 export interface AppointmentData {
   id: string;
   starts_at: string;
@@ -46,6 +50,8 @@ export interface AppointmentData {
   service_name?: string;
   therapist_name?: string;
   branch_name?: string;
+  modalidad?: "CONSULTORIO" | "DOMICILIO";
+  domicilio_direccion?: string | null;
 }
 
 interface Props {
@@ -93,8 +99,19 @@ export function AppointmentCard({
           {appt.service_name && (
             <p className="text-sm font-semibold text-gray-900">{appt.service_name}</p>
           )}
-          {showBranch && appt.branch_name && (
+          {showBranch && appt.branch_name && appt.modalidad !== "DOMICILIO" && (
             <p className="text-sm font-medium text-gray-700">{appt.branch_name}</p>
+          )}
+          {appt.modalidad === "DOMICILIO" && (
+            <div className="text-sm space-y-0.5">
+              <p className="font-medium text-gray-700">🏠 A domicilio{appt.domicilio_direccion ? `: ${appt.domicilio_direccion}` : ""}</p>
+              {appt.domicilio_direccion && (
+                <a href={buildMapsUrlFromAddress(appt.domicilio_direccion)} target="_blank" rel="noopener noreferrer"
+                  className="inline-block text-xs font-semibold text-blue-600 underline">
+                  🗺️ Cómo llegar
+                </a>
+              )}
+            </div>
           )}
           {showTherapist && appt.therapist_name && (
             <p className="text-sm text-gray-600">Terapeuta: {appt.therapist_name}</p>
@@ -134,8 +151,22 @@ export function AppointmentCard({
         {showTherapist && appt.therapist_name && (
           <p>Terapeuta: {appt.therapist_name}</p>
         )}
-        {showBranch && appt.branch_name && (
+        {showBranch && appt.branch_name && appt.modalidad !== "DOMICILIO" && (
           <p>Sucursal: {appt.branch_name}</p>
+        )}
+        {appt.modalidad === "DOMICILIO" && (
+          <p>
+            🏠 A domicilio{appt.domicilio_direccion ? `: ${appt.domicilio_direccion}` : ""}
+            {appt.domicilio_direccion && (
+              <>
+                {" "}·{" "}
+                <a href={buildMapsUrlFromAddress(appt.domicilio_direccion)} target="_blank" rel="noopener noreferrer"
+                  className="underline font-semibold">
+                  🗺️ Cómo llegar
+                </a>
+              </>
+            )}
+          </p>
         )}
         <p>{formatCSTDate(appt.starts_at)}</p>
       </div>

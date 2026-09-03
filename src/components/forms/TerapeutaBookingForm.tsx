@@ -2,6 +2,7 @@
 import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatCSTTime, formatCSTDateShort } from "@/lib/appointments/availability";
+type Modalidad = "CONSULTORIO" | "DOMICILIO";
 interface Patient { id: string; name: string; phone: string; }
 interface Service { id: string; name: string; duration_minutes: number; price: number; }
 interface Slot    { starts_at: string; ends_at: string; }
@@ -15,7 +16,7 @@ interface Props {
   branchLng?:     number | null;
   therapistId:   string;
 }
-type Step = 1 | 2 | 3 | 4 | 5 | 6;
+type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 const MONTHS = ["enero","febrero","marzo","abril","mayo","junio",
                 "julio","agosto","septiembre","octubre","noviembre","diciembre"] as const;
 const DAYS   = ["Do","Lu","Ma","Mi","Ju","Vi","Sa"] as const;
@@ -41,6 +42,9 @@ function buildMapsUrl(address?: string | null, lat?: number | null, lng?: number
   if (lat && lng) return `https://www.google.com/maps?q=${lat},${lng}`;
   if (address) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
   return null;
+}
+function buildMapsUrlFromAddress(address: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
 function CopiarHorariosButton({ slots, dateStr }: { slots: Slot[]; dateStr: string }) {
   const [copied, setCopied] = useState(false);
@@ -111,8 +115,28 @@ function QuickRegisterForm({ onSuccess, onCancel }: { onSuccess: (p: Patient) =>
     </form>
   );
 }
-// Step 1: Fecha
-function Step1({ onSelect }: { onSelect: (d: string) => void }) {
+// Step 1: Modalidad
+function Step1Modalidad({ onSelect }: { onSelect: (m: Modalidad) => void }) {
+  return (
+    <div className="space-y-4">
+      <p className="text-sm font-medium text-gray-700">¿Consultorio o a domicilio?</p>
+      <div className="grid grid-cols-2 gap-3">
+        <button onClick={() => onSelect("CONSULTORIO")}
+          className="rounded-2xl border-2 border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 transition p-5 flex flex-col items-center gap-2">
+          <span className="text-3xl">🏥</span>
+          <span className="text-sm font-semibold text-gray-800">Consultorio</span>
+        </button>
+        <button onClick={() => onSelect("DOMICILIO")}
+          className="rounded-2xl border-2 border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 transition p-5 flex flex-col items-center gap-2">
+          <span className="text-3xl">🏠</span>
+          <span className="text-sm font-semibold text-gray-800">A domicilio</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+// Step 2: Fecha
+function Step2Fecha({ onSelect, onBack }: { onSelect: (d: string) => void; onBack: () => void }) {
   const today = todayCST();
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth());
@@ -147,11 +171,12 @@ function Step1({ onSelect }: { onSelect: (d: string) => void }) {
           );
         })}
       </div>
+      <button onClick={onBack} className="w-full text-sm text-gray-400 hover:text-gray-600 py-1.5 transition">&#8592; Cambiar modalidad</button>
     </div>
   );
 }
-// Step 2: Servicio
-function Step2({ services, onSelect, onBack }: { services: Service[]; onSelect: (s: Service) => void; onBack: () => void; }) {
+// Step 3: Servicio
+function Step3Servicio({ services, onSelect, onBack }: { services: Service[]; onSelect: (s: Service) => void; onBack: () => void; }) {
   return (
     <div className="space-y-4">
       <p className="text-sm font-medium text-gray-700">Selecciona el servicio</p>
@@ -172,9 +197,9 @@ function Step2({ services, onSelect, onBack }: { services: Service[]; onSelect: 
     </div>
   );
 }
-// Step 3: Horario
-function Step3({ branchId, serviceId, dateStr, onSelect, onBack }: {
-  branchId: string; serviceId: string; dateStr: string;
+// Step 4: Horario
+function Step4Horario({ branchId, serviceId, dateStr, modalidad, onSelect, onBack }: {
+  branchId: string; serviceId: string; dateStr: string; modalidad: Modalidad;
   onSelect: (s: Slot) => void; onBack: () => void;
 }) {
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -183,7 +208,10 @@ function Step3({ branchId, serviceId, dateStr, onSelect, onBack }: {
   useEffect(() => {
     let cancelled = false;
     setLoading(true); setFetchError(false); setSlots([]);
-    fetch(`/api/appointments/availability?branch_id=${branchId}&service_id=${serviceId}&date=${dateStr}`)
+    const qs = modalidad === "DOMICILIO"
+      ? `service_id=${serviceId}&date=${dateStr}&modalidad=DOMICILIO`
+      : `branch_id=${branchId}&service_id=${serviceId}&date=${dateStr}`;
+    fetch(`/api/appointments/availability?${qs}`)
       .then(async r => {
         if (!r.ok) { if (!cancelled) setFetchError(true); return; }
         const d = await r.json() as unknown;
@@ -192,7 +220,7 @@ function Step3({ branchId, serviceId, dateStr, onSelect, onBack }: {
       .catch(() => { if (!cancelled) setFetchError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [branchId, serviceId, dateStr]);
+  }, [branchId, serviceId, dateStr, modalidad]);
   return (
     <div className="space-y-4">
       <p className="text-sm font-medium text-gray-700">Horario - {formatCSTDateShort(new Date(dateStr + "T12:00:00").toISOString())}</p>
@@ -218,8 +246,8 @@ function Step3({ branchId, serviceId, dateStr, onSelect, onBack }: {
     </div>
   );
 }
-// Step 4: Paciente
-function Step4({ patients, onNext, onBack }: {
+// Step 5: Paciente
+function Step5Paciente({ patients, onNext, onBack }: {
   patients: Patient[];
   onNext: (p: Patient) => void;
   onBack: () => void;
@@ -286,18 +314,20 @@ function Step4({ patients, onNext, onBack }: {
     </div>
   );
 }
-// Step 5: Confirmacion
-function Step5({ patient, service, branchName, dateStr, slot, onConfirm, onBack, isPending, error }: {
-  patient: Patient; service: Service; branchName: string;
+// Step 6: Confirmacion
+function Step6Confirmacion({ patient, service, branchName, modalidad, dateStr, slot, onConfirm, onBack, isPending, error }: {
+  patient: Patient; service: Service; branchName: string; modalidad: Modalidad;
   dateStr: string; slot: Slot;
-  onConfirm: (notes: string) => void; onBack: () => void;
+  onConfirm: (notes: string, direccion: string) => void; onBack: () => void;
   isPending: boolean; error: string;
 }) {
   const [notes, setNotes] = useState("");
+  const [direccion, setDireccion] = useState("");
+  const puedeConfirmar = modalidad === "CONSULTORIO" || direccion.trim().length > 0;
   const rows: [string, string][] = [
     ["Paciente", `${patient.name} · ${patient.phone}`],
     ["Servicio", `${service.name} (${service.duration_minutes} min)`],
-    ["Sucursal", branchName],
+    modalidad === "DOMICILIO" ? ["Modalidad", "A domicilio"] : ["Sucursal", branchName],
     ["Fecha", new Date(`${dateStr}T12:00:00`).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })],
     ["Hora", formatCSTTime(slot.starts_at)],
   ];
@@ -312,6 +342,15 @@ function Step5({ patient, service, branchName, dateStr, slot, onConfirm, onBack,
           </div>
         ))}
       </div>
+      {modalidad === "DOMICILIO" && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Dirección del domicilio *</label>
+          <textarea value={direccion} onChange={e => setDireccion(e.target.value)} rows={2}
+            placeholder="Calle, número, colonia, ciudad..."
+            style={{ color: "black" }}
+            className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm bg-white focus:border-emerald-500 focus:outline-none resize-none" />
+        </div>
+      )}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Observaciones (opcional)</label>
         <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
@@ -320,29 +359,32 @@ function Step5({ patient, service, branchName, dateStr, slot, onConfirm, onBack,
           className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm bg-white focus:border-emerald-500 focus:outline-none" />
       </div>
       {error && <p className="text-sm text-red-600 bg-red-50 rounded-xl px-4 py-3">{error}</p>}
-      <button onClick={() => onConfirm(notes)} disabled={isPending}
-        className="w-full rounded-xl bg-emerald-100 py-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-200 transition disabled:opacity-60">
+      <button onClick={() => onConfirm(notes, direccion.trim())} disabled={isPending || !puedeConfirmar}
+        className="w-full rounded-xl bg-emerald-100 py-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-200 transition disabled:opacity-50">
         {isPending ? "Agendando..." : "Confirmar cita"}
       </button>
       <button onClick={onBack} className="w-full text-sm text-gray-400 hover:text-gray-600 py-1.5 transition">&#8592; Cambiar paciente</button>
     </div>
   );
 }
-// Step 6: Resumen + WhatsApp
-function StepResumen({ patient, service, branchName, branchAddress, branchLat, branchLng, dateStr, slot, onDone }: {
+// Step 7: Resumen + WhatsApp
+function StepResumen({ patient, service, branchName, branchAddress, branchLat, branchLng, modalidad, direccion, dateStr, slot, onDone }: {
   patient: Patient; service: Service; branchName: string;
   branchAddress?: string | null; branchLat?: number | null; branchLng?: number | null;
+  modalidad: Modalidad; direccion: string | null;
   dateStr: string; slot: Slot;
   onDone: () => void;
 }) {
-  const mapsUrl = buildMapsUrl(branchAddress, branchLat, branchLng);
+  const mapsUrl = modalidad === "DOMICILIO"
+    ? (direccion ? buildMapsUrlFromAddress(direccion) : null)
+    : buildMapsUrl(branchAddress, branchLat, branchLng);
   const mensaje =
     `Hola ${patient.name} 👋\n\n` +
     `Tu cita en DrNatury ha sido agendada:\n\n` +
     `📅 Fecha: ${fechaLarga(dateStr)}\n` +
     `🕐 Hora: ${formatCSTTime(slot.starts_at)}\n` +
     `💆 Servicio: ${service.name}\n` +
-    `📍 Sucursal: ${branchName}\n` +
+    (modalidad === "DOMICILIO" ? `🏠 Domicilio: ${direccion ?? ""}\n` : `📍 Sucursal: ${branchName}\n`) +
     (mapsUrl ? `🗺️ Cómo llegar: ${mapsUrl}\n` : "") +
     `\n¡Te esperamos!`;
   return (
@@ -358,8 +400,8 @@ function StepResumen({ patient, service, branchName, branchAddress, branchLat, b
           <span className="font-medium text-gray-900 text-right">{patient.name} · {patient.phone}</span>
         </div>
         <div className="flex justify-between gap-4">
-          <span className="text-gray-500 shrink-0">Sucursal</span>
-          <span className="font-medium text-gray-900 text-right">{branchName}</span>
+          <span className="text-gray-500 shrink-0">{modalidad === "DOMICILIO" ? "Domicilio" : "Sucursal"}</span>
+          <span className="font-medium text-gray-900 text-right">{modalidad === "DOMICILIO" ? (direccion ?? "") : branchName}</span>
         </div>
         <div className="flex justify-between gap-4">
           <span className="text-gray-500 shrink-0">Servicio</span>
@@ -394,14 +436,16 @@ export function TerapeutaBookingForm({ patients, services, branchId, branchName,
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [step, setStep] = useState<Step>(1);
+  const [modalidad, setModalidad] = useState<Modalidad | null>(null);
   const [dateStr, setDateStr] = useState("");
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [slot, setSlot] = useState<Slot | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [direccion, setDireccion] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const LABELS = ["Fecha", "Servicio", "Horario", "Paciente", "Confirmacion"];
-  function handleConfirm(notes: string) {
-    if (!slot || !selectedPatient || !selectedService) return;
+  const LABELS = ["Modalidad", "Fecha", "Servicio", "Horario", "Paciente", "Confirmacion"];
+  function handleConfirm(notes: string, direccionInput: string) {
+    if (!slot || !selectedPatient || !selectedService || !modalidad) return;
     setError("");
     startTransition(async () => {
       const res = await fetch("/api/appointments", {
@@ -415,12 +459,15 @@ export function TerapeutaBookingForm({ patients, services, branchId, branchName,
           starts_at:    slot.starts_at,
           ends_at:      slot.ends_at,
           notes:        notes || undefined,
+          modalidad,
+          domicilio_direccion: modalidad === "DOMICILIO" ? direccionInput : null,
         }),
       });
       const data = await res.json() as { error?: string; message?: string };
-      if (res.status === 409) { setError("Ese horario acaba de ser tomado. Elige otro."); setStep(3); return; }
+      if (res.status === 409) { setError("Ese horario acaba de ser tomado. Elige otro."); setStep(4); return; }
       if (!res.ok) { setError(data.message ?? "Error al agendar. Intenta de nuevo."); return; }
-      setStep(6);
+      setDireccion(modalidad === "DOMICILIO" ? direccionInput : null);
+      setStep(7);
     });
   }
   function handleDone() {
@@ -429,7 +476,7 @@ export function TerapeutaBookingForm({ patients, services, branchId, branchName,
   }
   return (
     <div className="space-y-6">
-      {step <= 5 && (
+      {step <= 6 && (
         <>
           <div className="flex gap-1">
             {LABELS.map((_, i) => (
@@ -440,23 +487,25 @@ export function TerapeutaBookingForm({ patients, services, branchId, branchName,
           <p className="text-xs text-gray-500 font-medium">{LABELS[step - 1]}</p>
         </>
       )}
-      {step === 1 && <Step1 onSelect={d => { setDateStr(d); setStep(2); }} />}
-      {step === 2 && <Step2 services={services} onSelect={s => { setSelectedService(s); setStep(3); }} onBack={() => setStep(1)} />}
-      {step === 3 && selectedService && (
-        <Step3 branchId={branchId} serviceId={selectedService.id} dateStr={dateStr}
-          onSelect={s => { setSlot(s); setError(""); setStep(4); }} onBack={() => setStep(2)} />
+      {step === 1 && <Step1Modalidad onSelect={m => { setModalidad(m); setStep(2); }} />}
+      {step === 2 && <Step2Fecha onSelect={d => { setDateStr(d); setStep(3); }} onBack={() => setStep(1)} />}
+      {step === 3 && <Step3Servicio services={services} onSelect={s => { setSelectedService(s); setStep(4); }} onBack={() => setStep(2)} />}
+      {step === 4 && selectedService && modalidad && (
+        <Step4Horario branchId={branchId} serviceId={selectedService.id} dateStr={dateStr} modalidad={modalidad}
+          onSelect={s => { setSlot(s); setError(""); setStep(5); }} onBack={() => setStep(3)} />
       )}
-      {step === 4 && (
-        <Step4 patients={patients} onNext={p => { setSelectedPatient(p); setStep(5); }} onBack={() => setStep(3)} />
+      {step === 5 && (
+        <Step5Paciente patients={patients} onNext={p => { setSelectedPatient(p); setStep(6); }} onBack={() => setStep(4)} />
       )}
-      {step === 5 && selectedPatient && selectedService && slot && (
-        <Step5 patient={selectedPatient} service={selectedService} branchName={branchName}
-          dateStr={dateStr} slot={slot} onConfirm={handleConfirm} onBack={() => setStep(4)}
+      {step === 6 && selectedPatient && selectedService && slot && modalidad && (
+        <Step6Confirmacion patient={selectedPatient} service={selectedService} branchName={branchName} modalidad={modalidad}
+          dateStr={dateStr} slot={slot} onConfirm={handleConfirm} onBack={() => setStep(5)}
           isPending={isPending} error={error} />
       )}
-      {step === 6 && selectedPatient && selectedService && slot && (
+      {step === 7 && selectedPatient && selectedService && slot && modalidad && (
         <StepResumen patient={selectedPatient} service={selectedService} branchName={branchName}
           branchAddress={branchAddress} branchLat={branchLat} branchLng={branchLng}
+          modalidad={modalidad} direccion={direccion}
           dateStr={dateStr} slot={slot} onDone={handleDone} />
       )}
     </div>
