@@ -14,12 +14,16 @@ function buildConfirmUrl(id: string): string {
   return `https://drnatury.com/cita/${id}?token=${token}`;
 }
 
+function buildMapsUrlFromAddress(address: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}
+
 async function getCita(id: string) {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("appointments")
     .select(`
-      id, starts_at, ends_at, status, notes, pdf_url,
+      id, starts_at, ends_at, status, notes, pdf_url, modalidad, domicilio_direccion,
       patient:profiles!patient_id(name, phone, age, city, consultation_reason),
       services(name, duration_minutes),
       branches(name, address)
@@ -109,6 +113,8 @@ export default async function TerapeutaCitaPage({
   const dateLabel = formatCSTDate(appt.starts_at as string);
   const startTime = formatCSTTime(appt.starts_at as string);
   const endTime   = formatCSTTime(appt.ends_at as string);
+  const esDomicilio = (appt as unknown as { modalidad?: string }).modalidad === "DOMICILIO";
+  const domicilioDireccion = (appt as unknown as { domicilio_direccion?: string | null }).domicilio_direccion;
 
   return (
     <div className="space-y-5">
@@ -132,8 +138,25 @@ export default async function TerapeutaCitaPage({
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Cita</h2>
         <Row label="Horario" value={`${startTime} - ${endTime}`} />
         {service && <Row label="Servicio" value={`${service.name} (${service.duration_minutes} min)`} />}
-        {branch && <Row label="Sucursal" value={branch.name} />}
-        {branch?.address && <Row label="Direccion" value={branch.address} />}
+        {esDomicilio ? (
+          <>
+            <Row label="Modalidad" value="🏠 A domicilio" />
+            {domicilioDireccion && <Row label="Dirección" value={domicilioDireccion} />}
+          </>
+        ) : (
+          <>
+            {branch && <Row label="Sucursal" value={branch.name} />}
+            {branch?.address && <Row label="Direccion" value={branch.address} />}
+          </>
+        )}
+        {esDomicilio && domicilioDireccion && (
+          <div className="pt-1">
+            <a href={buildMapsUrlFromAddress(domicilioDireccion)} target="_blank" rel="noopener noreferrer"
+              className="text-xs font-semibold text-blue-600 underline">
+              🗺️ Cómo llegar
+            </a>
+          </div>
+        )}
       </section>
 
       {patient && (
