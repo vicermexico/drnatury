@@ -2,11 +2,12 @@ importScripts("https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"
 importScripts("https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js");
 
 firebase.initializeApp({
-  apiKey: "AIzaSyAx3_Gzu4l0AZB56QD9XjvuhpGkKT4NNNo",
-  authDomain: "DrNatury-61eb5.firebaseapp.com",
-  projectId: "DrNatury-61eb5",
-  messagingSenderId: "221457294005",
-  appId: "1:221457294005:web:44e1556c224694afad14fc",
+  apiKey: "AIzaSyC71OI05hC363BTCY7ah3plZqfjXwiGzmM",
+  authDomain: "drnatury-5db90.firebaseapp.com",
+  projectId: "drnatury-5db90",
+  storageBucket: "drnatury-5db90.firebasestorage.app",
+  messagingSenderId: "837505418362",
+  appId: "1:837505418362:web:4de20ffdb1854ba4a6e7c3",
 });
 
 const messaging = firebase.messaging();
