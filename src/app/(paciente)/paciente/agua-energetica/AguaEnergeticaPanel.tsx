@@ -8,6 +8,8 @@ interface Config {
   video_sesion_url: string | null;
   horarios: Horario[];
   requisitos: string | null;
+  duracion_sesion_segundos: number;
+  repetir_video_sesion: boolean;
 }
 interface Activacion {
   id: string;
@@ -106,6 +108,17 @@ export function AguaEnergeticaPanel({ config, activacion }: {
   function handleVideoEnd() {
     setStep("idle");
   }
+  // Si Master activo "repetir video", el video de sesion se repite en
+  // loop (por si dura menos, ej. 10 segundos) hasta cumplir este tiempo
+  // total (ej. 1 minuto). Si no lo activo, se reproduce una sola vez
+  // (comportamiento original) y termina con el evento onEnded del video.
+  const repetirVideo = config?.repetir_video_sesion ?? false;
+  useEffect(() => {
+    if (step !== "video" || !repetirVideo) return;
+    const duracionMs = (config?.duracion_sesion_segundos ?? 60) * 1000;
+    const timer = setTimeout(handleVideoEnd, duracionMs);
+    return () => clearTimeout(timer);
+  }, [step, repetirVideo, config?.duracion_sesion_segundos]);
   // Video de sesion
   if (step === "video" && config?.video_sesion_url) {
     return (
@@ -114,8 +127,9 @@ export function AguaEnergeticaPanel({ config, activacion }: {
           ref={videoRef}
           src={config.video_sesion_url}
           autoPlay
+          loop={repetirVideo}
           playsInline
-          onEnded={handleVideoEnd}
+          onEnded={repetirVideo ? undefined : handleVideoEnd}
           className="w-full h-full object-cover"
         />
       </div>
