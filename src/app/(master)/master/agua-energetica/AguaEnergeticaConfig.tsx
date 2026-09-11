@@ -12,10 +12,12 @@ interface Config {
   horarios: Horario[];
   requisitos: string | null;
   duracion_sesion_segundos: number;
+  repetir_video_sesion: boolean;
 }
 export function AguaEnergeticaConfig({ config }: { config: Config | null }) {
   const [isPending, startTransition] = useTransition();
   const [dias, setDias] = useState(String(config?.dias_activacion ?? 21));
+  const [repetirVideo, setRepetirVideo] = useState(config?.repetir_video_sesion ?? false);
   const [duracionSesion, setDuracionSesion] = useState(
     String(config?.duracion_sesion_segundos ?? 60)
   );
@@ -105,6 +107,7 @@ export function AguaEnergeticaConfig({ config }: { config: Config | null }) {
           comision_monto: parseFloat(comision),
           horarios,
           requisitos: requisitos.trim() || null,
+          repetir_video_sesion: repetirVideo,
           duracion_sesion_segundos: parseInt(duracionSesion) || 60,
         }),
       });
@@ -135,17 +138,32 @@ export function AguaEnergeticaConfig({ config }: { config: Config | null }) {
               <p className="text-xs text-green-600 mt-1 truncate">✓ {urls[key as keyof typeof urls]}</p>
             )}
             {key === "video_sesion" && (
-              <div className="mt-3 pl-1">
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Duracion total de la sesion (segundos)
+              <div className="mt-3 pl-1 space-y-2">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" checked={repetirVideo}
+                    onChange={e => setRepetirVideo(e.target.checked)}
+                    className="rounded" />
+                  Repetir este video hasta completar un tiempo total
                 </label>
-                <input type="number" min="1" value={duracionSesion}
-                  onChange={e => setDuracionSesion(e.target.value)}
-                  style={{ color: "black" }}
-                  className="w-32 rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:outline-none" />
-                <p className="text-xs text-gray-400 mt-1">
-                  Si el video dura menos que esto, se repite en loop hasta completar el tiempo total.
-                </p>
+                {repetirVideo && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Duracion total de la sesion (segundos)
+                    </label>
+                    <input type="number" min="1" value={duracionSesion}
+                      onChange={e => setDuracionSesion(e.target.value)}
+                      style={{ color: "black" }}
+                      className="w-32 rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:outline-none" />
+                    <p className="text-xs text-gray-400 mt-1">
+                      Ej: si el video dura 10 segundos y pones 60, se repite 6 veces y termina.
+                    </p>
+                  </div>
+                )}
+                {!repetirVideo && (
+                  <p className="text-xs text-gray-400">
+                    El video se reproducira una sola vez, de principio a fin.
+                  </p>
+                )}
               </div>
             )}
           </div>
