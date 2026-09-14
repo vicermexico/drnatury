@@ -24,13 +24,17 @@ function buildDomicilioMapsUrl(direccion?: string | null, lat?: number | null, l
   return null;
 }
 
+function toGCalDate(iso: string): string {
+  return new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
 async function getCita(id: string) {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("appointments")
     .select(`
       id, starts_at, ends_at, status, notes, pdf_url, modalidad, domicilio_direccion, domicilio_lat, domicilio_lng,
-      patient:profiles!patient_id(name, phone, age, city, consultation_reason),
+      patient:profiles!patient_id(name, phone, age, city, consultation_reason, patient_code),
       services(name, duration_minutes),
       branches(name, address)
     `)
@@ -106,7 +110,7 @@ export default async function TerapeutaCitaPage({
   const puedeVerContacto = mostrarCelular || ahora >= diezMinDespues;
 
   type Joined = {
-    patient: { name: string; phone: string; age: number | null; city: string | null; consultation_reason: string | null } | null;
+    patient: { name: string; phone: string; age: number | null; city: string | null; consultation_reason: string | null; patient_code: string | null } | null;
     services: { name: string; duration_minutes: number } | null;
     branches: { name: string; address: string } | null;
   };
@@ -124,6 +128,17 @@ export default async function TerapeutaCitaPage({
   const domicilioLat = (appt as unknown as { domicilio_lat?: number | null }).domicilio_lat;
   const domicilioLng = (appt as unknown as { domicilio_lng?: number | null }).domicilio_lng;
   const domicilioMapsUrl = esDomicilio ? buildDomicilioMapsUrl(domicilioDireccion, domicilioLat, domicilioLng) : null;
+
+  const codigoPaciente = patient?.patient_code ?? patient?.name ?? "";
+  const calLocation = esDomicilio
+    ? `A domicilio${domicilioDireccion ? `: ${domicilioDireccion}` : ""}`
+    : (branch?.address ?? branch?.name ?? "");
+  const googleCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE`
+    + `&text=${encodeURIComponent(`${codigoPaciente}${patient?.phone ? ` - ${patient.phone}` : ""}`)}`
+    + `&dates=${toGCalDate(appt.starts_at as string)}/${toGCalDate(appt.ends_at as string)}`
+    + `&details=${encodeURIComponent(`${service?.name ?? "Cita"} · DrNatury`)}`
+    + `&location=${encodeURIComponent(calLocation)}`;
+  const icsUrl = `/api/appointments/${appt.id}/ics`;
 
   return (
     <div className="space-y-5">
@@ -166,6 +181,16 @@ export default async function TerapeutaCitaPage({
             </a>
           </div>
         )}
+        <div className="pt-2 flex gap-2">
+          <a href={googleCalUrl} target="_blank" rel="noopener noreferrer"
+            className="flex-1 text-center text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+            📅 Google Calendar
+          </a>
+          <a href={icsUrl}
+            className="flex-1 text-center text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+            📅 iPhone / Outlook
+          </a>
+        </div>
       </section>
 
       {patient && (
