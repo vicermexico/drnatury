@@ -8,6 +8,7 @@ const NAV = [
   { href: "/terapeuta/pacientes",       label: "Pacientes"          },
   { href: "/terapeuta/inventario",      label: "Inventario"         },
   { href: "/terapeuta/agua-energetica", label: "Activación de agua" },
+  { href: "/terapeuta/revision-ph",     label: "Revisión de PH"     },
   { href: "/terapeuta/estado-cuenta",   label: "Estado de Cuenta"   },
 ];
 
