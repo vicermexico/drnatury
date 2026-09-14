@@ -93,6 +93,7 @@ export function AgendarLinkFlow({ therapistId, therapistWhatsapp, branches }: { 
   const [direccionRef, setDireccionRef] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [ubicando, setUbicando] = useState(false);
+  const [appointmentId, setAppointmentId] = useState<string | null>(null);
 
   const branch = branches.find(b => b.id === branchId) ?? null;
   const service = branch ? getBranchServices(branch).find(s => s.id === serviceId) ?? null : null;
@@ -176,6 +177,7 @@ export function AgendarLinkFlow({ therapistId, therapistWhatsapp, branches }: { 
       const data = await res.json().catch(() => ({}));
       if (res.status === 409) { setError("Este horario acaba de ser tomado. Elige otro."); setStep("horario"); return; }
       if (!res.ok) { setError(data.message ?? "Error al agendar. Intenta de nuevo."); return; }
+      setAppointmentId(data.id ?? null);
       setStep("listo");
     });
   }
@@ -327,6 +329,9 @@ export function AgendarLinkFlow({ therapistId, therapistWhatsapp, branches }: { 
               href={buildTherapistWaUrl(
                 therapistWhatsapp,
                 `Hola! Ya agendé mi cita ✅\n${service.name}\n${new Date(`${dateStr}T12:00:00`).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })} a las ${formatCSTTime(slot.starts_at)}\n${modalidad === "DOMICILIO" ? "🏠 A domicilio" : `📍 ${branch.name}`}`
+                + (therapistId && appointmentId
+                    ? `\n\n🔒 Exclusivo terapeuta (ver cita y guardarla en tu calendario):\n${typeof window !== "undefined" ? window.location.origin : ""}/terapeuta-acceso/${therapistId}?next=/terapeuta/citas/${appointmentId}`
+                    : "")
               )}
               className="block w-full rounded-xl bg-green-500 py-3 text-sm font-semibold text-white hover:bg-green-600 transition"
             >
