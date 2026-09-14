@@ -18,13 +18,19 @@ function buildMapsUrlFromAddress(address: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
 
+function buildDomicilioMapsUrl(direccion?: string | null, lat?: number | null, lng?: number | null): string | null {
+  if (lat != null && lng != null) return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  if (direccion) return buildMapsUrlFromAddress(direccion);
+  return null;
+}
+
 async function getAppointment(id: string) {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("appointments")
     .select(`
       id, starts_at, ends_at, status, notes, created_at, pdf_url,
-      branch_id, service_id, modalidad, domicilio_direccion,
+      branch_id, service_id, modalidad, domicilio_direccion, domicilio_lat, domicilio_lng,
       patient:profiles!patient_id(id, name, phone),
       services(name, duration_minutes),
       branches(name, address),
@@ -102,6 +108,9 @@ export default async function AppointmentDetailPage({
   const endTime   = formatCSTTime(appt.ends_at as string);
   const esDomicilio = (appt as unknown as { modalidad?: string }).modalidad === "DOMICILIO";
   const domicilioDireccion = (appt as unknown as { domicilio_direccion?: string | null }).domicilio_direccion;
+  const domicilioLat = (appt as unknown as { domicilio_lat?: number | null }).domicilio_lat;
+  const domicilioLng = (appt as unknown as { domicilio_lng?: number | null }).domicilio_lng;
+  const domicilioMapsUrl = esDomicilio ? buildDomicilioMapsUrl(domicilioDireccion, domicilioLat, domicilioLng) : null;
 
   return (
     <div className="max-w-lg space-y-6">
@@ -138,9 +147,9 @@ export default async function AppointmentDetailPage({
           </>
         )}
         {therapist && <Row label="Terapeuta" value={therapist.name} />}
-        {esDomicilio && domicilioDireccion && (
+        {domicilioMapsUrl && (
           <div className="pt-1">
-            <a href={buildMapsUrlFromAddress(domicilioDireccion)} target="_blank" rel="noopener noreferrer"
+            <a href={domicilioMapsUrl} target="_blank" rel="noopener noreferrer"
               className="text-xs font-semibold text-blue-600 underline">
               🗺️ Cómo llegar
             </a>

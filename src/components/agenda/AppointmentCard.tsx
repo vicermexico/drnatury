@@ -38,6 +38,14 @@ function buildMapsUrlFromAddress(address: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
 
+function buildDomicilioMapsUrl(direccion?: string | null, lat?: number | null, lng?: number | null): string | null {
+  if (lat != null && lng != null) {
+    return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  }
+  if (direccion) return buildMapsUrlFromAddress(direccion);
+  return null;
+}
+
 export interface AppointmentData {
   id: string;
   starts_at: string;
@@ -52,6 +60,8 @@ export interface AppointmentData {
   branch_name?: string;
   modalidad?: "CONSULTORIO" | "DOMICILIO";
   domicilio_direccion?: string | null;
+  domicilio_lat?: number | null;
+  domicilio_lng?: number | null;
 }
 
 interface Props {
@@ -105,12 +115,15 @@ export function AppointmentCard({
           {appt.modalidad === "DOMICILIO" && (
             <div className="text-sm space-y-0.5">
               <p className="font-medium text-gray-700">🏠 A domicilio{appt.domicilio_direccion ? `: ${appt.domicilio_direccion}` : ""}</p>
-              {appt.domicilio_direccion && (
-                <a href={buildMapsUrlFromAddress(appt.domicilio_direccion)} target="_blank" rel="noopener noreferrer"
-                  className="inline-block text-xs font-semibold text-blue-600 underline">
-                  🗺️ Cómo llegar
-                </a>
-              )}
+              {(() => {
+                const mapsUrl = buildDomicilioMapsUrl(appt.domicilio_direccion, appt.domicilio_lat, appt.domicilio_lng);
+                return mapsUrl && (
+                  <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
+                    className="inline-block text-xs font-semibold text-blue-600 underline">
+                    🗺️ Cómo llegar
+                  </a>
+                );
+              })()}
             </div>
           )}
           {showTherapist && appt.therapist_name && (
@@ -154,20 +167,23 @@ export function AppointmentCard({
         {showBranch && appt.branch_name && appt.modalidad !== "DOMICILIO" && (
           <p>Sucursal: {appt.branch_name}</p>
         )}
-        {appt.modalidad === "DOMICILIO" && (
-          <p>
-            🏠 A domicilio{appt.domicilio_direccion ? `: ${appt.domicilio_direccion}` : ""}
-            {appt.domicilio_direccion && (
-              <>
-                {" "}·{" "}
-                <a href={buildMapsUrlFromAddress(appt.domicilio_direccion)} target="_blank" rel="noopener noreferrer"
-                  className="underline font-semibold">
-                  🗺️ Cómo llegar
-                </a>
-              </>
-            )}
-          </p>
-        )}
+        {appt.modalidad === "DOMICILIO" && (() => {
+          const mapsUrl = buildDomicilioMapsUrl(appt.domicilio_direccion, appt.domicilio_lat, appt.domicilio_lng);
+          return (
+            <p>
+              🏠 A domicilio{appt.domicilio_direccion ? `: ${appt.domicilio_direccion}` : ""}
+              {mapsUrl && (
+                <>
+                  {" "}·{" "}
+                  <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
+                    className="underline font-semibold">
+                    🗺️ Cómo llegar
+                  </a>
+                </>
+              )}
+            </p>
+          );
+        })()}
         <p>{formatCSTDate(appt.starts_at)}</p>
       </div>
     </div>

@@ -19,7 +19,7 @@ async function getTodayAppointments() {
   const { data } = await admin
     .from("appointments")
     .select(`
-      id, starts_at, ends_at, status, modalidad, domicilio_direccion,
+      id, starts_at, ends_at, status, modalidad, domicilio_direccion, domicilio_lat, domicilio_lng,
       patient:profiles!patient_id(name, phone),
       services(name),
       branches(id, name),
@@ -62,6 +62,8 @@ export default async function AgendaMasterPage() {
       therapist_name: therapist?.name,
       modalidad: a.modalidad as AppointmentData["modalidad"],
       domicilio_direccion: a.domicilio_direccion as string | null,
+      domicilio_lat: a.domicilio_lat as number | null,
+      domicilio_lng: a.domicilio_lng as number | null,
     });
   }
 
