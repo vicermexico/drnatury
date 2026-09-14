@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AppointmentForm } from "@/components/forms/AppointmentForm";
+import { GenerarLinkAgendar } from "@/components/agenda/GenerarLinkAgendar";
 
 async function getData() {
   const admin = createAdminClient();
@@ -52,6 +53,7 @@ export default async function NuevaCitaPage() {
         </Link>
       </div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Nueva cita</h1>
+      <GenerarLinkAgendar />
       <AppointmentForm
         patients={patients}
         branches={branches}
