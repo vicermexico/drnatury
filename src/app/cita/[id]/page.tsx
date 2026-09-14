@@ -9,7 +9,7 @@ async function getAppointment(id: string) {
   const { data } = await admin
     .from("appointments")
     .select(`
-      id, starts_at, ends_at, status,
+      id, starts_at, ends_at, status, modalidad, domicilio_direccion, domicilio_lat, domicilio_lng,
       profiles!patient_id(name),
       services(name),
       branches(name, address),
@@ -53,6 +53,17 @@ export default async function CitaPage({
   const branch   = Array.isArray(appt.branches) ? appt.branches[0] : appt.branches as { name: string; address: string } | null;
   const therapist = Array.isArray(appt.therapists) ? appt.therapists[0] : appt.therapists as { name: string } | null;
   const status = appt.status as string;
+  const esDomicilio = (appt as unknown as { modalidad?: string }).modalidad === "DOMICILIO";
+  const domicilioDireccion = (appt as unknown as { domicilio_direccion?: string | null }).domicilio_direccion;
+  const domicilioLat = (appt as unknown as { domicilio_lat?: number | null }).domicilio_lat;
+  const domicilioLng = (appt as unknown as { domicilio_lng?: number | null }).domicilio_lng;
+  const domicilioMapsUrl = esDomicilio
+    ? (domicilioLat != null && domicilioLng != null
+        ? `https://www.google.com/maps/search/?api=1&query=${domicilioLat},${domicilioLng}`
+        : domicilioDireccion
+          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(domicilioDireccion)}`
+          : null)
+    : null;
 
   return (
     <main className="flex min-h-screen items-center justify-center p-4 bg-gray-50">
@@ -68,8 +79,21 @@ export default async function CitaPage({
           <Row label="Fecha"       value={formatCSTDate(appt.starts_at as string)} />
           <Row label="Hora"        value={formatCSTTime(appt.starts_at as string)} />
           <Row label="Terapeuta"   value={therapist?.name ?? ""} />
-          <Row label="Dirección"   value={branch?.address ?? ""} />
+          {esDomicilio ? (
+            <Row label="Modalidad" value={`🏠 A domicilio${domicilioDireccion ? `: ${domicilioDireccion}` : ""}`} />
+          ) : (
+            <Row label="Dirección" value={branch?.address ?? ""} />
+          )}
         </div>
+
+        {domicilioMapsUrl && (
+          <div className="text-center">
+            <a href={domicilioMapsUrl} target="_blank" rel="noopener noreferrer"
+              className="text-sm font-semibold text-blue-600 underline">
+              🗺️ Ver ubicación en el mapa
+            </a>
+          </div>
+        )}
 
         {status === "CANCELADA" ? (
           <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 text-center">

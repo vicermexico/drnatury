@@ -18,12 +18,18 @@ function buildMapsUrlFromAddress(address: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
 
+function buildDomicilioMapsUrl(direccion?: string | null, lat?: number | null, lng?: number | null): string | null {
+  if (lat != null && lng != null) return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  if (direccion) return buildMapsUrlFromAddress(direccion);
+  return null;
+}
+
 async function getCita(id: string) {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("appointments")
     .select(`
-      id, starts_at, ends_at, status, notes, pdf_url, modalidad, domicilio_direccion,
+      id, starts_at, ends_at, status, notes, pdf_url, modalidad, domicilio_direccion, domicilio_lat, domicilio_lng,
       patient:profiles!patient_id(name, phone, age, city, consultation_reason),
       services(name, duration_minutes),
       branches(name, address)
@@ -115,6 +121,9 @@ export default async function TerapeutaCitaPage({
   const endTime   = formatCSTTime(appt.ends_at as string);
   const esDomicilio = (appt as unknown as { modalidad?: string }).modalidad === "DOMICILIO";
   const domicilioDireccion = (appt as unknown as { domicilio_direccion?: string | null }).domicilio_direccion;
+  const domicilioLat = (appt as unknown as { domicilio_lat?: number | null }).domicilio_lat;
+  const domicilioLng = (appt as unknown as { domicilio_lng?: number | null }).domicilio_lng;
+  const domicilioMapsUrl = esDomicilio ? buildDomicilioMapsUrl(domicilioDireccion, domicilioLat, domicilioLng) : null;
 
   return (
     <div className="space-y-5">
@@ -149,9 +158,9 @@ export default async function TerapeutaCitaPage({
             {branch?.address && <Row label="Direccion" value={branch.address} />}
           </>
         )}
-        {esDomicilio && domicilioDireccion && (
+        {domicilioMapsUrl && (
           <div className="pt-1">
-            <a href={buildMapsUrlFromAddress(domicilioDireccion)} target="_blank" rel="noopener noreferrer"
+            <a href={domicilioMapsUrl} target="_blank" rel="noopener noreferrer"
               className="text-xs font-semibold text-blue-600 underline">
               🗺️ Cómo llegar
             </a>

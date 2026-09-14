@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
         date: formatCSTDate(apptData.starts_at as string),
         time: formatCSTTime(apptData.starts_at as string),
         therapist_name: therapist?.name ?? "",
-        address: branch?.address ?? "",
+        address: modalidad === "DOMICILIO" ? `A domicilio${domicilio_direccion ? `: ${domicilio_direccion}` : ""}` : (branch?.address ?? ""),
         confirm_url: confirmUrl,
       });
     } catch (pushErr) {

@@ -14,7 +14,7 @@ async function getMisCitas(therapistId: string, branchId: string | null, dateStr
 
   const { data: misCitas } = await admin
     .from("appointments")
-    .select(`id, starts_at, ends_at, status, modalidad, domicilio_direccion,
+    .select(`id, starts_at, ends_at, status, modalidad, domicilio_direccion, domicilio_lat, domicilio_lng,
       patient:profiles!patient_id(name, phone),
       services(name, duration_minutes),
       branches(name)`)
@@ -28,7 +28,7 @@ async function getMisCitas(therapistId: string, branchId: string | null, dateStr
   if (branchId) {
     const { data } = await admin
       .from("appointments")
-      .select(`id, starts_at, ends_at, status, modalidad, domicilio_direccion,
+      .select(`id, starts_at, ends_at, status, modalidad, domicilio_direccion, domicilio_lat, domicilio_lng,
         patient:profiles!patient_id(name, phone),
         services(name, duration_minutes),
         branches(name)`)
@@ -164,6 +164,12 @@ function buildMapsUrlFromAddress(address: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
 
+function buildDomicilioMapsUrl(direccion?: string | null, lat?: number | null, lng?: number | null): string | null {
+  if (lat != null && lng != null) return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  if (direccion) return buildMapsUrlFromAddress(direccion);
+  return null;
+}
+
 function CitaCard({ appt, mostrarCelular }: { appt: RawAppt; mostrarCelular: boolean }) {
   const status  = appt.status as AppointmentStatus;
   const patient = Array.isArray(appt.patient)  ? appt.patient[0]  : appt.patient  as { name: string; phone: string } | null;
@@ -171,6 +177,9 @@ function CitaCard({ appt, mostrarCelular }: { appt: RawAppt; mostrarCelular: boo
   const branch  = Array.isArray(appt.branches) ? appt.branches[0] : appt.branches as { name: string } | null;
   const esDomicilio = (appt as unknown as { modalidad?: string }).modalidad === "DOMICILIO";
   const direccion = (appt as unknown as { domicilio_direccion?: string | null }).domicilio_direccion;
+  const domLat = (appt as unknown as { domicilio_lat?: number | null }).domicilio_lat;
+  const domLng = (appt as unknown as { domicilio_lng?: number | null }).domicilio_lng;
+  const mapsUrl = esDomicilio ? buildDomicilioMapsUrl(direccion, domLat, domLng) : null;
 
   return (
     <Link href={`/terapeuta/citas/${appt.id}`}
@@ -197,10 +206,10 @@ function CitaCard({ appt, mostrarCelular }: { appt: RawAppt; mostrarCelular: boo
         {esDomicilio && (
           <p className="text-xs text-gray-500">
             🏠 A domicilio{direccion ? `: ${direccion}` : ""}
-            {direccion && (
+            {mapsUrl && (
               <>
                 {" "}·{" "}
-                <MapsLink href={buildMapsUrlFromAddress(direccion)} label="🗺️ Cómo llegar" />
+                <MapsLink href={mapsUrl} label="🗺️ Cómo llegar" />
               </>
             )}
           </p>
