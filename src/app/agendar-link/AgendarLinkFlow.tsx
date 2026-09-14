@@ -68,7 +68,13 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function AgendarLinkFlow({ therapistId, branches }: { therapistId?: string; branches: Branch[] }) {
+function buildTherapistWaUrl(waNumber: string, mensaje: string): string {
+  const digits = waNumber.replace(/\D/g, "");
+  const waPhone = digits.length === 10 ? `52${digits}` : digits;
+  return `https://wa.me/${waPhone}?text=${encodeURIComponent(mensaje)}`;
+}
+
+export function AgendarLinkFlow({ therapistId, therapistWhatsapp, branches }: { therapistId?: string; therapistWhatsapp?: string | null; branches: Branch[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [step, setStep] = useState<Step>("phone");
@@ -316,6 +322,17 @@ export function AgendarLinkFlow({ therapistId, branches }: { therapistId?: strin
           <p className="text-5xl">✓</p>
           <p className="text-lg font-bold text-gray-900">¡Cita agendada!</p>
           <p className="text-sm text-gray-500">Te llegará un mensaje de WhatsApp con los detalles.</p>
+          {therapistWhatsapp && branch && service && slot && (
+            <a
+              href={buildTherapistWaUrl(
+                therapistWhatsapp,
+                `Hola! Ya agendé mi cita ✅\n${service.name}\n${new Date(`${dateStr}T12:00:00`).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })} a las ${formatCSTTime(slot.starts_at)}\n${modalidad === "DOMICILIO" ? "🏠 A domicilio" : `📍 ${branch.name}`}`
+              )}
+              className="block w-full rounded-xl bg-green-500 py-3 text-sm font-semibold text-white hover:bg-green-600 transition"
+            >
+              💬 Volver a WhatsApp
+            </a>
+          )}
           <button onClick={() => router.push("/paciente/citas")} className={btnPrimary}>
             Ver mis citas
           </button>

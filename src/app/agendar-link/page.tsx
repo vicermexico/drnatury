@@ -26,11 +26,11 @@ async function getBranchesAbiertas(): Promise<BranchData[]> {
   return (data ?? []) as BranchData[];
 }
 
-async function getTherapistBranch(therapistId: string): Promise<{ therapistName: string; branch: BranchData } | null> {
+async function getTherapistBranch(therapistId: string): Promise<{ therapistName: string; therapistWhatsapp: string | null; branch: BranchData } | null> {
   const admin = createAdminClient();
   const { data: therapist } = await admin
     .from("profiles")
-    .select("id, name, branch_id")
+    .select("id, name, branch_id, whatsapp_number")
     .eq("id", therapistId)
     .contains("roles", ["TERAPEUTA"])
     .eq("is_active", true)
@@ -50,7 +50,11 @@ async function getTherapistBranch(therapistId: string): Promise<{ therapistName:
     .single();
   if (!branch) return null;
 
-  return { therapistName: therapist.name, branch: branch as BranchData };
+  return {
+    therapistName: therapist.name,
+    therapistWhatsapp: (therapist as unknown as { whatsapp_number?: string | null }).whatsapp_number ?? null,
+    branch: branch as BranchData,
+  };
 }
 
 export default async function AgendarLinkPage({
@@ -77,6 +81,7 @@ export default async function AgendarLinkPage({
         <p className="text-sm text-gray-500 mb-6">con {result.therapistName} · DrNatury</p>
         <AgendarLinkFlow
           therapistId={t}
+          therapistWhatsapp={result.therapistWhatsapp}
           branches={[result.branch] as Parameters<typeof AgendarLinkFlow>[0]["branches"]}
         />
       </div>
