@@ -9,7 +9,9 @@ const NAV = [
   { href: "/terapeuta/inventario",      label: "Inventario"         },
   { href: "/terapeuta/agua-energetica", label: "Activación de agua" },
   { href: "/terapeuta/revision-ph",     label: "Revisión de PH"     },
+  { href: "/terapeuta/receta",          label: "Receta"             },
   { href: "/terapeuta/estado-cuenta",   label: "Estado de Cuenta"   },
+  { href: "/terapeuta/perfil",          label: "Mi perfil"          },
 ];
 
 export default async function TerapeutaLayout({ children }: { children: React.ReactNode }) {
