@@ -17,6 +17,7 @@ const PUBLIC_PATHS = [
   "/api/auth/login",
   "/api/auth/login-terapeuta",
   "/api/auth/register",
+  "/api/appointments",   // cada ruta valida su propio permiso (token firmado o sesion)
   "/api/setup",
   "/api/cron",
   "/resultado",
