@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
   const body = await request.json().catch(() => ({})) as Record<string, string>;
-  const { branch_id, service_id, starts_at, ends_at, patient_id, notes, therapist_id, modalidad, domicilio_direccion, domicilio_lat, domicilio_lng } = body;
+  const { branch_id, service_id, starts_at, ends_at, patient_id, notes, therapist_id, modalidad, domicilio_direccion, domicilio_lat, domicilio_lng, num_personas } = body;
 
   if (!branch_id || !service_id || !starts_at || !ends_at) {
     return NextResponse.json(
@@ -113,6 +113,16 @@ export async function POST(request: NextRequest) {
     await admin
       .from("appointments")
       .update({ domicilio_lat: Number(domicilio_lat), domicilio_lng: Number(domicilio_lng) })
+      .eq("id", appointmentId);
+  }
+
+  // Cuantas personas se van a atender en esta misma cita (book_appointment
+  // no maneja esta columna, se guarda aqui con un UPDATE aparte).
+  const numPersonas = Math.max(1, parseInt(num_personas ?? "1", 10) || 1);
+  if (numPersonas !== 1) {
+    await admin
+      .from("appointments")
+      .update({ num_personas: numPersonas })
       .eq("id", appointmentId);
   }
 

@@ -11,6 +11,7 @@ interface Branch {
   address: string;
   simultaneous_capacity: number;
   schedule: WeeklySchedule;
+  domicilio_precio_persona?: number;
 }
 
 // â”€â”€ Horario â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -80,6 +81,7 @@ function EditForm({ branch, onCancel }: { branch: Branch; onCancel: () => void }
   const [name, setName] = useState(branch.name);
   const [address, setAddress] = useState(branch.address);
   const [schedule, setSchedule] = useState<WeeklySchedule>(branch.schedule ?? {});
+  const [domicilioPrecioPersona, setDomicilioPrecioPersona] = useState(String(branch.domicilio_precio_persona ?? 299));
 
   function setDay(key: keyof WeeklySchedule, value: DaySchedule) {
     setSchedule((prev) => ({ ...prev, [key]: value }));
@@ -96,7 +98,7 @@ function EditForm({ branch, onCancel }: { branch: Branch; onCancel: () => void }
         const res = await fetch(`/api/branches/${branch.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, address, schedule }),
+          body: JSON.stringify({ name, address, schedule, domicilio_precio_persona: Number(domicilioPrecioPersona) || 0 }),
         });
         const data = await res.json();
         if (!res.ok) { setError(data.message ?? "Error al guardar"); return; }
@@ -120,6 +122,9 @@ function EditForm({ branch, onCancel }: { branch: Branch; onCancel: () => void }
           <input required value={address} onChange={(e) => setAddress(e.target.value)} className={ic} />
         </div>
         <div>
+          <label className={lc}>Precio a domicilio por persona</label>
+          <input type="number" min="0" step="1" value={domicilioPrecioPersona}
+            onChange={(e) => setDomicilioPrecioPersona(e.target.value)} className={ic} />
         </div>
       </div>
 
