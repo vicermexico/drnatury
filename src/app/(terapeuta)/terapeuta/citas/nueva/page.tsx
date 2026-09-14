@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
 import { TerapeutaBookingForm } from "@/components/forms/TerapeutaBookingForm";
+import { GenerarLinkAgendar } from "@/components/agenda/GenerarLinkAgendar";
 
 async function getFormData(branchId: string) {
   const admin = createAdminClient();
@@ -70,6 +71,8 @@ export default async function TerapeutaNuevaCitaPage() {
         </Link>
       </div>
       <h1 className="text-xl font-bold text-gray-900">Nueva cita</h1>
+
+      <GenerarLinkAgendar therapistId={therapist.id} />
 
       <div className="rounded-2xl bg-white border border-gray-200 p-5">
         <TerapeutaBookingForm

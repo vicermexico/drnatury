@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
   const body = await request.json().catch(() => ({})) as Record<string, string>;
-  const { branch_id, service_id, starts_at, ends_at, patient_id, notes, therapist_id, modalidad, domicilio_direccion } = body;
+  const { branch_id, service_id, starts_at, ends_at, patient_id, notes, therapist_id, modalidad, domicilio_direccion, domicilio_lat, domicilio_lng } = body;
 
   if (!branch_id || !service_id || !starts_at || !ends_at) {
     return NextResponse.json(
@@ -105,6 +105,16 @@ export async function POST(request: NextRequest) {
   }
 
   const appointmentId = bookingResult.id!;
+
+  // Pin exacto del GPS para citas a domicilio (si el paciente lo mando
+  // desde el boton "Tomar mi ubicacion"). book_appointment no maneja estas
+  // columnas, asi que se guardan aqui con un UPDATE aparte.
+  if (modalidad === "DOMICILIO" && domicilio_lat && domicilio_lng) {
+    await admin
+      .from("appointments")
+      .update({ domicilio_lat: Number(domicilio_lat), domicilio_lng: Number(domicilio_lng) })
+      .eq("id", appointmentId);
+  }
 
   const { data: apptData } = await admin
     .from("appointments")
