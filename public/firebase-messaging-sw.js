@@ -17,7 +17,7 @@ messaging.onBackgroundMessage((payload) => {
   self.registration.showNotification(title ?? "DrNatury", {
     body: body ?? "",
     icon: "/icons/icon-192x192.png",
-    data: { url: "/paciente/citas" },
+    data: { url: payload.data?.url ?? "/paciente/citas" },
   });
 });
 

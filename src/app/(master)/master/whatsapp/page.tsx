@@ -6,6 +6,10 @@ const TEMPLATE_META: Record<string, { label: string; vars: string[] }> = {
     label: "Confirmación de cita",
     vars: ["{{patient_name}}", "{{branch_name}}", "{{date}}", "{{time}}", "{{therapist_name}}", "{{address}}"],
   },
+  appointment_booked_therapist: {
+    label: "Aviso al terapeuta (cita nueva por link)",
+    vars: ["{{patient_name}}", "{{date}}", "{{time}}", "{{service_name}}"],
+  },
   appointment_reminder: {
     label: "Recordatorio de cita",
     vars: ["{{patient_name}}", "{{branch_name}}", "{{date}}", "{{time}}", "{{therapist_name}}"],

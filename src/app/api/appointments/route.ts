@@ -142,6 +142,7 @@ export async function POST(request: NextRequest) {
     const patient = Array.isArray(apptData.profiles) ? apptData.profiles[0] : apptData.profiles as { name: string; phone: string } | null;
     const branch = Array.isArray(apptData.branches) ? apptData.branches[0] : apptData.branches as { name: string; address: string } | null;
     const therapist = Array.isArray(apptData.therapists) ? apptData.therapists[0] : apptData.therapists as { name: string } | null;
+    const svc = Array.isArray(apptData.services) ? apptData.services[0] : apptData.services as { name: string } | null;
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     const confirmUrl = buildConfirmUrl(appointmentId, baseUrl);
@@ -159,6 +160,28 @@ export async function POST(request: NextRequest) {
       });
     } catch (pushErr) {
       console.error("Error enviando push notification:", pushErr);
+    }
+
+    // Notificacion push a la terapeuta cuando la cita ya trae terapeuta
+    // asignado (ej. agendada desde el link) — respaldo por si el paciente
+    // no le manda el mensaje de WhatsApp. Al tocarla entra directo a la
+    // cita, sin pedir contraseña (ya viene autenticado en su celular).
+    if (therapist_id) {
+      try {
+        await sendPushNotification(
+          therapist_id,
+          "appointment_booked_therapist",
+          {
+            patient_name: patient?.name ?? "",
+            date: formatCSTDate(apptData.starts_at as string),
+            time: formatCSTTime(apptData.starts_at as string),
+            service_name: svc?.name ?? "",
+          },
+          `/terapeuta/citas/${appointmentId}`
+        );
+      } catch (pushErr) {
+        console.error("Error enviando push notification a terapeuta:", pushErr);
+      }
     }
   }
 

@@ -99,7 +99,6 @@ export function AgendarLinkFlow({ therapistId, therapistWhatsapp, branches }: { 
   const [direccionRef, setDireccionRef] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [ubicando, setUbicando] = useState(false);
-  const [appointmentId, setAppointmentId] = useState<string | null>(null);
 
   const branch = branches.find(b => b.id === branchId) ?? null;
   const service = branch ? getBranchServices(branch).find(s => s.id === serviceId) ?? null : null;
@@ -163,6 +162,28 @@ export function AgendarLinkFlow({ therapistId, therapistWhatsapp, branches }: { 
     );
   }
 
+  // ── Mensaje de confirmacion (se manda por WhatsApp al terapeuta) ──
+  function buildConfirmMensaje(apptId: string): string {
+    if (!branch || !service || !slot) return "";
+    const fechaLabel = capitalize(new Date(`${dateStr}T12:00:00`).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" }));
+    const lugar = modalidad === "DOMICILIO"
+      ? `En mi domicilio${direccionRef.trim() ? `: ${direccionRef.trim()}` : ""}`
+        + (coords ? `\nhttps://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}` : "")
+      : `Consultorio - ${branch.address}`;
+    return (
+      `LISTO! Ya agendé mi cita\n` +
+      `Servicio: ${service.name}\n` +
+      `Fecha: ${fechaLabel}\n` +
+      `Hora: ${formatCSTTime(slot.starts_at)}\n` +
+      `Personas: ${numPersonas}\n` +
+      `Lugar: ${lugar}\n` +
+      `Costo: $${precioTotal.toLocaleString("es-MX")}` +
+      (therapistId
+        ? `\n\nExclusivo para el Terapeuta\n${typeof window !== "undefined" ? window.location.origin : ""}/terapeuta-acceso/${therapistId}?next=/terapeuta/citas/${apptId}`
+        : "")
+    );
+  }
+
   // ── Confirmar ───────────────────────────────────────────
   function handleConfirmar() {
     if (!slot || !modalidad || !branchId || !serviceId) return;
@@ -186,7 +207,11 @@ export function AgendarLinkFlow({ therapistId, therapistWhatsapp, branches }: { 
       const data = await res.json().catch(() => ({}));
       if (res.status === 409) { setError("Este horario acaba de ser tomado. Elige otro."); setStep("horario"); return; }
       if (!res.ok) { setError(data.message ?? "Error al agendar. Intenta de nuevo."); return; }
-      setAppointmentId(data.id ?? null);
+      if (therapistWhatsapp && data.id) {
+        // Regresa directo a WhatsApp con el mensaje ya listo — sin pantalla intermedia.
+        window.location.href = buildTherapistWaUrl(therapistWhatsapp, buildConfirmMensaje(data.id));
+        return;
+      }
       setStep("listo");
     });
   }
@@ -348,9 +373,9 @@ export function AgendarLinkFlow({ therapistId, therapistWhatsapp, branches }: { 
             <Row label="Fecha" value={new Date(`${dateStr}T12:00:00`).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} />
             <Row label="Hora" value={formatCSTTime(slot.starts_at)} />
           </div>
-          <p className="text-xs text-gray-500 text-center">Al confirmar recibirás un mensaje de WhatsApp con los detalles.</p>
+          <p className="text-xs text-gray-500 text-center">Al finalizar se abrirá WhatsApp con el mensaje de confirmación ya listo.</p>
           <button onClick={handleConfirmar} disabled={isPending} className={btnPrimary}>
-            {isPending ? "Agendando…" : "Confirmar cita"}
+            {isPending ? "Agendando…" : "Finalizar"}
           </button>
           <BackButton onClick={() => setStep(modalidad === "DOMICILIO" ? "ubicacion" : "horario")} />
         </div>
@@ -361,32 +386,6 @@ export function AgendarLinkFlow({ therapistId, therapistWhatsapp, branches }: { 
           <p className="text-5xl">✓</p>
           <p className="text-lg font-bold text-gray-900">¡Cita agendada!</p>
           <p className="text-sm text-gray-500">Te llegará un mensaje de WhatsApp con los detalles.</p>
-          {therapistWhatsapp && branch && service && slot && (() => {
-            const fechaLabel = capitalize(new Date(`${dateStr}T12:00:00`).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" }));
-            const lugar = modalidad === "DOMICILIO"
-              ? `En mi domicilio${direccionRef.trim() ? `: ${direccionRef.trim()}` : ""}`
-                + (coords ? `\nhttps://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}` : "")
-              : `Consultorio - ${branch.address}`;
-            const mensaje =
-              `LISTO! Ya agendé mi cita\n` +
-              `Servicio: ${service.name}\n` +
-              `Fecha: ${fechaLabel}\n` +
-              `Hora: ${formatCSTTime(slot.starts_at)}\n` +
-              `Personas: ${numPersonas}\n` +
-              `Lugar: ${lugar}\n` +
-              `Costo: $${precioTotal.toLocaleString("es-MX")}` +
-              (therapistId && appointmentId
-                ? `\n\nExclusivo para el Terapeuta\n${typeof window !== "undefined" ? window.location.origin : ""}/terapeuta-acceso/${therapistId}?next=/terapeuta/citas/${appointmentId}`
-                : "");
-            return (
-              <a
-                href={buildTherapistWaUrl(therapistWhatsapp, mensaje)}
-                className="block w-full rounded-xl bg-green-500 py-3 text-sm font-semibold text-white hover:bg-green-600 transition"
-              >
-                💬 Volver a WhatsApp
-              </a>
-            );
-          })()}
           <button onClick={() => router.push("/paciente/citas")} className={btnPrimary}>
             Ver mis citas
           </button>
