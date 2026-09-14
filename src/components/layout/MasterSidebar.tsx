@@ -16,6 +16,7 @@ const NAV = [
   { href: "/master/configuracion", label: "Configuracion", icon: "⚙️" },
   { href: "/master/whatsapp-citas",    label: "WhatsApp Citas",  icon: "💬" },
   { href: "/master/agua-energetica",  label: "Agua Energetica", icon: "💧" },
+  { href: "/master/ph-revision",    label: "Revision de PH", icon: "🧪" },
   { href: "/master/comisiones",     label: "Comisiones",     icon: "💰" },
   { href: "/master/cortes",         label: "Cortes",         icon: "✂️" },
 ];
