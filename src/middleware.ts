@@ -13,7 +13,9 @@ const PUBLIC_PATHS = [
   "/terminos-de-uso",
   "/derechos-arco",
   "/cita",              // link de confirmar/cancelar desde WhatsApp
+  "/terapeuta-acceso",  // link exclusivo terapeuta desde WhatsApp (solo pide contraseña)
   "/api/auth/login",
+  "/api/auth/login-terapeuta",
   "/api/auth/register",
   "/api/setup",
   "/api/cron",
