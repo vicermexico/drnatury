@@ -6,6 +6,7 @@ interface BranchData {
   name: string;
   address: string;
   schedule: unknown;
+  domicilio_precio_persona?: number;
   branch_services: {
     price: number;
     services: { id: string; name: string; duration_minutes: number } | { id: string; name: string; duration_minutes: number }[] | null;
@@ -17,7 +18,7 @@ async function getBranchesAbiertas(): Promise<BranchData[]> {
   const { data } = await admin
     .from("branches")
     .select(`
-      id, name, address, schedule,
+      id, name, address, schedule, domicilio_precio_persona,
       branch_services( price, services(id, name, duration_minutes) )
     `)
     .eq("is_active", true)
@@ -41,7 +42,7 @@ async function getTherapistBranch(therapistId: string): Promise<{ therapistName:
   const { data: branch } = await admin
     .from("branches")
     .select(`
-      id, name, address, schedule,
+      id, name, address, schedule, domicilio_precio_persona,
       branch_services( price, services(id, name, duration_minutes) )
     `)
     .eq("id", therapist.branch_id)

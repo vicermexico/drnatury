@@ -15,12 +15,13 @@ interface Branch {
   address: string;
   schedule: Record<string, { open: boolean }> | null;
   branch_services: BranchServiceItem[];
+  domicilio_precio_persona?: number;
 }
 interface Slot { starts_at: string; ends_at: string }
 interface FlatService extends ServiceData { price: number }
 type Modalidad = "CONSULTORIO" | "DOMICILIO";
 type Step =
-  | "phone" | "name" | "sucursal" | "modalidad" | "servicio"
+  | "phone" | "name" | "sucursal" | "modalidad" | "servicio" | "personas"
   | "fecha" | "horario" | "ubicacion" | "confirmar" | "listo";
 
 const DAY_KEYS = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"] as const;
@@ -68,6 +69,10 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 function buildTherapistWaUrl(waNumber: string, mensaje: string): string {
   const digits = waNumber.replace(/\D/g, "");
   const waPhone = digits.length === 10 ? `52${digits}` : digits;
@@ -88,6 +93,7 @@ export function AgendarLinkFlow({ therapistId, therapistWhatsapp, branches }: { 
   const [branchId, setBranchId] = useState(therapistId && branches[0] ? branches[0].id : "");
   const [modalidad, setModalidad] = useState<Modalidad | null>(null);
   const [serviceId, setServiceId] = useState("");
+  const [numPersonas, setNumPersonas] = useState(1);
   const [dateStr, setDateStr] = useState("");
   const [slot, setSlot] = useState<Slot | null>(null);
   const [direccionRef, setDireccionRef] = useState("");
@@ -97,6 +103,8 @@ export function AgendarLinkFlow({ therapistId, therapistWhatsapp, branches }: { 
 
   const branch = branches.find(b => b.id === branchId) ?? null;
   const service = branch ? getBranchServices(branch).find(s => s.id === serviceId) ?? null : null;
+  const precioPorPersona = modalidad === "DOMICILIO" ? (branch?.domicilio_precio_persona ?? 299) : (service?.price ?? 0);
+  const precioTotal = precioPorPersona * numPersonas;
 
   // ── Paso: telefono ─────────────────────────────────────
   function handlePhoneSubmit() {
@@ -172,6 +180,7 @@ export function AgendarLinkFlow({ therapistId, therapistWhatsapp, branches }: { 
           domicilio_lat: coords?.lat ?? null,
           domicilio_lng: coords?.lng ?? null,
           therapist_id: therapistId ?? null,
+          num_personas: numPersonas,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -256,7 +265,7 @@ export function AgendarLinkFlow({ therapistId, therapistWhatsapp, branches }: { 
           <p className="text-sm font-medium text-gray-700">¿Qué servicio?</p>
           <div className="space-y-2">
             {getBranchServices(branch).map(s => (
-              <button key={s.id} type="button" onClick={() => { setServiceId(s.id); setStep("fecha"); }} className={card(serviceId === s.id)}>
+              <button key={s.id} type="button" onClick={() => { setServiceId(s.id); setStep("personas"); }} className={card(serviceId === s.id)}>
                 <p className="text-sm font-semibold">{s.name}</p>
                 <p className="text-xs text-gray-600 mt-0.5">
                   {s.duration_minutes} min{s.price > 0 && ` · $${s.price.toLocaleString("es-MX")}`}
@@ -265,6 +274,33 @@ export function AgendarLinkFlow({ therapistId, therapistWhatsapp, branches }: { 
             ))}
           </div>
           <BackButton onClick={() => setStep("modalidad")} />
+        </div>
+      )}
+
+      {step === "personas" && (
+        <div className="space-y-4">
+          <p className="text-sm font-medium text-gray-700">¿Cuántas personas van a ser?</p>
+          <div className="grid grid-cols-4 gap-2">
+            {[1, 2, 3, 4].map(n => (
+              <button key={n} type="button" onClick={() => setNumPersonas(n)}
+                className={card(numPersonas === n) + " text-center"}>
+                <p className="text-lg font-bold">{n}</p>
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-500">Más de 4:</span>
+            <input type="number" min={1} value={numPersonas}
+              onChange={e => setNumPersonas(Math.max(1, parseInt(e.target.value, 10) || 1))}
+              style={{ color: "black" }} className={inputCls + " w-24"} />
+          </div>
+          {precioPorPersona > 0 && (
+            <p className="text-xs text-gray-500 text-center">
+              ${precioPorPersona.toLocaleString("es-MX")} por persona × {numPersonas} = <span className="font-semibold text-gray-700">${precioTotal.toLocaleString("es-MX")}</span>
+            </p>
+          )}
+          <button onClick={() => setStep("fecha")} className={btnPrimary}>Continuar</button>
+          <BackButton onClick={() => setStep("servicio")} />
         </div>
       )}
 
@@ -307,7 +343,8 @@ export function AgendarLinkFlow({ therapistId, therapistWhatsapp, branches }: { 
             <Row label="Modalidad" value={modalidad === "DOMICILIO" ? "A domicilio" : "En consultorio"} />
             <Row label={modalidad === "DOMICILIO" ? "Sucursal (referencia)" : "Sucursal"} value={branch.name} />
             <Row label="Servicio" value={`${service.name} (${service.duration_minutes} min)`} />
-            {service.price > 0 && <Row label="Precio" value={`$${service.price.toLocaleString("es-MX")}`} />}
+            <Row label="Personas" value={String(numPersonas)} />
+            {precioTotal > 0 && <Row label="Costo" value={`$${precioTotal.toLocaleString("es-MX")}`} />}
             <Row label="Fecha" value={new Date(`${dateStr}T12:00:00`).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} />
             <Row label="Hora" value={formatCSTTime(slot.starts_at)} />
           </div>
@@ -324,20 +361,32 @@ export function AgendarLinkFlow({ therapistId, therapistWhatsapp, branches }: { 
           <p className="text-5xl">✓</p>
           <p className="text-lg font-bold text-gray-900">¡Cita agendada!</p>
           <p className="text-sm text-gray-500">Te llegará un mensaje de WhatsApp con los detalles.</p>
-          {therapistWhatsapp && branch && service && slot && (
-            <a
-              href={buildTherapistWaUrl(
-                therapistWhatsapp,
-                `Hola! Ya agendé mi cita ✅\n${service.name}\n${new Date(`${dateStr}T12:00:00`).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })} a las ${formatCSTTime(slot.starts_at)}\n${modalidad === "DOMICILIO" ? "🏠 A domicilio" : `📍 ${branch.name}`}`
-                + (therapistId && appointmentId
-                    ? `\n\n🔒 Exclusivo terapeuta (ver cita y guardarla en tu calendario):\n${typeof window !== "undefined" ? window.location.origin : ""}/terapeuta-acceso/${therapistId}?next=/terapeuta/citas/${appointmentId}`
-                    : "")
-              )}
-              className="block w-full rounded-xl bg-green-500 py-3 text-sm font-semibold text-white hover:bg-green-600 transition"
-            >
-              💬 Volver a WhatsApp
-            </a>
-          )}
+          {therapistWhatsapp && branch && service && slot && (() => {
+            const fechaLabel = capitalize(new Date(`${dateStr}T12:00:00`).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" }));
+            const lugar = modalidad === "DOMICILIO"
+              ? `En mi domicilio${direccionRef.trim() ? `: ${direccionRef.trim()}` : ""}`
+                + (coords ? `\nhttps://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}` : "")
+              : `Consultorio - ${branch.address}`;
+            const mensaje =
+              `LISTO! Ya agendé mi cita\n` +
+              `Servicio: ${service.name}\n` +
+              `Fecha: ${fechaLabel}\n` +
+              `Hora: ${formatCSTTime(slot.starts_at)}\n` +
+              `Personas: ${numPersonas}\n` +
+              `Lugar: ${lugar}\n` +
+              `Costo: $${precioTotal.toLocaleString("es-MX")}` +
+              (therapistId && appointmentId
+                ? `\n\nExclusivo para el Terapeuta\n${typeof window !== "undefined" ? window.location.origin : ""}/terapeuta-acceso/${therapistId}?next=/terapeuta/citas/${appointmentId}`
+                : "");
+            return (
+              <a
+                href={buildTherapistWaUrl(therapistWhatsapp, mensaje)}
+                className="block w-full rounded-xl bg-green-500 py-3 text-sm font-semibold text-white hover:bg-green-600 transition"
+              >
+                💬 Volver a WhatsApp
+              </a>
+            );
+          })()}
           <button onClick={() => router.push("/paciente/citas")} className={btnPrimary}>
             Ver mis citas
           </button>

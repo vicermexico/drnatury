@@ -16,7 +16,7 @@ export async function GET(
     .from("branches")
     .select(`
       id, name, address, lat, lng,
-      simultaneous_capacity, is_active, schedule,
+      simultaneous_capacity, is_active, schedule, domicilio_precio_persona,
       branch_services(
         price,
         services(id, name, duration_minutes)
@@ -42,7 +42,7 @@ export async function PATCH(
   const { id } = await params;
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
 
-  const allowed = ["name", "address", "simultaneous_capacity", "schedule", "is_active", "global_mode", "global_capacity", "mostrar_celular"];
+  const allowed = ["name", "address", "simultaneous_capacity", "schedule", "is_active", "global_mode", "global_capacity", "mostrar_celular", "domicilio_precio_persona"];
   const updates = Object.fromEntries(
     Object.entries(body).filter(([k]) => allowed.includes(k))
   );

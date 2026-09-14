@@ -14,7 +14,7 @@ async function getBranch(id: string) {
   const { data, error } = await admin
     .from("branches")
     .select(`
-      id, name, address, is_active, schedule, global_mode, global_capacity, mostrar_celular,
+      id, name, address, is_active, schedule, global_mode, global_capacity, mostrar_celular, domicilio_precio_persona,
       branch_services(price, simultaneous_capacity, services(id, name, duration_minutes))
     `)
     .eq("id", id)
@@ -171,6 +171,7 @@ export default async function BranchDetailPage({
         name: branch.name,
         address: branch.address,
         schedule: schedule,
+        domicilio_precio_persona: branch.domicilio_precio_persona,
       }} />
     </div>
   );
