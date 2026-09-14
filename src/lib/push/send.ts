@@ -11,7 +11,8 @@ export interface PushResult {
 export async function sendPushNotification(
   patientId: string,
   templateKey: TemplateKey,
-  vars: Record<string, string>
+  vars: Record<string, string>,
+  url?: string
 ): Promise<PushResult> {
   const tag = `[PUSH -> ${patientId} | ${templateKey}]`;
   const admin = createAdminClient();
@@ -63,6 +64,7 @@ export async function sendPushNotification(
         title: "DrNatury",
         body: message,
       },
+      data: url ? { url } : undefined,
     });
     console.log(`${tag} Enviado`);
     return { sent: true };

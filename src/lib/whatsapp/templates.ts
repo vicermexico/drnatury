@@ -3,6 +3,7 @@
 
 export type TemplateKey =
   | "appointment_booked"
+  | "appointment_booked_therapist"
   | "appointment_reminder"
   | "appointment_cancelled"
   | "appointment_confirmed_notify"
