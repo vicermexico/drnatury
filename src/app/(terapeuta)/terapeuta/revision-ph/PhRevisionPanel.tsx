@@ -1,5 +1,27 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+
+function BotonSalir({ destacado = false }: { destacado?: boolean }) {
+  if (destacado) {
+    return (
+      <Link
+        href="/terapeuta/dashboard"
+        className="ph-pulse absolute top-4 right-4 z-20 rounded-full px-6 py-2.5 text-sm font-bold text-white shadow-2xl"
+      >
+        Salir
+      </Link>
+    );
+  }
+  return (
+    <Link
+      href="/terapeuta/dashboard"
+      className="absolute top-3 right-3 z-20 text-[11px] font-medium text-white/40 hover:text-white/80 transition px-2 py-1"
+    >
+      Salir
+    </Link>
+  );
+}
 
 interface Config {
   video_fondo_url: string | null;
@@ -69,6 +91,7 @@ export function PhRevisionPanel({ config }: { config: Config | null }) {
   if (step === "idle") {
     return (
       <div className="fixed inset-0 bg-black z-50 flex items-center justify-center overflow-hidden">
+        <BotonSalir />
         {config?.video_fondo_url && (
           <video
             src={config.video_fondo_url}
@@ -106,6 +129,7 @@ export function PhRevisionPanel({ config }: { config: Config | null }) {
   if (step === "escaneando") {
     return (
       <div className="fixed inset-0 bg-black z-50 flex flex-col overflow-hidden">
+        <BotonSalir />
         <div className="shrink-0 text-center pt-8 pb-4 px-4">
           <p className="text-gray-400 text-xs uppercase tracking-widest">Localizador de formula</p>
           <p className="text-white text-3xl font-mono font-bold tracking-widest mt-1">{codigo}</p>
@@ -149,6 +173,7 @@ export function PhRevisionPanel({ config }: { config: Config | null }) {
   // ------------------------------------------------------------------
   return (
     <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
+      <BotonSalir destacado />
       <div className="text-center space-y-4 px-6">
         <p className="text-emerald-400 text-4xl">✓</p>
         <p className="text-white text-3xl font-bold">Finalizado</p>
@@ -163,6 +188,13 @@ export function PhRevisionPanel({ config }: { config: Config | null }) {
           Nueva revision
         </button>
       </div>
+      <style>{`
+        @keyframes ph-pulse-color {
+          0%, 100% { background-color: #0d9488; box-shadow: 0 0 20px 4px rgba(13,148,136,0.6); }
+          50% { background-color: #22d3ee; box-shadow: 0 0 32px 10px rgba(34,211,238,0.8); }
+        }
+        .ph-pulse { animation: ph-pulse-color 1.6s ease-in-out infinite; }
+      `}</style>
     </div>
   );
 }
