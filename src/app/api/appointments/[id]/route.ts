@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { sendPushNotification } from "@/lib/push/send";
 import { formatCSTDate, formatCSTTime } from "@/lib/appointments/availability";
+import { verifyConfirmToken } from "@/lib/appointments/tokens";
 import type { TemplateKey } from "@/lib/whatsapp/templates";
 
 export async function GET(
@@ -34,32 +35,15 @@ export async function PATCH(
   const body = await request.json().catch(() => ({})) as {
     starts_at?: string;
     ends_at?: string;
+    confirm_token?: string;
   };
 
-  const { starts_at, ends_at } = body;
+  const { starts_at, ends_at, confirm_token } = body;
   if (!starts_at || !ends_at) {
     return NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
   }
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-
   const admin = createAdminClient();
-
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("roles")
-    .eq("id", user.id)
-    .single();
-
-  const roles = (profile?.roles ?? []) as string[];
-  const isMaster = roles.includes("MASTER") || roles.includes("ASISTENTE") || roles.includes("TERAPEUTA");
-  const isPatient = roles.includes("PACIENTE");
-
-  if (!isMaster && !isPatient) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
 
   const { data: appt } = await admin
     .from("appointments")
@@ -75,7 +59,36 @@ export async function PATCH(
 
   if (!appt) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 
-  if (isPatient && !isMaster && appt.patient_id !== user.id) {
+  // El link de confirmacion que llega por WhatsApp trae su propio token
+  // firmado (no depende de que haya una sesion activa en ese celular).
+  // Si no viene token, se usa el permiso normal por sesion (staff o el
+  // propio paciente).
+  let authorized = false;
+  if (confirm_token) {
+    authorized = verifyConfirmToken(id, confirm_token);
+  } else {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("roles")
+      .eq("id", user.id)
+      .single();
+
+    const roles = (profile?.roles ?? []) as string[];
+    const isMaster = roles.includes("MASTER") || roles.includes("ASISTENTE") || roles.includes("TERAPEUTA");
+    const isPatient = roles.includes("PACIENTE");
+
+    if (isPatient && !isMaster && appt.patient_id !== user.id) {
+      authorized = false;
+    } else {
+      authorized = isMaster || isPatient;
+    }
+  }
+
+  if (!authorized) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 

@@ -10,10 +10,11 @@ async function getAppointment(id: string) {
     .from("appointments")
     .select(`
       id, starts_at, ends_at, status, modalidad, domicilio_direccion, domicilio_lat, domicilio_lng,
+      branch_id, service_id, therapist_id,
       profiles!patient_id(name),
-      services(name),
-      branches(name, address),
-      therapists:profiles!therapist_id(name)
+      services(name, duration_minutes),
+      branches(name, address, schedule),
+      therapists:profiles!therapist_id(id, name, whatsapp_number)
     `)
     .eq("id", id)
     .is("deleted_at", null)
@@ -49,9 +50,9 @@ export default async function CitaPage({
   if (!appt) notFound();
 
   const patient  = Array.isArray(appt.profiles) ? appt.profiles[0] : appt.profiles as { name: string } | null;
-  const service  = Array.isArray(appt.services) ? appt.services[0] : appt.services as { name: string } | null;
-  const branch   = Array.isArray(appt.branches) ? appt.branches[0] : appt.branches as { name: string; address: string } | null;
-  const therapist = Array.isArray(appt.therapists) ? appt.therapists[0] : appt.therapists as { name: string } | null;
+  const service  = Array.isArray(appt.services) ? appt.services[0] : appt.services as { name: string; duration_minutes: number } | null;
+  const branch   = Array.isArray(appt.branches) ? appt.branches[0] : appt.branches as { name: string; address: string; schedule: Record<string, { open: boolean }> | null } | null;
+  const therapist = Array.isArray(appt.therapists) ? appt.therapists[0] : appt.therapists as { id: string; name: string; whatsapp_number: string | null } | null;
   const status = appt.status as string;
   const esDomicilio = (appt as unknown as { modalidad?: string }).modalidad === "DOMICILIO";
   const domicilioDireccion = (appt as unknown as { domicilio_direccion?: string | null }).domicilio_direccion;
@@ -104,7 +105,21 @@ export default async function CitaPage({
             Esta cita ya fue realizada.
           </div>
         ) : (
-          <ConfirmActions appointmentId={id} token={token} currentStatus={status} />
+          <ConfirmActions
+            appointmentId={id}
+            token={token}
+            currentStatus={status}
+            branchId={(appt as unknown as { branch_id: string }).branch_id}
+            serviceId={(appt as unknown as { service_id: string }).service_id}
+            serviceName={service?.name ?? ""}
+            durationMinutes={service?.duration_minutes ?? 60}
+            branchSchedule={branch?.schedule ?? null}
+            branchName={branch?.name ?? ""}
+            branchAddress={branch?.address ?? ""}
+            modalidad={esDomicilio ? "DOMICILIO" : "CONSULTORIO"}
+            therapistId={therapist?.id ?? null}
+            therapistWhatsapp={therapist?.whatsapp_number ?? null}
+          />
         )}
       </div>
     </main>
