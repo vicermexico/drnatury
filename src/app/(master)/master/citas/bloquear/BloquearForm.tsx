@@ -1,9 +1,17 @@
 ﻿"use client";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 interface Branch { id: string; name: string; }
 interface Slot { start: string; end: string; }
+interface FreeSlot { starts_at: string; ends_at: string; }
+
+function toHHMM(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "America/Monterrey", hour12: false });
+}
+function toLabel(iso: string): string {
+  return new Date(iso).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: "America/Monterrey", hour12: true });
+}
 
 export function BloquearForm({ branches }: { branches: Branch[] }) {
   const router = useRouter();
@@ -16,6 +24,10 @@ export function BloquearForm({ branches }: { branches: Branch[] }) {
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [manual, setManual] = useState(false);
+  const [freeSlots, setFreeSlots] = useState<FreeSlot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   function addSlot() {
     setSlots(prev => [...prev, { start: "09:00", end: "17:00" }]);
@@ -32,6 +44,57 @@ export function BloquearForm({ branches }: { branches: Branch[] }) {
   function handleDateSelect(date: string) {
     setSelectedDate(date);
     setStep("hours");
+    setSelected(new Set());
+    setManual(false);
+  }
+
+  useEffect(() => {
+    if (step !== "hours" || !selectedDate || allDay || branchId === "global") { setFreeSlots([]); return; }
+    let cancelled = false;
+    setLoadingSlots(true);
+    fetch(`/api/branches/${branchId}/free-slots?date=${selectedDate}`)
+      .then(res => res.json())
+      .then(data => { if (!cancelled) setFreeSlots(data.slots ?? []); })
+      .catch(() => { if (!cancelled) setFreeSlots([]); })
+      .finally(() => { if (!cancelled) setLoadingSlots(false); });
+    return () => { cancelled = true; };
+  }, [step, selectedDate, branchId, allDay]);
+
+  function toggleSlot(startsAt: string) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(startsAt)) next.delete(startsAt); else next.add(startsAt);
+      return next;
+    });
+  }
+
+  function handleBloquearSeleccionados() {
+    if (selected.size === 0) { setError("Selecciona al menos un horario"); return; }
+    setError("");
+    startTransition(async () => {
+      const slotsToSend = freeSlots
+        .filter(s => selected.has(s.starts_at))
+        .map(s => ({ start: toHHMM(s.starts_at), end: toHHMM(s.ends_at) }));
+      const res = await fetch("/api/blocked-slots", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          branch_id: branchId === "global" ? null : branchId,
+          date: selectedDate,
+          all_day: false,
+          slots: slotsToSend,
+          reason: reason.trim() || null,
+        }),
+      });
+      if (!res.ok) { setError("Error al bloquear"); return; }
+      setSuccess(`Bloqueados ${slotsToSend.length} horario(s): ${selectedDate}`);
+      setStep("calendar");
+      setSelectedDate("");
+      setSelected(new Set());
+      setReason("");
+      setTimeout(() => setSuccess(""), 3000);
+      router.refresh();
+    });
   }
 
   function handleBloquear() {
@@ -137,8 +200,54 @@ export function BloquearForm({ branches }: { branches: Branch[] }) {
             )}
           </label>
 
-          {!allDay && (
+          {!allDay && branchId !== "global" && !manual && (
             <div className="space-y-3">
+              <p className="text-xs text-gray-500">Toca los horarios libres que quieres bloquear</p>
+              {loadingSlots ? (
+                <p className="text-sm text-gray-400 text-center py-4">Cargando horarios…</p>
+              ) : freeSlots.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">No hay horarios libres ese día.</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {freeSlots.map(s => {
+                    const isSel = selected.has(s.starts_at);
+                    return (
+                      <button key={s.starts_at} type="button" onClick={() => toggleSlot(s.starts_at)}
+                        className={[
+                          "rounded-xl border py-2.5 text-sm font-medium transition",
+                          isSel ? "bg-red-600 border-red-600 text-white" : "border-gray-200 text-gray-700 hover:border-red-300",
+                        ].join(" ")}>
+                        {toLabel(s.starts_at)}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div>
+                <input type="text" value={reason} onChange={e => setReason(e.target.value)}
+                  placeholder="Motivo (opcional)"
+                  style={{ color: "black" }}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm bg-white focus:outline-none" />
+              </div>
+
+              <button onClick={handleBloquearSeleccionados} disabled={isPending || selected.size === 0}
+                className="w-full rounded-xl bg-red-600 py-3 text-sm font-semibold text-white hover:bg-red-700 transition disabled:opacity-60">
+                {isPending ? "Bloqueando..." : selected.size > 0 ? `Bloquear ${selected.size} horario(s)` : "Bloquear"}
+              </button>
+
+              <button type="button" onClick={() => setManual(true)}
+                className="text-xs text-gray-400 hover:text-gray-600 underline">
+                O escribir un horario manualmente
+              </button>
+            </div>
+          )}
+
+          {!allDay && (branchId === "global" || manual) && (
+            <div className="space-y-3">
+              {branchId === "global" && (
+                <p className="text-xs text-gray-500">Elige una sucursal para ver sus horarios libres, o escribe el rango manualmente:</p>
+              )}
               {slots.map((slot, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <span className="text-xs text-gray-500 w-6">De</span>
