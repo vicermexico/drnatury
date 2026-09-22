@@ -18,7 +18,9 @@ export function BloquearForm({ branches }: { branches: Branch[] }) {
   const [isPending, startTransition] = useTransition();
   const [step, setStep] = useState<"calendar" | "hours">("calendar");
   const [selectedDate, setSelectedDate] = useState("");
-  const [branchId, setBranchId] = useState<string>("global");
+  // Si hay sucursales, arrancamos con la primera seleccionada (no "global")
+  // para que la cuadricula de horarios libres se vea de inmediato.
+  const [branchId, setBranchId] = useState<string>(branches[0]?.id ?? "global");
   const [allDay, setAllDay] = useState(false);
   const [slots, setSlots] = useState<Slot[]>([{ start: "09:00", end: "17:00" }]);
   const [reason, setReason] = useState("");
