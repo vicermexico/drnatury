@@ -62,9 +62,18 @@ export async function POST(request: NextRequest) {
     .select("id, label, meaning, zone, image_path")
     .is("deleted_at", null);
 
-  if (!references || references.length === 0) {
+  const { data: manualEntries } = await admin
+    .from("iris_manual_entries")
+    .select("topic, content")
+    .is("deleted_at", null)
+    .order("topic");
+
+  if ((!references || references.length === 0) && (!manualEntries || manualEntries.length === 0)) {
     return NextResponse.json(
-      { error: "NO_REFERENCES", message: "Primero agrega imagenes al banco de referencia" },
+      {
+        error: "NO_REFERENCES",
+        message: "Primero agrega imagenes al banco de referencia o entradas al manual",
+      },
       { status: 400 }
     );
   }
@@ -72,13 +81,27 @@ export async function POST(request: NextRequest) {
   const patientImg = await downloadAsBase64(admin, "iris-photos", photo.image_path);
   if (!patientImg) return NextResponse.json({ error: "DOWNLOAD_ERROR" }, { status: 500 });
 
+  const refList = references ?? [];
+  const manualList = manualEntries ?? [];
+
   const refImages = await Promise.all(
-    references.map(async (r) => ({
+    refList.map(async (r) => ({
       ref: r,
       img: await downloadAsBase64(admin, "iris-reference", r.image_path),
     }))
   );
   const validRefs = refImages.filter((r) => r.img !== null);
+
+  const manualText = manualList.length
+    ? "Ademas, aqui tienes un manual de consulta con descripciones generales " +
+      "de patrones de iridologia por tema (escrito por Master, resumen con " +
+      "sus propias palabras de material de consulta tradicional, no es " +
+      "informacion medica comprobada). Usalo solo como guia adicional, con " +
+      "el mismo lenguaje de posibilidad, y SOLO menciona un tema del manual " +
+      "si de verdad observas en la foto algo que se parezca a lo descrito " +
+      "— nunca lo menciones solo porque esta en el manual:\n\n" +
+      manualList.map((m) => `== ${m.topic} ==\n${m.content}`).join("\n\n")
+    : null;
 
   const content: Anthropic.MessageParam["content"] = [
     {
@@ -91,33 +114,39 @@ export async function POST(request: NextRequest) {
         "cientificamente, y debes usar siempre lenguaje de posibilidad " +
         "(\"podria parecerse a\", \"patron visualmente similar a\"), nunca " +
         "lenguaje afirmativo de diagnostico (\"tiene\", \"padece\").\n\n" +
-        "Te voy a dar: (1) la foto del iris de un paciente, y (2) varias " +
-        "imagenes de referencia, cada una con un nombre y lo que " +
-        `representa en este ejercicio. Esta es la foto del ojo ${photo.eye === "IZQUIERDO" ? "izquierdo" : "derecho"} del paciente:`,
+        "Te voy a dar: (1) la foto del iris de un paciente, (2) opcionalmente " +
+        "un manual de consulta con descripciones generales por tema, y (3) " +
+        "opcionalmente imagenes de referencia, cada una con un nombre y lo " +
+        `que representa. Esta es la foto del ojo ${photo.eye === "IZQUIERDO" ? "izquierdo" : "derecho"} del paciente:`,
     },
     {
       type: "image",
       source: { type: "base64", media_type: patientImg.mediaType as "image/jpeg", data: patientImg.base64 },
     },
-    { type: "text", text: "Ahora las imagenes de referencia:" },
-    ...validRefs.flatMap((r) => [
-      {
-        type: "text" as const,
-        text: `Referencia id="${r.ref.id}" nombre="${r.ref.label}"${r.ref.zone ? ` zona="${r.ref.zone}"` : ""} representa: ${r.ref.meaning}`,
-      },
-      {
-        type: "image" as const,
-        source: { type: "base64" as const, media_type: r.img!.mediaType as "image/jpeg", data: r.img!.base64 },
-      },
-    ]),
+    ...(manualText ? [{ type: "text" as const, text: manualText }] : []),
+    ...(validRefs.length
+      ? [
+          { type: "text" as const, text: "Ahora las imagenes de referencia:" },
+          ...validRefs.flatMap((r) => [
+            {
+              type: "text" as const,
+              text: `Referencia id="${r.ref.id}" nombre="${r.ref.label}"${r.ref.zone ? ` zona="${r.ref.zone}"` : ""} representa: ${r.ref.meaning}`,
+            },
+            {
+              type: "image" as const,
+              source: { type: "base64" as const, media_type: r.img!.mediaType as "image/jpeg", data: r.img!.base64 },
+            },
+          ]),
+        ]
+      : []),
     {
       type: "text",
       text:
         "Responde UNICAMENTE con JSON valido (sin texto extra, sin " +
         "markdown) con esta forma exacta:\n" +
-        '{"summary": "resumen general en 2-3 frases, con lenguaje de posibilidad", ' +
+        '{"summary": "resumen general en 3-5 frases, con lenguaje de posibilidad — incluye aqui cualquier observacion basada en el manual de consulta, si aplica", ' +
         '"matches": [{"reference_image_id": "<id de la referencia>", "similarity_note": "nota breve de la similitud visual encontrada, o por que no aplica"}]}\n' +
-        "Incluye una entrada en matches por cada referencia que te di, incluso si la similitud es baja (dilo en la nota).",
+        "Incluye una entrada en matches SOLO por cada imagen de referencia que te di (si no te di ninguna, matches va vacio: []).",
     },
   ];
 
@@ -146,7 +175,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "PARSE_ERROR", message: "La IA no regreso un formato valido" }, { status: 500 });
   }
 
-  const refById = new Map(references.map((r) => [r.id, r]));
+  const refById = new Map(refList.map((r) => [r.id, r]));
   const matches: IrisFindingMatch[] = (parsed.matches ?? []).map((m) => {
     const ref = refById.get(m.reference_image_id);
     return {
