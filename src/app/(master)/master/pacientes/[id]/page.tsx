@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PatientActions } from "./PatientActions";
+import { IrisPanel } from "./IrisPanel";
 import type { AppointmentStatus } from "@/types";
 
 async function getPatient(id: string) {
@@ -220,6 +221,9 @@ export default async function PatientDetailPage({
           </div>
         )}
       </section>
+
+      {/* Iris (privado, solo Master) */}
+      <IrisPanel patientId={patient.id} />
 
       {/* Editar / Eliminar */}
       <PatientActions

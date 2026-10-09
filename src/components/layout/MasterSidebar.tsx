@@ -20,6 +20,7 @@ const NAV = [
   { href: "/master/recetas",        label: "Recetas",        icon: "📝" },
   { href: "/master/comisiones",     label: "Comisiones",     icon: "💰" },
   { href: "/master/cortes",         label: "Cortes",         icon: "✂️" },
+  { href: "/master/iris",           label: "Iris",           icon: "👁️" },
 ];
 interface Props {
   userName: string;

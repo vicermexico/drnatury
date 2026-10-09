@@ -122,3 +122,40 @@ export interface AuditLog {
   metadata: Record<string, unknown>;
   created_at: string;
 }
+
+// --- Iris (herramienta experimental y privada de Master, ver CLAUDE.md) ---
+
+export type IrisEye = "IZQUIERDO" | "DERECHO";
+
+export interface IrisReferenceImage {
+  id: string;
+  label: string;
+  meaning: string;
+  zone: string | null;
+  image_path: string;
+  created_at: string;
+}
+
+export interface IrisPatientPhoto {
+  id: string;
+  patient_id: string;
+  eye: IrisEye;
+  image_path: string;
+  created_at: string;
+}
+
+export interface IrisFindingMatch {
+  reference_image_id: string;
+  label: string;
+  meaning: string;
+  similarity_note: string;
+}
+
+export interface IrisFinding {
+  id: string;
+  patient_photo_id: string;
+  summary: string;
+  matches: IrisFindingMatch[];
+  disclaimer: string;
+  created_at: string;
+}
