@@ -1,5 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { IrisBancoPanel } from "./IrisBancoPanel";
+import { IrisManualPanel } from "./IrisManualPanel";
+import { IrisTabs } from "./IrisTabs";
 
 async function getReferenceImages() {
   const admin = createAdminClient();
@@ -21,15 +23,28 @@ async function getReferenceImages() {
   return withUrls;
 }
 
+async function getManualEntries() {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("iris_manual_entries")
+    .select("id, topic, content, created_at")
+    .is("deleted_at", null)
+    .order("topic");
+  return data ?? [];
+}
+
 export default async function MasterIrisPage() {
-  const references = await getReferenceImages();
+  const [references, manualEntries] = await Promise.all([
+    getReferenceImages(),
+    getManualEntries(),
+  ]);
 
   return (
     <div className="max-w-2xl space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Iris</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Banco de referencia de iridologia — solo tu lo ves y lo administras.
+          Banco de referencia y manual de iridologia — solo tu lo ves y lo administras.
         </p>
       </div>
 
@@ -42,7 +57,10 @@ export default async function MasterIrisPage() {
         </p>
       </div>
 
-      <IrisBancoPanel initialReferences={references} />
+      <IrisTabs
+        banco={<IrisBancoPanel initialReferences={references} />}
+        manual={<IrisManualPanel initialEntries={manualEntries} />}
+      />
     </div>
   );
 }

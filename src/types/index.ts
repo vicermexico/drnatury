@@ -159,3 +159,10 @@ export interface IrisFinding {
   disclaimer: string;
   created_at: string;
 }
+
+export interface IrisManualEntry {
+  id: string;
+  topic: string;
+  content: string;
+  created_at: string;
+}
