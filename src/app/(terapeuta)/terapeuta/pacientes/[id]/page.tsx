@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
+import { IrisUploadPanel } from "./IrisUploadPanel";
 
 async function getPaciente(id: string, branchId: string) {
   const admin = createAdminClient();
@@ -106,6 +107,9 @@ export default async function TerapeutaPacienteDetallePage({
           </div>
         )}
       </div>
+
+      {/* Registro de iris (privado — ningun resultado se muestra aqui) */}
+      <IrisUploadPanel patientId={paciente.id} />
 
       {/* Historial de citas */}
       <div>
