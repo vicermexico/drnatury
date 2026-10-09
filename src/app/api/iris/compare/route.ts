@@ -17,7 +17,7 @@ const DISCLAIMER =
   "estudio y orientacion personal — nunca debe usarse para diagnosticar " +
   "ni tratar a un paciente, ni sustituye atencion medica profesional.";
 
-const MODEL = "claude-sonnet-4-5-20250929";
+const MODEL = "claude-sonnet-5";
 
 async function downloadAsBase64(
   admin: ReturnType<typeof createAdminClient>,
