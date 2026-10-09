@@ -1,11 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { guardRole } from "@/lib/auth/api-guard";
+import { guardAnyRole } from "@/lib/auth/api-guard";
 
 // Lista los hallazgos (comparaciones de IA) ya generados para las fotos
-// de un paciente. SOLO Master.
+// de un paciente. Master y Terapeuta — nunca el paciente.
 export async function GET(request: NextRequest) {
-  const { error } = await guardRole("MASTER");
+  const { error } = await guardAnyRole("MASTER", "TERAPEUTA");
   if (error) return error;
 
   const { searchParams } = new URL(request.url);

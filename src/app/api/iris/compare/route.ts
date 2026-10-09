@@ -1,15 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { guardRole } from "@/lib/auth/api-guard";
+import { guardAnyRole } from "@/lib/auth/api-guard";
 import type { IrisFindingMatch } from "@/types";
 
 // Compara la foto de iris de un paciente contra el banco de referencia
-// usando IA con vision. SOLO Master puede llamar esto, y el resultado
-// SOLO se guarda/muestra para Master — nunca a la terapeuta ni al
-// paciente. Esto es una herramienta experimental de estudio personal,
-// NO un diagnostico medico (la iridologia no esta comprobada
-// cientificamente) — el disclaimer va siempre fijo en la respuesta.
+// usando IA con vision. Solo Master y Terapeuta pueden llamar esto y
+// ver el resultado — NUNCA el paciente. Esto es una herramienta
+// experimental de estudio/orientacion, NO un diagnostico medico (la
+// iridologia no esta comprobada cientificamente) — el disclaimer va
+// siempre fijo en la respuesta.
 
 const DISCLAIMER =
   "Esto NO es un diagnostico medico. La iridologia no esta comprobada " +
@@ -33,7 +33,7 @@ async function downloadAsBase64(
 }
 
 export async function POST(request: NextRequest) {
-  const { error, userId } = await guardRole("MASTER");
+  const { error, userId } = await guardAnyRole("MASTER", "TERAPEUTA");
   if (error) return error;
 
   if (!process.env.ANTHROPIC_API_KEY) {
