@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
     const confirmUrl = buildConfirmUrl(appointmentId, baseUrl);
     const googleEventId = await createGoogleCalendarEvent({
       summary: nombre.trim(),
-      description: `Agendado rapido (link) · DrNatury${costo ? ` · $${costo}` : ""}\nVer / confirmar: ${confirmUrl}`,
+      description: `${nombre.trim()}\n${confirmUrl}${costo ? `\n$${costo}` : ""}`,
       location,
       startISO: startsAt.toISOString(),
       endISO: endsAt.toISOString(),

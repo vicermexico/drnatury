@@ -16,7 +16,7 @@ function formatLindo(dateStr: string, timeStr: string): string {
 }
 
 type Tab = "agendar" | "personal";
-type Resultado = { ok: true; icsUrl: string; detalle: string; calendarSynced: boolean; confirmUrl?: string } | { ok: false; mensaje: string } | null;
+type Resultado = { ok: true; icsUrl: string; detalle: string; calendarSynced: boolean } | { ok: false; mensaje: string } | null;
 
 const PLANTILLA_EJEMPLO = `Agendado
 
@@ -71,9 +71,9 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
         setResultadoAgendar({ ok: false, mensaje: data.message ?? "No se pudo agendar." });
         return;
       }
-      const descripcion = data.confirm_url ? `Ver / confirmar: ${data.confirm_url}` : undefined;
+      const descripcion = data.confirm_url ? `${nombre}\n${data.confirm_url}` : undefined;
       const icsUrl = `/api/quick/ics?secret=${encodeURIComponent(secret)}&uid=${encodeURIComponent(data.id)}&start=${encodeURIComponent(data.starts_at)}&end=${encodeURIComponent(data.ends_at)}&summary=${encodeURIComponent(nombre)}&location=${encodeURIComponent(modalidad === "DOMICILIO" ? (domicilioDireccion || "A domicilio") : "Consultorio")}${descripcion ? `&description=${encodeURIComponent(descripcion)}` : ""}`;
-      setResultadoAgendar({ ok: true, icsUrl, detalle: `${nombre} — ${formatLindo(fecha, hora)}`, calendarSynced: !!data.calendar_synced, confirmUrl: data.confirm_url });
+      setResultadoAgendar({ ok: true, icsUrl, detalle: `${nombre} — ${formatLindo(fecha, hora)}`, calendarSynced: !!data.calendar_synced });
       setTextoAgendado("");
     });
   }
@@ -160,12 +160,6 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
                   <a href={resultadoAgendar.icsUrl}
                     className="inline-block rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
                     Agregar a mi calendario
-                  </a>
-                )}
-                {resultadoAgendar.confirmUrl && (
-                  <a href={resultadoAgendar.confirmUrl} target="_blank" rel="noopener noreferrer"
-                    className="inline-block text-xs text-green-700 underline ml-2">
-                    Ver / confirmar esta cita
                   </a>
                 )}
               </div>
