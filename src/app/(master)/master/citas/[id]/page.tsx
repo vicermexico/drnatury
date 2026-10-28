@@ -29,7 +29,7 @@ async function getAppointment(id: string) {
   const { data, error } = await admin
     .from("appointments")
     .select(`
-      id, starts_at, ends_at, status, notes, created_at, pdf_url, quick_name,
+      id, starts_at, ends_at, status, notes, created_at, pdf_url, quick_name, quick_phone,
       branch_id, service_id, modalidad, domicilio_direccion, domicilio_lat, domicilio_lng,
       patient:profiles!patient_id(id, name, phone),
       services(name, duration_minutes),
@@ -105,6 +105,7 @@ export default async function AppointmentDetailPage({
   // en la base es solo un placeholder (el perfil de Master) -- el nombre
   // de verdad va en quick_name.
   const quickName = (appt as unknown as { quick_name?: string | null }).quick_name;
+  const quickPhone = (appt as unknown as { quick_phone?: string | null }).quick_phone;
   const esQuickBooking = !!quickName;
 
   const status    = appt.status as AppointmentStatus;
@@ -116,6 +117,13 @@ export default async function AppointmentDetailPage({
   const domicilioLat = (appt as unknown as { domicilio_lat?: number | null }).domicilio_lat;
   const domicilioLng = (appt as unknown as { domicilio_lng?: number | null }).domicilio_lng;
   const domicilioMapsUrl = esDomicilio ? buildDomicilioMapsUrl(domicilioDireccion, domicilioLat, domicilioLng) : null;
+
+  // Si Master incluyo el telefono en el texto que pego al agendar desde
+  // el link rapido, aqui se ofrece el mismo boton de WhatsApp.
+  const quickWaPhone = quickPhone ? (quickPhone.length === 10 ? `52${quickPhone}` : quickPhone) : null;
+  const quickWaUrl = quickWaPhone
+    ? `https://wa.me/${quickWaPhone}?text=${encodeURIComponent(`Hola ${quickName}, te escribo de DrNatury para confirmar tu cita del ${dateLabel} a las ${startTime}. ¿Puedes confirmarla?`)}`
+    : null;
 
   return (
     <div className="max-w-lg space-y-6">
@@ -166,9 +174,17 @@ export default async function AppointmentDetailPage({
         <section className="rounded-2xl bg-white border border-gray-200 p-5 space-y-3">
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Paciente (agendado desde el link rápido)</h2>
           <Row label="Nombre" value={quickName!} />
-          <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
-            Este nombre viene del link rápido, no es un paciente registrado. No hay teléfono guardado para mandarle WhatsApp desde aquí.
-          </p>
+          {quickPhone && <Row label="Telefono" value={quickPhone} />}
+          {quickWaUrl ? (
+            <a href={quickWaUrl} target="_blank" rel="noopener noreferrer"
+              className="block text-center rounded-xl bg-green-500 py-2.5 text-xs font-semibold text-white hover:bg-green-600 transition">
+              💬 WhatsApp
+            </a>
+          ) : (
+            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+              Este nombre viene del link rápido, no es un paciente registrado. No hay teléfono guardado para mandarle WhatsApp desde aquí.
+            </p>
+          )}
         </section>
       ) : patient && (
         <section className="rounded-2xl bg-white border border-gray-200 p-5 space-y-3">

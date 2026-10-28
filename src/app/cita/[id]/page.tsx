@@ -10,7 +10,7 @@ async function getAppointment(id: string) {
     .from("appointments")
     .select(`
       id, starts_at, ends_at, status, modalidad, domicilio_direccion, domicilio_lat, domicilio_lng,
-      branch_id, service_id, therapist_id, quick_name,
+      branch_id, service_id, therapist_id, quick_name, quick_phone,
       profiles!patient_id(name),
       services(name, duration_minutes),
       branches(name, address, schedule),
@@ -54,6 +54,7 @@ export default async function CitaPage({
   // en la base es solo un placeholder -- el nombre de verdad va en
   // quick_name.
   const quickName = (appt as unknown as { quick_name?: string | null }).quick_name;
+  const quickPhone = (appt as unknown as { quick_phone?: string | null }).quick_phone;
   const nombreMostrar = quickName || patient?.name || "";
   const service  = Array.isArray(appt.services) ? appt.services[0] : appt.services as { name: string; duration_minutes: number } | null;
   const branch   = Array.isArray(appt.branches) ? appt.branches[0] : appt.branches as { name: string; address: string; schedule: Record<string, { open: boolean }> | null } | null;
@@ -70,6 +71,14 @@ export default async function CitaPage({
           ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(domicilioDireccion)}`
           : null)
     : null;
+
+  // Si la cita viene del link rapido y Master incluyo el telefono en el
+  // texto que pego, se ofrece un boton para mandarle WhatsApp directo al
+  // paciente desde aqui mismo (el link que le llega al calendario de
+  // Master el dia de la cita).
+  const waPhone = quickPhone ? (quickPhone.length === 10 ? `52${quickPhone}` : quickPhone) : null;
+  const waMensaje = `Hola ${nombreMostrar}, te escribo de DrNatury para confirmar tu cita del ${formatCSTDate(appt.starts_at as string)} a las ${formatCSTTime(appt.starts_at as string)}. ¿Puedes confirmarla?`;
+  const waUrl = waPhone ? `https://wa.me/${waPhone}?text=${encodeURIComponent(waMensaje)}` : null;
 
   return (
     <main className="flex min-h-screen items-center justify-center p-4 bg-gray-50">
@@ -99,6 +108,13 @@ export default async function CitaPage({
               🗺️ Ver ubicación en el mapa
             </a>
           </div>
+        )}
+
+        {waUrl && (
+          <a href={waUrl} target="_blank" rel="noopener noreferrer"
+            className="block text-center rounded-xl bg-green-500 py-3 text-sm font-semibold text-white hover:bg-green-600 transition">
+            💬 Mandar WhatsApp a {nombreMostrar}
+          </a>
         )}
 
         {status === "CANCELADA" ? (
