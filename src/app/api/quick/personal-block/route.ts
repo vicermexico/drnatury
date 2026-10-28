@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyQuickSecret } from "@/lib/quick-link/secret";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { createGoogleCalendarEvent } from "@/lib/calendar/google-events";
 
 // Boton "Personal" del link rapido de Master: bloquea un rango de horas
 // en TODAS las sucursales (branch_id = null, igual que "Todas las
@@ -59,7 +60,20 @@ export async function POST(request: NextRequest) {
 
     if (dbErr) return NextResponse.json({ error: "DB_ERROR", message: dbErr.message }, { status: 500 });
 
-    return NextResponse.json({ id: data.id, message: "Horario bloqueado." }, { status: 201 });
+    // CST (Monterrey) es siempre UTC-6, sin horario de verano.
+    const startISO = new Date(`${fecha}T${desde}:00-06:00`).toISOString();
+    const endISO = new Date(`${fecha}T${hasta}:00-06:00`).toISOString();
+    const googleEventId = await createGoogleCalendarEvent({
+      summary: motivo?.trim() ? `Bloqueado: ${motivo.trim()}` : "Bloqueado (personal)",
+      description: "Bloqueo personal (link rapido) · DrNatury",
+      startISO,
+      endISO,
+    });
+    if (googleEventId) {
+      await admin.from("blocked_slots").update({ google_event_id: googleEventId }).eq("id", data.id);
+    }
+
+    return NextResponse.json({ id: data.id, message: "Horario bloqueado.", calendar_synced: !!googleEventId }, { status: 201 });
   } catch (err) {
     console.error("Error en POST /api/quick/personal-block:", err);
     return NextResponse.json(

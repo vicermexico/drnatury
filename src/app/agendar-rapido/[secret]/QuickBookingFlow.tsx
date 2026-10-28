@@ -16,7 +16,7 @@ function formatLindo(dateStr: string, timeStr: string): string {
 }
 
 type Tab = "agendar" | "personal";
-type Resultado = { ok: true; icsUrl: string; detalle: string } | { ok: false; mensaje: string } | null;
+type Resultado = { ok: true; icsUrl: string; detalle: string; calendarSynced: boolean } | { ok: false; mensaje: string } | null;
 
 const PLANTILLA_EJEMPLO = `Agendado
 
@@ -72,7 +72,7 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
         return;
       }
       const icsUrl = `/api/quick/ics?secret=${encodeURIComponent(secret)}&uid=${encodeURIComponent(data.id)}&start=${encodeURIComponent(data.starts_at)}&end=${encodeURIComponent(data.ends_at)}&summary=${encodeURIComponent(nombre)}&location=${encodeURIComponent(modalidad === "DOMICILIO" ? (domicilioDireccion || "A domicilio") : "Consultorio")}`;
-      setResultadoAgendar({ ok: true, icsUrl, detalle: `${nombre} — ${formatLindo(fecha, hora)}` });
+      setResultadoAgendar({ ok: true, icsUrl, detalle: `${nombre} — ${formatLindo(fecha, hora)}`, calendarSynced: !!data.calendar_synced });
       setTextoAgendado("");
     });
   }
@@ -101,7 +101,7 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
       const startISO = toUTCISO(pFecha, pDesde);
       const endISO = toUTCISO(pFecha, pHasta);
       const icsUrl = `/api/quick/ics?secret=${encodeURIComponent(secret)}&uid=${encodeURIComponent(data.id)}&start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}&summary=${encodeURIComponent(pMotivo || "Bloqueado")}`;
-      setResultadoPersonal({ ok: true, icsUrl, detalle: `${formatLindo(pFecha, pDesde)} a ${new Date(endISO).toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit", timeZone: "America/Monterrey", hour12: true })}` });
+      setResultadoPersonal({ ok: true, icsUrl, detalle: `${formatLindo(pFecha, pDesde)} a ${new Date(endISO).toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit", timeZone: "America/Monterrey", hour12: true })}`, calendarSynced: !!data.calendar_synced });
       limpiarPersonal();
     });
   }
@@ -153,10 +153,14 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
               <div className="rounded-xl bg-green-50 border border-green-200 p-4 space-y-2">
                 <p className="text-sm font-semibold text-green-700">✅ Agendado exitoso</p>
                 <p className="text-xs text-green-600">{resultadoAgendar.detalle}</p>
-                <a href={resultadoAgendar.icsUrl}
-                  className="inline-block rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
-                  Agregar a mi calendario
-                </a>
+                {resultadoAgendar.calendarSynced ? (
+                  <p className="text-xs text-green-700 font-medium">📅 Ya se agregó sola a tu Google Calendar.</p>
+                ) : (
+                  <a href={resultadoAgendar.icsUrl}
+                    className="inline-block rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
+                    Agregar a mi calendario
+                  </a>
+                )}
               </div>
             ) : (
               <p className="text-sm font-semibold text-red-600 bg-red-50 rounded-xl px-4 py-3">❌ No se puede agendar: {resultadoAgendar.mensaje}</p>
@@ -205,10 +209,14 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
               <div className="rounded-xl bg-green-50 border border-green-200 p-4 space-y-2">
                 <p className="text-sm font-semibold text-green-700">✅ Horario bloqueado</p>
                 <p className="text-xs text-green-600">{resultadoPersonal.detalle}</p>
-                <a href={resultadoPersonal.icsUrl}
-                  className="inline-block rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
-                  Agregar a mi calendario
-                </a>
+                {resultadoPersonal.calendarSynced ? (
+                  <p className="text-xs text-green-700 font-medium">📅 Ya se agregó solo a tu Google Calendar.</p>
+                ) : (
+                  <a href={resultadoPersonal.icsUrl}
+                    className="inline-block rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
+                    Agregar a mi calendario
+                  </a>
+                )}
               </div>
             ) : (
               <p className="text-sm font-semibold text-red-600 bg-red-50 rounded-xl px-4 py-3">❌ No se pudo bloquear: {resultadoPersonal.mensaje}</p>
