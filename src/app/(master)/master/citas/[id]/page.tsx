@@ -29,7 +29,7 @@ async function getAppointment(id: string) {
   const { data, error } = await admin
     .from("appointments")
     .select(`
-      id, starts_at, ends_at, status, notes, created_at, pdf_url,
+      id, starts_at, ends_at, status, notes, created_at, pdf_url, quick_name,
       branch_id, service_id, modalidad, domicilio_direccion, domicilio_lat, domicilio_lng,
       patient:profiles!patient_id(id, name, phone),
       services(name, duration_minutes),
@@ -101,6 +101,11 @@ export default async function AppointmentDetailPage({
   const service   = Array.isArray(j.services)  ? j.services[0]  : j.services;
   const branch    = Array.isArray(j.branches)  ? j.branches[0]  : j.branches;
   const therapist = Array.isArray(j.therapist) ? j.therapist[0] : j.therapist;
+  // Para citas creadas desde el link rapido de Master, el "paciente" real
+  // en la base es solo un placeholder (el perfil de Master) -- el nombre
+  // de verdad va en quick_name.
+  const quickName = (appt as unknown as { quick_name?: string | null }).quick_name;
+  const esQuickBooking = !!quickName;
 
   const status    = appt.status as AppointmentStatus;
   const dateLabel = formatCSTDate(appt.starts_at as string);
@@ -157,7 +162,15 @@ export default async function AppointmentDetailPage({
         )}
       </section>
 
-      {patient && (
+      {esQuickBooking ? (
+        <section className="rounded-2xl bg-white border border-gray-200 p-5 space-y-3">
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Paciente (agendado desde el link rápido)</h2>
+          <Row label="Nombre" value={quickName!} />
+          <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+            Este nombre viene del link rápido, no es un paciente registrado. No hay teléfono guardado para mandarle WhatsApp desde aquí.
+          </p>
+        </section>
+      ) : patient && (
         <section className="rounded-2xl bg-white border border-gray-200 p-5 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Paciente</h2>

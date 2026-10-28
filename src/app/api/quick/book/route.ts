@@ -4,6 +4,7 @@ import { verifyQuickSecret } from "@/lib/quick-link/secret";
 import { cstToUTC } from "@/lib/appointments/availability";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { createGoogleCalendarEvent } from "@/lib/calendar/google-events";
+import { buildConfirmUrl } from "@/lib/appointments/tokens";
 
 // Agendado rapido de Master, sin login — protegido por un codigo secreto
 // en el header x-quick-secret (ver src/lib/quick-link/secret.ts). Reusa
@@ -142,9 +143,11 @@ export async function POST(request: NextRequest) {
     // si no esta conectado o algo falla, no se rompe el agendado; el
     // frontend usa calendar_synced para decidir si ofrece el .ics).
     const location = esDomicilio ? (domicilio_direccion || "A domicilio") : "Consultorio";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.drnatury.com";
+    const confirmUrl = buildConfirmUrl(appointmentId, baseUrl);
     const googleEventId = await createGoogleCalendarEvent({
       summary: nombre.trim(),
-      description: `Agendado rapido (link) · DrNatury${costo ? ` · $${costo}` : ""}`,
+      description: `Agendado rapido (link) · DrNatury${costo ? ` · $${costo}` : ""}\nVer / confirmar: ${confirmUrl}`,
       location,
       startISO: startsAt.toISOString(),
       endISO: endsAt.toISOString(),
@@ -159,6 +162,7 @@ export async function POST(request: NextRequest) {
       starts_at: startsAt.toISOString(),
       ends_at: endsAt.toISOString(),
       calendar_synced: !!googleEventId,
+      confirm_url: confirmUrl,
     }, { status: 201 });
   } catch (err) {
     console.error("Error en POST /api/quick/book:", err);

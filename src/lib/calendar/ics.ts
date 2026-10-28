@@ -22,6 +22,7 @@ export interface IcsEventInput {
   description?: string;
   location?: string;
   alarmMinutesBefore?: number;
+  alarmsMinutesBefore?: number[];
 }
 
 export function buildIcsEvent(input: IcsEventInput): string {
@@ -40,12 +41,13 @@ export function buildIcsEvent(input: IcsEventInput): string {
   ];
   if (input.description) lines.push(`DESCRIPTION:${icsEscape(input.description)}`);
   if (input.location) lines.push(`LOCATION:${icsEscape(input.location)}`);
-  if (input.alarmMinutesBefore) {
+  const alarmas = input.alarmsMinutesBefore ?? (input.alarmMinutesBefore ? [input.alarmMinutesBefore] : []);
+  for (const minutos of alarmas) {
     lines.push(
       "BEGIN:VALARM",
       "ACTION:DISPLAY",
       "DESCRIPTION:Recordatorio",
-      `TRIGGER:-PT${input.alarmMinutesBefore}M`,
+      `TRIGGER:-PT${minutos}M`,
       "END:VALARM"
     );
   }

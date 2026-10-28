@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     summary,
     description: searchParams.get("description") ?? undefined,
     location: searchParams.get("location") ?? undefined,
-    alarmMinutesBefore: 60,
+    alarmsMinutesBefore: [120, 60],
   });
 
   return new NextResponse(ics, {
