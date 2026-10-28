@@ -1,5 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
+import { parseAgendado } from "@/lib/quick-link/parse-agendado";
 
 // Convierte "YYYY-MM-DD" + "HH:MM" (hora de Monterrey, siempre UTC-6, sin
 // horario de verano) a un ISO en UTC, para construir el link del .ics.
@@ -17,18 +18,24 @@ function formatLindo(dateStr: string, timeStr: string): string {
 type Tab = "agendar" | "personal";
 type Resultado = { ok: true; icsUrl: string; detalle: string } | { ok: false; mensaje: string } | null;
 
+const PLANTILLA_EJEMPLO = `Agendado
+
+- Nombre: Miguel Angel Aguilar y
+Luis Gerardo Aguilar
+- Dia: Sabado 31/10/26
+- Hora: 3:30pm
+CONSULTORIO: Si, San Blas
+DOMICILIO: No
+- # Personas: 2
+- COSTO TOTAL: $400`;
+
 export function QuickBookingFlow({ secret }: { secret: string }) {
   const [tab, setTab] = useState<Tab>("agendar");
   const [isPending, startTransition] = useTransition();
 
   // --- Agendar ---
-  const [nombre, setNombre] = useState("");
-  const [fecha, setFecha] = useState("");
-  const [hora, setHora] = useState("");
-  const [modalidad, setModalidad] = useState<"CONSULTORIO" | "DOMICILIO">("CONSULTORIO");
-  const [domicilioDireccion, setDomicilioDireccion] = useState("");
-  const [numPersonas, setNumPersonas] = useState("1");
-  const [costoTotal, setCostoTotal] = useState("");
+  const [textoAgendado, setTextoAgendado] = useState("");
+  const [erroresLectura, setErroresLectura] = useState<string[]>([]);
   const [resultadoAgendar, setResultadoAgendar] = useState<Resultado>(null);
 
   // --- Personal ---
@@ -38,17 +45,16 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
   const [pMotivo, setPMotivo] = useState("");
   const [resultadoPersonal, setResultadoPersonal] = useState<Resultado>(null);
 
-  function limpiarAgendar() {
-    setNombre(""); setFecha(""); setHora(""); setModalidad("CONSULTORIO");
-    setDomicilioDireccion(""); setNumPersonas("1"); setCostoTotal("");
-  }
-
   function handleAgendar() {
-    if (!nombre.trim() || !fecha || !hora) {
-      setResultadoAgendar({ ok: false, mensaje: "Falta nombre, dia u hora." });
+    const parsed = parseAgendado(textoAgendado);
+    if (parsed.errores.length > 0) {
+      setErroresLectura(parsed.errores);
+      setResultadoAgendar(null);
       return;
     }
+    setErroresLectura([]);
     setResultadoAgendar(null);
+    const { nombre, fecha, hora, modalidad, domicilioDireccion, numPersonas, costoTotal } = parsed;
     startTransition(async () => {
       const res = await fetch("/api/quick/book", {
         method: "POST",
@@ -66,8 +72,8 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
         return;
       }
       const icsUrl = `/api/quick/ics?secret=${encodeURIComponent(secret)}&uid=${encodeURIComponent(data.id)}&start=${encodeURIComponent(data.starts_at)}&end=${encodeURIComponent(data.ends_at)}&summary=${encodeURIComponent(nombre)}&location=${encodeURIComponent(modalidad === "DOMICILIO" ? (domicilioDireccion || "A domicilio") : "Consultorio")}`;
-      setResultadoAgendar({ ok: true, icsUrl, detalle: formatLindo(fecha, hora) });
-      limpiarAgendar();
+      setResultadoAgendar({ ok: true, icsUrl, detalle: `${nombre} — ${formatLindo(fecha, hora)}` });
+      setTextoAgendado("");
     });
   }
 
@@ -120,65 +126,27 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
       {tab === "agendar" && (
         <div className="rounded-2xl bg-white border border-gray-200 p-5 space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Nombre</label>
-            <textarea value={nombre} onChange={e => setNombre(e.target.value)} rows={2}
-              placeholder="Ej. Miguel Angel Aguilar y Luis Gerardo Aguilar"
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Pega aqui el texto de "Agendado" (igual que lo llenas en WhatsApp)</label>
+            <textarea value={textoAgendado} onChange={e => setTextoAgendado(e.target.value)} rows={10}
+              placeholder={PLANTILLA_EJEMPLO}
               style={{ color: "black" }}
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm bg-white focus:border-red-500 focus:outline-none" />
-          </div>
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Dia</label>
-              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
-                style={{ color: "black" }}
-                className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm bg-white focus:border-red-500 focus:outline-none" />
-            </div>
-            <div className="flex-1">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Hora</label>
-              <input type="time" value={hora} onChange={e => setHora(e.target.value)}
-                style={{ color: "black" }}
-                className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm bg-white focus:border-red-500 focus:outline-none" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Lugar</label>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setModalidad("CONSULTORIO")}
-                className={`flex-1 rounded-xl border py-2.5 text-sm font-medium ${modalidad === "CONSULTORIO" ? "bg-red-600 border-red-600 text-white" : "border-gray-300 text-gray-600"}`}>
-                Consultorio
-              </button>
-              <button type="button" onClick={() => setModalidad("DOMICILIO")}
-                className={`flex-1 rounded-xl border py-2.5 text-sm font-medium ${modalidad === "DOMICILIO" ? "bg-red-600 border-red-600 text-white" : "border-gray-300 text-gray-600"}`}>
-                Domicilio
-              </button>
-            </div>
-            {modalidad === "DOMICILIO" && (
-              <input type="text" value={domicilioDireccion} onChange={e => setDomicilioDireccion(e.target.value)}
-                placeholder="Direccion"
-                style={{ color: "black" }}
-                className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm bg-white focus:outline-none" />
-            )}
-          </div>
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-sm font-semibold text-gray-700 mb-1"># Personas</label>
-              <input type="number" min="1" value={numPersonas} onChange={e => setNumPersonas(e.target.value)}
-                style={{ color: "black" }}
-                className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm bg-white focus:outline-none" />
-            </div>
-            <div className="flex-1">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Costo total $</label>
-              <input type="number" min="0" value={costoTotal} onChange={e => setCostoTotal(e.target.value)}
-                placeholder="0"
-                style={{ color: "black" }}
-                className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm bg-white focus:outline-none" />
-            </div>
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm bg-white focus:border-red-500 focus:outline-none font-mono" />
           </div>
 
-          <button onClick={handleAgendar} disabled={isPending}
+          <button onClick={handleAgendar} disabled={isPending || !textoAgendado.trim()}
             className="w-full rounded-xl bg-red-600 py-3 text-sm font-semibold text-white hover:bg-red-700 transition disabled:opacity-60">
             {isPending ? "Agendando..." : "Agendar"}
           </button>
+
+          {erroresLectura.length > 0 && (
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 space-y-1">
+              <p className="text-sm font-semibold text-amber-800">No pude leer todo el texto:</p>
+              {erroresLectura.map((e, i) => (
+                <p key={i} className="text-xs text-amber-700">• {e}</p>
+              ))}
+              <p className="text-xs text-amber-600 pt-1">Revisa que el texto tenga ese mismo formato y vuelve a tocar Agendar.</p>
+            </div>
+          )}
 
           {resultadoAgendar && (
             resultadoAgendar.ok ? (
