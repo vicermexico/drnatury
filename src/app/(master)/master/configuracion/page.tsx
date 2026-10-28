@@ -80,6 +80,14 @@ export default async function ConfiguracionPage() {
           </div>
         ))}
       </div>
+
+      <Link
+        href="/master/calendario"
+        className="block rounded-2xl bg-white border border-gray-200 p-5 hover:border-red-300 transition"
+      >
+        <p className="font-semibold text-gray-900">Google Calendar</p>
+        <p className="text-xs text-gray-400 mt-0.5">Conecta tu cuenta para que el link rápido agregue citas y bloqueos solos a tu calendario</p>
+      </Link>
     </div>
   );
 }

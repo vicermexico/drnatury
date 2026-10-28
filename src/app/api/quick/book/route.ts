@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyQuickSecret } from "@/lib/quick-link/secret";
 import { cstToUTC } from "@/lib/appointments/availability";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { createGoogleCalendarEvent } from "@/lib/calendar/google-events";
 
 // Agendado rapido de Master, sin login — protegido por un codigo secreto
 // en el header x-quick-secret (ver src/lib/quick-link/secret.ts). Reusa
@@ -137,11 +138,27 @@ export async function POST(request: NextRequest) {
       })
       .eq("id", appointmentId);
 
+    // Intenta crear el evento directo en Google Calendar (best-effort --
+    // si no esta conectado o algo falla, no se rompe el agendado; el
+    // frontend usa calendar_synced para decidir si ofrece el .ics).
+    const location = esDomicilio ? (domicilio_direccion || "A domicilio") : "Consultorio";
+    const googleEventId = await createGoogleCalendarEvent({
+      summary: nombre.trim(),
+      description: `Agendado rapido (link) · DrNatury${costo ? ` · $${costo}` : ""}`,
+      location,
+      startISO: startsAt.toISOString(),
+      endISO: endsAt.toISOString(),
+    });
+    if (googleEventId) {
+      await admin.from("appointments").update({ google_event_id: googleEventId }).eq("id", appointmentId);
+    }
+
     return NextResponse.json({
       id: appointmentId,
       message: "Agendado exitoso.",
       starts_at: startsAt.toISOString(),
       ends_at: endsAt.toISOString(),
+      calendar_synced: !!googleEventId,
     }, { status: 201 });
   } catch (err) {
     console.error("Error en POST /api/quick/book:", err);
