@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { guardAnyRole } from "@/lib/auth/api-guard";
+import { buildIcsEvent, icsResponseHeaders } from "@/lib/calendar/ics";
 
 // Genera un archivo .ics para que la terapeuta/master/asistente pueda
 // agregar la cita a la agenda de su propio celular (Google Calendar,
 // Apple Calendar, Outlook, etc). El titulo del evento usa el codigo del
 // paciente (ej. P1277) en vez de su nombre completo, por privacidad.
-
-function icsEscape(text: string): string {
-  return text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
-}
-
-function toIcsDate(iso: string): string {
-  // YYYYMMDDTHHMMSSZ
-  return new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
-}
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const guard = await guardAnyRole("TERAPEUTA", "MASTER", "ASISTENTE");
@@ -52,36 +44,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     : (branch?.address ?? branch?.name ?? "");
   const description = `${service?.name ?? "Cita"} · DrNatury`;
 
-  const now = toIcsDate(new Date().toISOString());
-  const uid = `${appt.id}@drnatury.com`;
-
-  const ics = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//DrNatury//Citas//ES",
-    "CALSCALE:GREGORIAN",
-    "BEGIN:VEVENT",
-    `UID:${uid}`,
-    `DTSTAMP:${now}`,
-    `DTSTART:${toIcsDate(appt.starts_at as string)}`,
-    `DTEND:${toIcsDate(appt.ends_at as string)}`,
-    `SUMMARY:${icsEscape(summary)}`,
-    `DESCRIPTION:${icsEscape(description)}`,
-    `LOCATION:${icsEscape(location)}`,
-    "BEGIN:VALARM",
-    "ACTION:DISPLAY",
-    "DESCRIPTION:Recordatorio de cita",
-    "TRIGGER:-PT1H",
-    "END:VALARM",
-    "END:VEVENT",
-    "END:VCALENDAR",
-  ].join("\r\n");
+  const ics = buildIcsEvent({
+    uid: `${appt.id}@drnatury.com`,
+    startsAtISO: appt.starts_at as string,
+    endsAtISO: appt.ends_at as string,
+    summary,
+    description,
+    location,
+    alarmMinutesBefore: 60,
+  });
 
   return new NextResponse(ics, {
     status: 200,
-    headers: {
-      "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": `attachment; filename="cita-${codigo}.ics"`,
-    },
+    headers: icsResponseHeaders(`cita-${codigo}.ics`),
   });
 }
