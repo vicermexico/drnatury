@@ -12,6 +12,8 @@ export interface GoogleEventInput {
   location?: string;
   startISO: string;
   endISO: string;
+  /** Minutos antes de la cita para cada recordatorio. Por defecto: 2 horas y 1 hora antes. */
+  remindersMinutesBefore?: number[];
 }
 
 export async function createGoogleCalendarEvent(input: GoogleEventInput): Promise<string | null> {
@@ -31,7 +33,10 @@ export async function createGoogleCalendarEvent(input: GoogleEventInput): Promis
         location: input.location,
         start: { dateTime: input.startISO },
         end: { dateTime: input.endISO },
-        reminders: { useDefault: false, overrides: [{ method: "popup", minutes: 60 }] },
+        reminders: {
+          useDefault: false,
+          overrides: (input.remindersMinutesBefore ?? [120, 60]).map((minutes) => ({ method: "popup", minutes })),
+        },
       }),
     });
 

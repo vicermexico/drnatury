@@ -10,7 +10,7 @@ async function getAppointment(id: string) {
     .from("appointments")
     .select(`
       id, starts_at, ends_at, status, modalidad, domicilio_direccion, domicilio_lat, domicilio_lng,
-      branch_id, service_id, therapist_id,
+      branch_id, service_id, therapist_id, quick_name,
       profiles!patient_id(name),
       services(name, duration_minutes),
       branches(name, address, schedule),
@@ -50,6 +50,11 @@ export default async function CitaPage({
   if (!appt) notFound();
 
   const patient  = Array.isArray(appt.profiles) ? appt.profiles[0] : appt.profiles as { name: string } | null;
+  // Para citas creadas desde el link rapido de Master, el "paciente" real
+  // en la base es solo un placeholder -- el nombre de verdad va en
+  // quick_name.
+  const quickName = (appt as unknown as { quick_name?: string | null }).quick_name;
+  const nombreMostrar = quickName || patient?.name || "";
   const service  = Array.isArray(appt.services) ? appt.services[0] : appt.services as { name: string; duration_minutes: number } | null;
   const branch   = Array.isArray(appt.branches) ? appt.branches[0] : appt.branches as { name: string; address: string; schedule: Record<string, { open: boolean }> | null } | null;
   const therapist = Array.isArray(appt.therapists) ? appt.therapists[0] : appt.therapists as { id: string; name: string; whatsapp_number: string | null } | null;
@@ -75,7 +80,7 @@ export default async function CitaPage({
         </div>
 
         <div className="rounded-2xl bg-white border border-gray-200 p-5 space-y-3">
-          <Row label="Paciente"    value={patient?.name ?? ""} />
+          <Row label="Paciente"    value={nombreMostrar} />
           <Row label="Servicio"    value={service?.name ?? ""} />
           <Row label="Fecha"       value={formatCSTDate(appt.starts_at as string)} />
           <Row label="Hora"        value={formatCSTTime(appt.starts_at as string)} />
