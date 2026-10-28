@@ -63,17 +63,25 @@ export async function POST(request: NextRequest) {
     // CST (Monterrey) es siempre UTC-6, sin horario de verano.
     const startISO = new Date(`${fecha}T${desde}:00-06:00`).toISOString();
     const endISO = new Date(`${fecha}T${hasta}:00-06:00`).toISOString();
-    const googleEventId = await createGoogleCalendarEvent({
+    const { id: googleEventId, error: calendarError } = await createGoogleCalendarEvent({
       summary: motivo?.trim() ? `Bloqueado: ${motivo.trim()}` : "Bloqueado (personal)",
       description: "Bloqueo personal (link rapido) · DrNatury",
       startISO,
       endISO,
+      // Mismo default de 2h y 1h antes (ver google-events.ts), aqui
+      // explicito para que quede claro que aplica tambien a Personal.
+      remindersMinutesBefore: [120, 60],
     });
     if (googleEventId) {
       await admin.from("blocked_slots").update({ google_event_id: googleEventId }).eq("id", data.id);
     }
 
-    return NextResponse.json({ id: data.id, message: "Horario bloqueado.", calendar_synced: !!googleEventId }, { status: 201 });
+    return NextResponse.json({
+      id: data.id,
+      message: "Horario bloqueado.",
+      calendar_synced: !!googleEventId,
+      calendar_sync_error: googleEventId ? undefined : calendarError,
+    }, { status: 201 });
   } catch (err) {
     console.error("Error en POST /api/quick/personal-block:", err);
     return NextResponse.json(

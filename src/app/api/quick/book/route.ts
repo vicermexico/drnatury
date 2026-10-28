@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({})) as Record<string, string>;
-    const { nombre, fecha, hora, modalidad, domicilio_direccion, num_personas, costo_total } = body;
+    const { nombre, fecha, hora, modalidad, domicilio_direccion, num_personas, costo_total, telefono } = body;
 
     if (!nombre?.trim() || !fecha || !hora) {
       return NextResponse.json(
@@ -129,25 +129,39 @@ export async function POST(request: NextRequest) {
     const appointmentId = bookingResult.id!;
     const numPersonas = Math.max(1, parseInt(num_personas ?? "1", 10) || 1);
     const costo = costo_total ? Number(costo_total) : null;
+    // Telefono del paciente: opcional, solo si Vic lo incluyo en el texto
+    // que pego (linea "Telefono"/"Cel"/etc). Se guarda en la cita para que
+    // la pagina de la cita (el link que le llega a su calendario) pueda
+    // ofrecer el boton de WhatsApp el dia de la consulta.
+    const telefonoDigits = (telefono ?? "").replace(/\D/g, "");
 
     await admin
       .from("appointments")
       .update({
         quick_name: nombre.trim(),
+        quick_phone: telefonoDigits || null,
         num_personas: numPersonas,
         costo_total: costo !== null && !Number.isNaN(costo) ? costo : null,
       })
       .eq("id", appointmentId);
 
+    const whatsappUrl = telefonoDigits ? `https://wa.me/${telefonoDigits.length === 10 ? `52${telefonoDigits}` : telefonoDigits}` : null;
+
     // Intenta crear el evento directo en Google Calendar (best-effort --
     // si no esta conectado o algo falla, no se rompe el agendado; el
-    // frontend usa calendar_synced para decidir si ofrece el .ics).
+    // frontend usa calendar_synced/calendar_sync_error para decidir que
+    // mostrar).
     const location = esDomicilio ? (domicilio_direccion || "A domicilio") : "Consultorio";
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.drnatury.com";
     const confirmUrl = buildConfirmUrl(appointmentId, baseUrl);
-    const googleEventId = await createGoogleCalendarEvent({
+    // Nombre y link van juntos en la misma linea ("a lado") -- al abrir
+    // ese link el dia de la cita, ahi mismo esta el boton de WhatsApp
+    // (si se guardo telefono).
+    const descripcionPartes = [`${nombre.trim()} — ${confirmUrl}`];
+    if (costo) descripcionPartes.push(`$${costo}`);
+    const { id: googleEventId, error: calendarError } = await createGoogleCalendarEvent({
       summary: nombre.trim(),
-      description: `${nombre.trim()}\n${confirmUrl}${costo ? `\n$${costo}` : ""}`,
+      description: descripcionPartes.join("\n"),
       location,
       startISO: startsAt.toISOString(),
       endISO: endsAt.toISOString(),
@@ -162,7 +176,9 @@ export async function POST(request: NextRequest) {
       starts_at: startsAt.toISOString(),
       ends_at: endsAt.toISOString(),
       calendar_synced: !!googleEventId,
+      calendar_sync_error: googleEventId ? undefined : calendarError,
       confirm_url: confirmUrl,
+      whatsapp_url: whatsappUrl,
     }, { status: 201 });
   } catch (err) {
     console.error("Error en POST /api/quick/book:", err);

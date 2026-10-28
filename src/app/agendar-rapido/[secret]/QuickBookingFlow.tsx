@@ -16,7 +16,10 @@ function formatLindo(dateStr: string, timeStr: string): string {
 }
 
 type Tab = "agendar" | "personal";
-type Resultado = { ok: true; icsUrl: string; detalle: string; calendarSynced: boolean } | { ok: false; mensaje: string } | null;
+type Resultado =
+  | { ok: true; icsUrl: string; detalle: string; calendarSynced: boolean; calendarSyncError?: string; whatsappUrl?: string | null }
+  | { ok: false; mensaje: string }
+  | null;
 
 const PLANTILLA_EJEMPLO = `Agendado
 
@@ -27,7 +30,8 @@ Luis Gerardo Aguilar
 CONSULTORIO: Si, San Blas
 DOMICILIO: No
 - # Personas: 2
-- COSTO TOTAL: $400`;
+- COSTO TOTAL: $400
+- Telefono: 8181234567 (opcional, para poder mandarle WhatsApp)`;
 
 export function QuickBookingFlow({ secret }: { secret: string }) {
   const [tab, setTab] = useState<Tab>("agendar");
@@ -54,7 +58,7 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
     }
     setErroresLectura([]);
     setResultadoAgendar(null);
-    const { nombre, fecha, hora, modalidad, domicilioDireccion, numPersonas, costoTotal } = parsed;
+    const { nombre, fecha, hora, modalidad, domicilioDireccion, numPersonas, costoTotal, telefono } = parsed;
     startTransition(async () => {
       const res = await fetch("/api/quick/book", {
         method: "POST",
@@ -64,6 +68,7 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
           domicilio_direccion: modalidad === "DOMICILIO" ? domicilioDireccion : undefined,
           num_personas: numPersonas,
           costo_total: costoTotal || undefined,
+          telefono: telefono || undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -71,9 +76,13 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
         setResultadoAgendar({ ok: false, mensaje: data.message ?? "No se pudo agendar." });
         return;
       }
-      const descripcion = data.confirm_url ? `${nombre}\n${data.confirm_url}` : undefined;
+      const descripcion = data.confirm_url ? `${nombre} — ${data.confirm_url}` : undefined;
       const icsUrl = `/api/quick/ics?secret=${encodeURIComponent(secret)}&uid=${encodeURIComponent(data.id)}&start=${encodeURIComponent(data.starts_at)}&end=${encodeURIComponent(data.ends_at)}&summary=${encodeURIComponent(nombre)}&location=${encodeURIComponent(modalidad === "DOMICILIO" ? (domicilioDireccion || "A domicilio") : "Consultorio")}${descripcion ? `&description=${encodeURIComponent(descripcion)}` : ""}`;
-      setResultadoAgendar({ ok: true, icsUrl, detalle: `${nombre} — ${formatLindo(fecha, hora)}`, calendarSynced: !!data.calendar_synced });
+      setResultadoAgendar({
+        ok: true, icsUrl, detalle: `${nombre} — ${formatLindo(fecha, hora)}`,
+        calendarSynced: !!data.calendar_synced, calendarSyncError: data.calendar_sync_error,
+        whatsappUrl: data.whatsapp_url ?? null,
+      });
       setTextoAgendado("");
     });
   }
@@ -102,7 +111,11 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
       const startISO = toUTCISO(pFecha, pDesde);
       const endISO = toUTCISO(pFecha, pHasta);
       const icsUrl = `/api/quick/ics?secret=${encodeURIComponent(secret)}&uid=${encodeURIComponent(data.id)}&start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}&summary=${encodeURIComponent(pMotivo || "Bloqueado")}`;
-      setResultadoPersonal({ ok: true, icsUrl, detalle: `${formatLindo(pFecha, pDesde)} a ${new Date(endISO).toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit", timeZone: "America/Monterrey", hour12: true })}`, calendarSynced: !!data.calendar_synced });
+      setResultadoPersonal({
+        ok: true, icsUrl,
+        detalle: `${formatLindo(pFecha, pDesde)} a ${new Date(endISO).toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit", timeZone: "America/Monterrey", hour12: true })}`,
+        calendarSynced: !!data.calendar_synced, calendarSyncError: data.calendar_sync_error,
+      });
       limpiarPersonal();
     });
   }
@@ -157,9 +170,20 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
                 {resultadoAgendar.calendarSynced ? (
                   <p className="text-xs text-green-700 font-medium">📅 Ya se agregó sola a tu Google Calendar (con link para confirmar y recordatorios de 2h y 1h antes).</p>
                 ) : (
-                  <a href={resultadoAgendar.icsUrl}
-                    className="inline-block rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
-                    Agregar a mi calendario
+                  <div className="space-y-1">
+                    <p className="text-xs text-amber-700">
+                      ⚠️ No se pudo agregar sola a Google Calendar{resultadoAgendar.calendarSyncError ? ` (${resultadoAgendar.calendarSyncError})` : ""}.
+                    </p>
+                    <a href={resultadoAgendar.icsUrl}
+                      className="inline-block rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
+                      Agregar a mi calendario
+                    </a>
+                  </div>
+                )}
+                {resultadoAgendar.whatsappUrl && (
+                  <a href={resultadoAgendar.whatsappUrl} target="_blank" rel="noopener noreferrer"
+                    className="inline-block rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition">
+                    Mandar WhatsApp al paciente
                   </a>
                 )}
               </div>
@@ -211,12 +235,17 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
                 <p className="text-sm font-semibold text-green-700">✅ Horario bloqueado</p>
                 <p className="text-xs text-green-600">{resultadoPersonal.detalle}</p>
                 {resultadoPersonal.calendarSynced ? (
-                  <p className="text-xs text-green-700 font-medium">📅 Ya se agregó solo a tu Google Calendar.</p>
+                  <p className="text-xs text-green-700 font-medium">📅 Ya se agregó solo a tu Google Calendar (con recordatorios de 2h y 1h antes).</p>
                 ) : (
-                  <a href={resultadoPersonal.icsUrl}
-                    className="inline-block rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
-                    Agregar a mi calendario
-                  </a>
+                  <div className="space-y-1">
+                    <p className="text-xs text-amber-700">
+                      ⚠️ No se pudo agregar solo a Google Calendar{resultadoPersonal.calendarSyncError ? ` (${resultadoPersonal.calendarSyncError})` : ""}.
+                    </p>
+                    <a href={resultadoPersonal.icsUrl}
+                      className="inline-block rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
+                      Agregar a mi calendario
+                    </a>
+                  </div>
                 )}
               </div>
             ) : (

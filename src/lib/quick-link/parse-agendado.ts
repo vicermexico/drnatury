@@ -30,10 +30,12 @@ export interface ParsedAgendado {
   domicilioDireccion: string;
   numPersonas: string;
   costoTotal: string;
+  /** Solo digitos, ej. "8181234567". Vacio si Vic no lo incluyo en el texto (es opcional). */
+  telefono: string;
   errores: string[];
 }
 
-type Campo = "nombre" | "dia" | "hora" | "consultorio" | "domicilio" | "personas" | "costo";
+type Campo = "nombre" | "dia" | "hora" | "consultorio" | "domicilio" | "personas" | "costo" | "telefono";
 
 function sinAcentos(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -56,6 +58,7 @@ const ETIQUETAS: { campo: Campo; patron: RegExp }[] = [
   { campo: "domicilio", patron: /^domicilio/i },
   { campo: "personas", patron: /^#?\s*personas/i },
   { campo: "costo", patron: /^costo/i },
+  { campo: "telefono", patron: /^tel(e|é)fono|^tel\b|^cel(ular)?\b|^whats?app/i },
 ];
 
 // "Lugar" es solo un encabezado de seccion en la plantilla vacia, sin
@@ -155,5 +158,7 @@ export function parseAgendado(texto: string): ParsedAgendado {
   const costoDigits = (valores.costo ?? "").replace(/[^\d.]/g, "");
   const costoTotal = costoDigits;
 
-  return { nombre, fecha, hora, modalidad, domicilioDireccion, numPersonas, costoTotal, errores };
+  const telefono = (valores.telefono ?? "").replace(/\D/g, "");
+
+  return { nombre, fecha, hora, modalidad, domicilioDireccion, numPersonas, costoTotal, telefono, errores };
 }
