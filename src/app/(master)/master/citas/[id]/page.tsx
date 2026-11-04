@@ -14,6 +14,12 @@ function buildConfirmUrl(id: string): string {
   return `https://drnatury.com/cita/${id}?token=${token}`;
 }
 
+function buildUbicacionUrl(id: string): string {
+  const secret = process.env.APPOINTMENT_TOKEN_SECRET ?? "";
+  const token = createHmac("sha256", secret).update(id).digest("hex").slice(0, 32);
+  return `https://drnatury.com/ubicacion/${id}?token=${token}`;
+}
+
 function buildMapsUrlFromAddress(address: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
@@ -121,8 +127,11 @@ export default async function AppointmentDetailPage({
   // Si Master incluyo el telefono en el texto que pego al agendar desde
   // el link rapido, aqui se ofrece el mismo boton de WhatsApp.
   const quickWaPhone = quickPhone ? (quickPhone.length === 10 ? `52${quickPhone}` : quickPhone) : null;
+  const pedirUbicacion = esDomicilio && domicilioLat == null;
+  const quickWaMensaje = `Hola ${quickName}, te escribo de DrNatury para confirmar tu cita del ${dateLabel} a las ${startTime}. ¿Puedes confirmarla?`
+    + (pedirUbicacion ? `\n\nPara llegar sin problema, ¿nos compartes tu ubicación aquí? ${buildUbicacionUrl(id)}` : "");
   const quickWaUrl = quickWaPhone
-    ? `https://wa.me/${quickWaPhone}?text=${encodeURIComponent(`Hola ${quickName}, te escribo de DrNatury para confirmar tu cita del ${dateLabel} a las ${startTime}. ¿Puedes confirmarla?`)}`
+    ? `https://wa.me/${quickWaPhone}?text=${encodeURIComponent(quickWaMensaje)}`
     : null;
 
   return (

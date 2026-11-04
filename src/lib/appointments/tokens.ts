@@ -32,3 +32,10 @@ export function buildConfirmUrl(appointmentId: string, baseUrl: string): string 
   const token = generateConfirmToken(appointmentId);
   return `${baseUrl}/cita/${appointmentId}?token=${token}`;
 }
+
+// Mismo token de Confirmar/Cancelar, reusado para el link que le pide al
+// paciente compartir su ubicacion actual (citas a domicilio).
+export function buildUbicacionUrl(appointmentId: string, baseUrl: string): string {
+  const token = generateConfirmToken(appointmentId);
+  return `${baseUrl}/ubicacion/${appointmentId}?token=${token}`;
+}
