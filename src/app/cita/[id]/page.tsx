@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { verifyConfirmToken } from "@/lib/appointments/tokens";
+import { verifyConfirmToken, buildUbicacionUrl } from "@/lib/appointments/tokens";
 import { formatCSTDate, formatCSTTime } from "@/lib/appointments/availability";
 import { ConfirmActions } from "./ConfirmActions";
 
@@ -77,7 +77,13 @@ export default async function CitaPage({
   // paciente desde aqui mismo (el link que le llega al calendario de
   // Master el dia de la cita).
   const waPhone = quickPhone ? (quickPhone.length === 10 ? `52${quickPhone}` : quickPhone) : null;
-  const waMensaje = `Hola ${nombreMostrar}, te escribo de DrNatury para confirmar tu cita del ${formatCSTDate(appt.starts_at as string)} a las ${formatCSTTime(appt.starts_at as string)}. ¿Puedes confirmarla?`;
+  // Si es a domicilio y todavia no tenemos su ubicacion exacta, se le pide
+  // en el mismo mensaje -- asi el paciente comparte su ubicacion con un
+  // toque desde su celular en vez de que Master escriba la direccion.
+  const pedirUbicacion = esDomicilio && domicilioLat == null;
+  const baseUrlWa = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.drnatury.com";
+  const waMensaje = `Hola ${nombreMostrar}, te escribo de DrNatury para confirmar tu cita del ${formatCSTDate(appt.starts_at as string)} a las ${formatCSTTime(appt.starts_at as string)}. ¿Puedes confirmarla?`
+    + (pedirUbicacion ? `\n\nPara llegar sin problema, ¿nos compartes tu ubicación aquí? ${buildUbicacionUrl(id, baseUrlWa)}` : "");
   const waUrl = waPhone ? `https://wa.me/${waPhone}?text=${encodeURIComponent(waMensaje)}` : null;
 
   return (

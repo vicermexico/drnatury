@@ -4,7 +4,7 @@ import { verifyQuickSecret } from "@/lib/quick-link/secret";
 import { cstToUTC } from "@/lib/appointments/availability";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { createGoogleCalendarEvent } from "@/lib/calendar/google-events";
-import { buildConfirmUrl } from "@/lib/appointments/tokens";
+import { buildConfirmUrl, buildUbicacionUrl } from "@/lib/appointments/tokens";
 
 // Agendado rapido de Master, sin login — protegido por un codigo secreto
 // en el header x-quick-secret (ver src/lib/quick-link/secret.ts). Reusa
@@ -145,8 +145,6 @@ export async function POST(request: NextRequest) {
       })
       .eq("id", appointmentId);
 
-    const whatsappUrl = telefonoDigits ? `https://wa.me/${telefonoDigits.length === 10 ? `52${telefonoDigits}` : telefonoDigits}` : null;
-
     // Intenta crear el evento directo en Google Calendar (best-effort --
     // si no esta conectado o algo falla, no se rompe el agendado; el
     // frontend usa calendar_synced/calendar_sync_error para decidir que
@@ -154,6 +152,16 @@ export async function POST(request: NextRequest) {
     const location = esDomicilio ? (domicilio_direccion || "A domicilio") : "Consultorio";
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.drnatury.com";
     const confirmUrl = buildConfirmUrl(appointmentId, baseUrl);
+
+    let whatsappUrl: string | null = null;
+    if (telefonoDigits) {
+      const waPhone = telefonoDigits.length === 10 ? `52${telefonoDigits}` : telefonoDigits;
+      let waMensaje = `Hola ${nombre.trim()}, te escribo de DrNatury para confirmar tu cita del ${fecha} a las ${hora}. ¿Puedes confirmarla?`;
+      if (esDomicilio) {
+        waMensaje += `\n\nPara llegar sin problema, ¿nos compartes tu ubicación aquí? ${buildUbicacionUrl(appointmentId, baseUrl)}`;
+      }
+      whatsappUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(waMensaje)}`;
+    }
     // Nombre y link van juntos en la misma linea ("a lado") -- al abrir
     // ese link el dia de la cita, ahi mismo esta el boton de WhatsApp
     // (si se guardo telefono).

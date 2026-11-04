@@ -98,10 +98,17 @@ export function AppointmentCard({
               {formatCSTDateShort(appt.starts_at)}
             </span>
           </div>
-          <span className={`inline-flex items-center gap-1.5 shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${statusClass}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
-            {STATUS_LABEL[appt.status]}
-          </span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {appt.modalidad === "DOMICILIO" && (
+              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full border bg-yellow-100 text-yellow-800 border-yellow-300">
+                🏠 Domicilio
+              </span>
+            )}
+            <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${statusClass}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
+              {STATUS_LABEL[appt.status]}
+            </span>
+          </div>
         </div>
 
         {/* Servicio y sucursal — texto oscuro explícito */}
@@ -148,9 +155,16 @@ export function AppointmentCard({
             {" "}– {formatCSTTime(appt.ends_at)}
           </span>
         </span>
-        <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${statusClass}`}>
-          {STATUS_LABEL[appt.status]}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {appt.modalidad === "DOMICILIO" && (
+            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full border bg-yellow-100 text-yellow-800 border-yellow-300">
+              🏠 Domicilio
+            </span>
+          )}
+          <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${statusClass}`}>
+            {STATUS_LABEL[appt.status]}
+          </span>
+        </div>
       </div>
 
       {appt.service_name && (
