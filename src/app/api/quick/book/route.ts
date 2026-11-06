@@ -146,13 +146,21 @@ export async function POST(request: NextRequest) {
       })
       .eq("id", appointmentId);
 
-    // Intenta crear el evento directo en Google Calendar (best-effort --
-    // si no esta conectado o algo falla, no se rompe el agendado; el
-    // frontend usa calendar_synced/calendar_sync_error para decidir que
-    // mostrar).
-    const location = esDomicilio ? (domicilio_direccion || "A domicilio") : "Consultorio";
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.drnatury.com";
     const confirmUrl = buildConfirmUrl(appointmentId, baseUrl);
+
+    // Guarda al paciente en el Directorio de contactos del celular de
+    // Master (via Google Contacts), con un codigo "P-####" en vez del
+    // nombre real -- best-effort: si no esta conectado o falla, no se
+    // rompe el agendado. Se hace ANTES de crear el evento de Calendar
+    // para poder usar el mismo codigo en el titulo.
+    let contactCode: string | null = null;
+    let contactError: string | undefined;
+    if (telefonoDigits) {
+      const contactResult = await ensureGoogleContact(telefonoDigits);
+      contactCode = contactResult.code;
+      contactError = contactResult.error;
+    }
 
     let whatsappUrl: string | null = null;
     if (telefonoDigits) {
@@ -163,32 +171,35 @@ export async function POST(request: NextRequest) {
       }
       whatsappUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(waMensaje)}`;
     }
+
+    // Intenta crear el evento directo en Google Calendar (best-effort --
+    // si no esta conectado o algo falla, no se rompe el agendado; el
+    // frontend usa calendar_synced/calendar_sync_error para decidir que
+    // mostrar). El titulo usa el codigo de contacto (no el nombre real)
+    // cuando hay uno: "{personas} {municipio} P-####"; a domicilio ademas
+    // se pinta de amarillo en Google Calendar.
+    const location = esDomicilio ? (domicilio_direccion || "A domicilio") : "Consultorio";
+    const municipio = esDomicilio ? (domicilio_direccion ?? "").trim() : "";
+    const summaryPartes = [String(numPersonas)];
+    if (municipio) summaryPartes.push(municipio);
+    summaryPartes.push(contactCode ?? nombre.trim());
+    const summary = summaryPartes.join(" ");
+
     // Nombre y link van juntos en la misma linea ("a lado") -- al abrir
     // ese link el dia de la cita, ahi mismo esta el boton de WhatsApp
     // (si se guardo telefono).
     const descripcionPartes = [`${nombre.trim()} — ${confirmUrl}`];
     if (costo) descripcionPartes.push(`$${costo}`);
     const { id: googleEventId, error: calendarError } = await createGoogleCalendarEvent({
-      summary: nombre.trim(),
+      summary,
       description: descripcionPartes.join("\n"),
       location,
       startISO: startsAt.toISOString(),
       endISO: endsAt.toISOString(),
+      colorId: esDomicilio ? "5" : undefined, // 5 = Banana (amarillo)
     });
     if (googleEventId) {
       await admin.from("appointments").update({ google_event_id: googleEventId }).eq("id", appointmentId);
-    }
-
-    // Guarda al paciente en el Directorio de contactos del celular de
-    // Master (via Google Contacts), con un codigo "P-####" en vez del
-    // nombre real -- best-effort, igual que el calendario: si no esta
-    // conectado o falla, no se rompe el agendado.
-    let contactCode: string | null = null;
-    let contactError: string | undefined;
-    if (telefonoDigits) {
-      const contactResult = await ensureGoogleContact(telefonoDigits);
-      contactCode = contactResult.code;
-      contactError = contactResult.error;
     }
 
     return NextResponse.json({
