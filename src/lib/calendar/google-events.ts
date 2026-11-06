@@ -16,6 +16,8 @@ export interface GoogleEventInput {
   endISO: string;
   /** Minutos antes de la cita para cada recordatorio. Por defecto: 2 horas y 1 hora antes. */
   remindersMinutesBefore?: number[];
+  /** Color del evento en Google Calendar (colorId oficial de la API, ej. "5" = amarillo/Banana). */
+  colorId?: string;
 }
 
 export interface GoogleEventResult {
@@ -40,6 +42,7 @@ export async function createGoogleCalendarEvent(input: GoogleEventInput): Promis
         location: input.location,
         start: { dateTime: input.startISO },
         end: { dateTime: input.endISO },
+        colorId: input.colorId,
         reminders: {
           useDefault: false,
           overrides: (input.remindersMinutesBefore ?? [120, 60]).map((minutes) => ({ method: "popup", minutes })),
