@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyConfirmToken } from "@/lib/appointments/tokens";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { addLocationToGoogleEvent } from "@/lib/calendar/google-events";
 
 // El paciente (sin login, con el link que le mando Vic por WhatsApp)
 // comparte su ubicacion actual desde su celular -- se guarda en la cita
@@ -36,7 +37,7 @@ export async function PATCH(
     const admin = createAdminClient();
     const { data: appt } = await admin
       .from("appointments")
-      .select("id, modalidad")
+      .select("id, modalidad, google_event_id")
       .eq("id", id)
       .is("deleted_at", null)
       .maybeSingle();
@@ -52,6 +53,13 @@ export async function PATCH(
       .eq("id", id);
 
     if (updateError) return NextResponse.json({ error: "DB_ERROR", message: updateError.message }, { status: 500 });
+
+    // Si ya hay evento creado en el Google Calendar de Master, se le
+    // agrega ahi mismo el link de ubicacion (best-effort: si falla, la
+    // ubicacion ya quedo guardada en la cita de todos modos).
+    if (appt.google_event_id) {
+      await addLocationToGoogleEvent(appt.google_event_id, lat, lng);
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

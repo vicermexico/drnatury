@@ -17,7 +17,7 @@ function formatLindo(dateStr: string, timeStr: string): string {
 
 type Tab = "agendar" | "personal";
 type Resultado =
-  | { ok: true; icsUrl: string; detalle: string; calendarSynced: boolean; calendarSyncError?: string; whatsappUrl?: string | null }
+  | { ok: true; icsUrl: string; detalle: string; calendarSynced: boolean; calendarSyncError?: string; whatsappUrl?: string | null; contactCode?: string | null }
   | { ok: false; mensaje: string }
   | null;
 
@@ -82,6 +82,7 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
         ok: true, icsUrl, detalle: `${nombre} — ${formatLindo(fecha, hora)}`,
         calendarSynced: !!data.calendar_synced, calendarSyncError: data.calendar_sync_error,
         whatsappUrl: data.whatsapp_url ?? null,
+        contactCode: data.contact_code ?? null,
       });
       setTextoAgendado("");
     });
@@ -185,6 +186,9 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
                     className="inline-block rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition">
                     Mandar WhatsApp al paciente
                   </a>
+                )}
+                {resultadoAgendar.contactCode && (
+                  <p className="text-xs text-green-700 font-medium">📇 Guardado en tus contactos como {resultadoAgendar.contactCode}.</p>
                 )}
               </div>
             ) : (

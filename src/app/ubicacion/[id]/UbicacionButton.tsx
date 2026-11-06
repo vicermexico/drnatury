@@ -45,10 +45,12 @@ export function UbicacionButton({ appointmentId, token }: { appointmentId: strin
 
   if (estado === "listo") {
     return (
-      <div className="rounded-2xl bg-green-50 border border-green-200 p-5 text-center space-y-1">
-        <p className="text-2xl">✅</p>
-        <p className="text-sm font-semibold text-green-700">¡Ubicación enviada!</p>
-        <p className="text-xs text-green-600">Ya sabemos exactamente dónde llegar. Gracias.</p>
+      <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 p-6 text-center space-y-2">
+        <div className="mx-auto w-14 h-14 rounded-full bg-emerald-500 flex items-center justify-center text-2xl text-white shadow-md">
+          ✓
+        </div>
+        <p className="text-base font-bold text-emerald-700">¡Ubicación enviada!</p>
+        <p className="text-xs text-emerald-600">Ya sabemos exactamente dónde llegar. Nos vemos pronto 🙌</p>
       </div>
     );
   }
@@ -58,12 +60,21 @@ export function UbicacionButton({ appointmentId, token }: { appointmentId: strin
       <button
         onClick={compartirUbicacion}
         disabled={estado === "cargando"}
-        className="w-full rounded-xl bg-red-600 py-3.5 text-sm font-semibold text-white hover:bg-red-700 transition disabled:opacity-60"
+        className="group relative w-full overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 py-4 text-sm font-bold text-white shadow-md shadow-emerald-200 hover:shadow-lg hover:brightness-105 transition disabled:opacity-70 disabled:cursor-wait"
       >
-        {estado === "cargando" ? "Obteniendo ubicación…" : "📍 Compartir mi ubicación actual"}
+        <span className="relative flex items-center justify-center gap-2">
+          {estado === "cargando" ? (
+            <>
+              <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              Obteniendo tu ubicación…
+            </>
+          ) : (
+            <>📍 Compartir mi ubicación actual</>
+          )}
+        </span>
       </button>
       {estado === "error" && (
-        <p className="text-sm text-red-600 text-center">{mensajeError}</p>
+        <p className="text-sm text-red-600 text-center bg-red-50 border border-red-100 rounded-xl px-3 py-2">{mensajeError}</p>
       )}
     </div>
   );

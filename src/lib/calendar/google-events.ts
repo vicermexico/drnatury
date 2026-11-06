@@ -59,3 +59,54 @@ export async function createGoogleCalendarEvent(input: GoogleEventInput): Promis
     return { id: null, error: err instanceof Error ? err.message : "Error desconocido" };
   }
 }
+
+export interface UpdateLocationResult {
+  ok: boolean;
+  error?: string;
+}
+
+// Cuando el paciente comparte su ubicacion (ver /ubicacion/[id]), se le
+// agrega al evento que ya existe en el Google Calendar de Master: el
+// campo "location" con las coordenadas (Google Calendar le arma el mapa
+// solo) y el link de Maps en la descripcion, para que sea tocable desde
+// la app de Calendar del celular.
+export async function addLocationToGoogleEvent(eventId: string, lat: number, lng: number): Promise<UpdateLocationResult> {
+  try {
+    const accessToken = await getValidAccessToken();
+    if (!accessToken) return { ok: false, error: "No conectado a Google Calendar" };
+
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+
+    const getRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!getRes.ok) {
+      const bodyText = await getRes.text();
+      console.error("Error leyendo evento de Google Calendar:", bodyText);
+      return { ok: false, error: `Google respondio ${getRes.status} al leer el evento` };
+    }
+    const current = await getRes.json() as { description?: string };
+    const yaTieneLink = (current.description ?? "").includes(mapsUrl);
+    const nuevaDescripcion = yaTieneLink
+      ? current.description!
+      : `${current.description ?? ""}\n\n📍 Ubicación del paciente: ${mapsUrl}`.trim();
+
+    const patchRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ location: `${lat},${lng}`, description: nuevaDescripcion }),
+    });
+    if (!patchRes.ok) {
+      const bodyText = await patchRes.text();
+      console.error("Error actualizando ubicacion en Google Calendar:", bodyText);
+      return { ok: false, error: `Google respondio ${patchRes.status}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    console.error("Error en addLocationToGoogleEvent:", err);
+    return { ok: false, error: err instanceof Error ? err.message : "Error desconocido" };
+  }
+}
