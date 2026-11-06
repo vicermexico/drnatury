@@ -23,7 +23,7 @@ export function buildGoogleAuthUrl(state: string): string {
     response_type: "code",
     access_type: "offline",
     prompt: "consent", // fuerza que siempre regrese un refresh_token, aun si ya se habia conectado antes
-    scope: "https://www.googleapis.com/auth/calendar.events",
+    scope: "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/contacts",
     state,
   });
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;

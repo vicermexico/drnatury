@@ -27,9 +27,9 @@ export default async function UbicacionPage({
 
   if (!token || !verifyConfirmToken(id, token)) {
     return (
-      <main className="flex min-h-screen items-center justify-center p-4">
+      <main className="flex min-h-screen items-center justify-center p-4 bg-gradient-to-b from-emerald-50 to-white">
         <div className="max-w-sm w-full text-center space-y-3">
-          <p className="text-2xl">🔒</p>
+          <p className="text-4xl">🔒</p>
           <p className="text-gray-700 font-medium">Link inválido o expirado</p>
         </div>
       </main>
@@ -45,19 +45,45 @@ export default async function UbicacionPage({
   const nombreMostrar = quickName || patient?.name || "";
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4 bg-gray-50">
-      <div className="max-w-sm w-full space-y-6">
-        <div className="text-center">
-          <p className="text-sm text-gray-500">DrNatury</p>
-          <h1 className="text-xl font-bold text-gray-900 mt-1">Comparte tu ubicación</h1>
-          <p className="text-sm text-gray-500 mt-2">
-            Hola{nombreMostrar ? ` ${nombreMostrar}` : ""}, para tu cita a domicilio del{" "}
-            {formatCSTDate(appt.starts_at as string)} a las {formatCSTTime(appt.starts_at as string)}, ayúdanos
-            compartiendo tu ubicación actual para llegar sin problema.
-          </p>
+    <main className="min-h-screen bg-gradient-to-b from-emerald-500 via-emerald-50 to-white flex items-center justify-center p-4">
+      <div className="max-w-sm w-full">
+        {/* Banner superior con patron de mapa y pin animado */}
+        <div className="relative rounded-t-3xl bg-emerald-600 pt-8 pb-14 px-6 text-center overflow-hidden">
+          <div
+            className="absolute inset-0 opacity-20"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle, #ffffff 1.5px, transparent 1.5px)",
+              backgroundSize: "18px 18px",
+            }}
+          />
+          <p className="relative text-emerald-100 text-xs font-semibold tracking-widest uppercase">DrNatury · A domicilio</p>
+          <div className="relative mt-3 text-5xl animate-bounce" style={{ animationDuration: "1.8s" }}>
+            📍
+          </div>
+          <h1 className="relative text-white text-xl font-bold mt-2">¡Ayúdanos a llegar!</h1>
         </div>
 
-        <UbicacionButton appointmentId={id} token={token} />
+        {/* Tarjeta blanca */}
+        <div className="relative -mt-8 bg-white rounded-3xl shadow-lg border border-gray-100 p-6 space-y-5">
+          <p className="text-sm text-gray-600 text-center leading-relaxed">
+            Hola{nombreMostrar ? ` ${nombreMostrar}` : ""} 👋, tu cita a domicilio es el{" "}
+            <span className="font-semibold text-gray-900">
+              {formatCSTDate(appt.starts_at as string)}
+            </span>{" "}
+            a las{" "}
+            <span className="font-semibold text-gray-900">
+              {formatCSTTime(appt.starts_at as string)}
+            </span>
+            . Comparte tu ubicación actual con un toque y llegamos sin dar vueltas.
+          </p>
+
+          <UbicacionButton appointmentId={id} token={token} />
+
+          <p className="text-[11px] text-gray-400 text-center">
+            Tu ubicación solo se usa para esta cita. No se comparte con nadie más.
+          </p>
+        </div>
       </div>
     </main>
   );

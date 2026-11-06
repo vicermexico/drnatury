@@ -5,6 +5,7 @@ import { cstToUTC } from "@/lib/appointments/availability";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { createGoogleCalendarEvent } from "@/lib/calendar/google-events";
 import { buildConfirmUrl, buildUbicacionUrl } from "@/lib/appointments/tokens";
+import { ensureGoogleContact } from "@/lib/contacts/google-contacts";
 
 // Agendado rapido de Master, sin login — protegido por un codigo secreto
 // en el header x-quick-secret (ver src/lib/quick-link/secret.ts). Reusa
@@ -178,6 +179,18 @@ export async function POST(request: NextRequest) {
       await admin.from("appointments").update({ google_event_id: googleEventId }).eq("id", appointmentId);
     }
 
+    // Guarda al paciente en el Directorio de contactos del celular de
+    // Master (via Google Contacts), con un codigo "P-####" en vez del
+    // nombre real -- best-effort, igual que el calendario: si no esta
+    // conectado o falla, no se rompe el agendado.
+    let contactCode: string | null = null;
+    let contactError: string | undefined;
+    if (telefonoDigits) {
+      const contactResult = await ensureGoogleContact(telefonoDigits);
+      contactCode = contactResult.code;
+      contactError = contactResult.error;
+    }
+
     return NextResponse.json({
       id: appointmentId,
       message: "Agendado exitoso.",
@@ -187,6 +200,8 @@ export async function POST(request: NextRequest) {
       calendar_sync_error: googleEventId ? undefined : calendarError,
       confirm_url: confirmUrl,
       whatsapp_url: whatsappUrl,
+      contact_code: contactCode,
+      contact_sync_error: contactCode ? undefined : contactError,
     }, { status: 201 });
   } catch (err) {
     console.error("Error en POST /api/quick/book:", err);
