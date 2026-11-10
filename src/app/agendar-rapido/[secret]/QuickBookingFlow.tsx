@@ -58,13 +58,14 @@ export function QuickBookingFlow({ secret }: { secret: string }) {
     }
     setErroresLectura([]);
     setResultadoAgendar(null);
-    const { nombre, fecha, hora, modalidad, domicilioDireccion, numPersonas, costoTotal, telefono } = parsed;
+    const { nombre, fecha, hora, modalidad, consultorioLugar, domicilioDireccion, numPersonas, costoTotal, telefono } = parsed;
     startTransition(async () => {
       const res = await fetch("/api/quick/book", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-quick-secret": secret },
         body: JSON.stringify({
           nombre, fecha, hora, modalidad,
+          consultorio_lugar: modalidad === "CONSULTORIO" ? consultorioLugar : undefined,
           domicilio_direccion: modalidad === "DOMICILIO" ? domicilioDireccion : undefined,
           num_personas: numPersonas,
           costo_total: costoTotal || undefined,

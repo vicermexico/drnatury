@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({})) as Record<string, string>;
-    const { nombre, fecha, hora, modalidad, domicilio_direccion, num_personas, costo_total, telefono } = body;
+    const { nombre, fecha, hora, modalidad, consultorio_lugar, domicilio_direccion, num_personas, costo_total, telefono } = body;
 
     if (!nombre?.trim() || !fecha || !hora) {
       return NextResponse.json(
@@ -176,12 +176,14 @@ export async function POST(request: NextRequest) {
     // si no esta conectado o algo falla, no se rompe el agendado; el
     // frontend usa calendar_synced/calendar_sync_error para decidir que
     // mostrar). El titulo usa el codigo de contacto (no el nombre real)
-    // cuando hay uno: "{personas} {municipio} P-####"; a domicilio ademas
-    // se pinta de amarillo en Google Calendar.
-    const location = esDomicilio ? (domicilio_direccion || "A domicilio") : "Consultorio";
-    const municipio = esDomicilio ? (domicilio_direccion ?? "").trim() : "";
+    // cuando hay uno: "{personas} {lugar} P-####" -- lugar es el
+    // municipio a domicilio o el consultorio/sucursal que Vic escribio
+    // despues de "Si" (ej. "San Blas", "Mitras"); a domicilio ademas se
+    // pinta de amarillo en Google Calendar.
+    const lugar = (esDomicilio ? domicilio_direccion : consultorio_lugar)?.trim() || "";
+    const location = esDomicilio ? (domicilio_direccion || "A domicilio") : (lugar || "Consultorio");
     const summaryPartes = [String(numPersonas)];
-    if (municipio) summaryPartes.push(municipio);
+    if (lugar) summaryPartes.push(lugar);
     summaryPartes.push(contactCode ?? nombre.trim());
     const summary = summaryPartes.join(" ");
 

@@ -27,6 +27,8 @@ export interface ParsedAgendado {
   fecha: string;              // "YYYY-MM-DD" o "" si no se pudo leer
   hora: string;                // "HH:MM" (24h) o "" si no se pudo leer
   modalidad: "CONSULTORIO" | "DOMICILIO" | null;
+  /** Lo que Vic puso despues de "Si" en Consultorio (ej. "San Blas", "Mitras"). Vacio si no puso nada. */
+  consultorioLugar: string;
   domicilioDireccion: string;
   numPersonas: string;
   costoTotal: string;
@@ -140,10 +142,13 @@ export function parseAgendado(texto: string): ParsedAgendado {
   const domicilioValNorm = sinAcentos(domicilioVal).toUpperCase();
 
   let modalidad: "CONSULTORIO" | "DOMICILIO" | null = null;
+  let consultorioLugar = "";
   let domicilioDireccion = "";
 
   if (consultorioVal.startsWith("SI")) {
     modalidad = "CONSULTORIO";
+    const resto = (valores.consultorio ?? "").replace(/^[Ss][ií]\.?,?\s*/, "").trim();
+    consultorioLugar = resto;
   } else if (domicilioValNorm.startsWith("SI")) {
     modalidad = "DOMICILIO";
     const resto = domicilioVal.replace(/^[Ss][ií]\.?,?\s*/, "").trim();
@@ -160,5 +165,5 @@ export function parseAgendado(texto: string): ParsedAgendado {
 
   const telefono = (valores.telefono ?? "").replace(/\D/g, "");
 
-  return { nombre, fecha, hora, modalidad, domicilioDireccion, numPersonas, costoTotal, telefono, errores };
+  return { nombre, fecha, hora, modalidad, consultorioLugar, domicilioDireccion, numPersonas, costoTotal, telefono, errores };
 }
