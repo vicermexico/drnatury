@@ -159,7 +159,11 @@ function esIntencionAgendar(normalizado: string): boolean {
   // "me interesa", "si me interesa", etc. -- no mencionan la palabra
   // "cita" pero ya es una persona lista para agendar.
   if (tieneAlgunaPalabraParecida(normalizado, ["interesa", "interesado", "interesada"])) return true;
-  const tieneCita = tieneAlgunaPalabraParecida(normalizado, ["cita", "citas"]);
+  // "consulta"/"consultas" cuenta igual que "cita"/"citas" (ej. "para
+  // una consulta") -- cuidado, esto NO debe disparar con "consultorio"
+  // (son palabras distintas, por eso se compara por tolerancia y no
+  // con un includes() que si las confundiria).
+  const tieneCita = tieneAlgunaPalabraParecida(normalizado, ["cita", "citas", "consulta", "consultas"]);
   if (!tieneCita) return false;
   // Si el mensaje es cortito (ej. solo "cita", "una cita", "cita porfavor")
   // ya alcanza con que mencione la cita, sin necesitar una palabra de
