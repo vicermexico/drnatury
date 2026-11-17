@@ -88,11 +88,44 @@ function contieneAlguna(normalizado: string, frases: string[]): boolean {
   return frases.some((f) => normalizado.includes(f));
 }
 
+// Distancia de edicion simple (cuantas letras hay que cambiar/agregar/
+// quitar para convertir una palabra en otra) -- sirve para tolerar
+// errores de dedo como "quiro" en vez de "quiero".
+function distanciaEdicion(a: string, b: string): number {
+  const filas = a.length + 1;
+  const columnas = b.length + 1;
+  const dp: number[][] = Array.from({ length: filas }, () => new Array(columnas).fill(0));
+  for (let i = 0; i < filas; i++) dp[i][0] = i;
+  for (let j = 0; j < columnas; j++) dp[0][j] = j;
+  for (let i = 1; i < filas; i++) {
+    for (let j = 1; j < columnas; j++) {
+      const costo = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + costo);
+    }
+  }
+  return dp[filas - 1][columnas - 1];
+}
+
+// Compara una palabra escrita contra una palabra "correcta", tolerando
+// 1 o 2 errores de dedo segun que tan larga sea (para que no se
+// disparen falsos positivos en palabras cortas).
+function palabraSeParece(palabra: string, objetivo: string): boolean {
+  if (palabra === objetivo) return true;
+  const tolerancia = objetivo.length >= 6 ? 2 : 1;
+  if (Math.abs(palabra.length - objetivo.length) > tolerancia) return false;
+  return distanciaEdicion(palabra, objetivo) <= tolerancia;
+}
+
+function tieneAlgunaPalabraParecida(normalizado: string, objetivos: string[]): boolean {
+  const tokens = normalizado.split(" ");
+  return tokens.some((t) => objetivos.some((o) => palabraSeParece(t, o)));
+}
+
 const URGENCIA_KEYWORDS = ["dolor de pecho", "me duele el pecho", "duele el pecho", "falta de aire", "no puedo respirar", "me ahogo", "ahogo"];
 const ORDEN_MEDICA_KEYWORDS = ["me dijo el doctor", "me indico el doctor", "me indico el medico", "me dijo el medico", "me mando a hacer", "me receto", "un tac", "hacerme un tac", "resonancia", "estudio de sangre", "analisis de sangre"];
 const PRECIO_KEYWORDS = ["cuesta", "costo", "precio", "cuanto es", "cuanto vale"];
 const DURACION_KEYWORDS = ["cuanto dura", "cuanto tarda", "cuanto tiempo", "dura el estudio", "tarda la cita", "tarda por persona"];
-const AGENDAR_PALABRAS_ACCION = ["quiero", "sacar", "agend", "dar", "dame", "podria", "pudiera", "como le hago", "cuando"];
+const AGENDAR_PALABRAS_ACCION = ["quiero", "quisiera", "necesito", "sacar", "dar", "dame", "podria", "pudiera", "cuando"];
 const AFIRMATIVO_KEYWORDS = ["si", "claro", "va", "sale", "dale", "esta bien", "de acuerdo", "porfavor", "por favor"];
 const SINTOMA_KEYWORDS = ["duele", "dolor", "molestia", "me siento", "siento", "adormecid", "hormigueo", "me canso", "cansancio", "mareo"];
 
@@ -116,10 +149,13 @@ const PARTES_CUERPO: { palabra: string; frase: string }[] = [
 // Se fija si hay intencion de agendar sin depender de que sea la frase
 // exacta -- "sacar cita", "sacar una cita", "sacar la cita" deben contar
 // igual. Si ya dice "agend" (agendar/agenda) alcanza solo con eso.
+// Tambien tolera errores de dedo tipo "quiro" en vez de "quiero", muy
+// comunes cuando la gente escribe rapido desde el celular.
 function esIntencionAgendar(normalizado: string): boolean {
-  if (normalizado.includes("agend")) return true;
-  if (!normalizado.includes("cita")) return false;
-  return AGENDAR_PALABRAS_ACCION.some((p) => normalizado.includes(p));
+  if (normalizado.includes("agend") || normalizado.includes("como le hago")) return true;
+  const tieneCita = tieneAlgunaPalabraParecida(normalizado, ["cita", "citas"]);
+  if (!tieneCita) return false;
+  return tieneAlgunaPalabraParecida(normalizado, AGENDAR_PALABRAS_ACCION);
 }
 
 function detectarParteCuerpo(normalizado: string): string {
