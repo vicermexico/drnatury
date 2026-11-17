@@ -1,3 +1,6 @@
+import "server-only";
+import { obtenerHorariosDisponibles, interpretarFecha, interpretarTurno } from "./disponibilidad";
+
 // "Cerebro" del asistente de WhatsApp -- lo usa la pagina de demo/entrenamiento
 // en /master/asistente-whatsapp (texto por ahora, nada conectado a WhatsApp
 // real todavia). La idea: Master "platica" con el bot como si fuera un
@@ -13,7 +16,7 @@ export interface MensajeChat {
 
 export interface EstadoAgendado {
   fase: "inicio" | "conversando" | "agendando";
-  paso?: "modalidad" | "lugar" | "personas" | "dia" | "hora" | "nombre";
+  paso?: "modalidad" | "lugar" | "personas" | "dia" | "turno" | "hora" | "nombre";
   modalidad?: "CONSULTORIO" | "DOMICILIO";
   lugar?: string;
   personas?: string;
@@ -167,11 +170,11 @@ export interface ResultadoRespuesta {
   nota?: string;
 }
 
-export function generarRespuesta(args: {
+export async function generarRespuesta(args: {
   mensaje: string;
   estado: EstadoAgendado;
   correcciones: Correccion[];
-}): ResultadoRespuesta {
+}): Promise<ResultadoRespuesta> {
   const { mensaje, estado, correcciones } = args;
   const normalizado = normalizar(mensaje);
 
@@ -211,8 +214,29 @@ export function generarRespuesta(args: {
         return { respuesta: "¿Para qué día le gustaría agendar?", nuevoEstado };
       }
       case "dia": {
-        const nuevoEstado: EstadoAgendado = { ...estado, paso: "hora", dia: mensaje.trim() };
-        return { respuesta: "¿A qué hora le quedaría mejor?", nuevoEstado };
+        const nuevoEstado: EstadoAgendado = { ...estado, paso: "turno", dia: mensaje.trim() };
+        return { respuesta: "¿Le gustaría por la mañana o por la tarde?", nuevoEstado };
+      }
+      case "turno": {
+        const fechaStr = interpretarFecha(normalizar(estado.dia ?? ""));
+        const turno = interpretarTurno(normalizado);
+        if (!fechaStr) {
+          // No se pudo entender que dia es -- seguimos sin bloquear la
+          // conversacion, nada mas sin el horario sugerido.
+          const nuevoEstado: EstadoAgendado = { ...estado, paso: "hora" };
+          return { respuesta: "¿A qué hora le quedaría mejor?", nuevoEstado };
+        }
+        const horarios = await obtenerHorariosDisponibles(fechaStr, estado.modalidad ?? "CONSULTORIO", turno);
+        if (horarios.length === 0) {
+          const nuevoEstado: EstadoAgendado = { ...estado, paso: "dia" };
+          return {
+            respuesta: "Mmm, no tengo horario libre ese día. ¿Para qué otro día le gustaría agendar?",
+            nuevoEstado,
+          };
+        }
+        const opciones = horarios.slice(0, 4).join(", ");
+        const nuevoEstado: EstadoAgendado = { ...estado, paso: "hora" };
+        return { respuesta: `Tengo disponible: ${opciones}. ¿Cuál le queda mejor?`, nuevoEstado };
       }
       case "hora": {
         const nuevoEstado: EstadoAgendado = { ...estado, paso: "nombre", hora: mensaje.trim() };
