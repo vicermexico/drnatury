@@ -160,6 +160,10 @@ function esIntencionAgendar(normalizado: string): boolean {
   if (tieneAlgunaPalabraParecida(normalizado, ["interesa", "interesado", "interesada"])) return true;
   const tieneCita = tieneAlgunaPalabraParecida(normalizado, ["cita", "citas"]);
   if (!tieneCita) return false;
+  // Si el mensaje es cortito (ej. solo "cita", "una cita", "cita porfavor")
+  // ya alcanza con que mencione la cita, sin necesitar una palabra de
+  // accion aparte -- es la forma mas seca y comun de pedirla.
+  if (normalizado.split(" ").length <= 3) return true;
   return tieneAlgunaPalabraParecida(normalizado, AGENDAR_PALABRAS_ACCION);
 }
 
