@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     .select("disparador, respuesta");
   const correcciones: Correccion[] = correccionesRaw ?? [];
 
-  const resultado = generarRespuesta({ mensaje, estado, correcciones });
+  const resultado = await generarRespuesta({ mensaje, estado, correcciones });
 
   return NextResponse.json(resultado);
 }
