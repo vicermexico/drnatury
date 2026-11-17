@@ -328,6 +328,20 @@ async function calcularRespuestaBase(
           return { respuesta: "¿Sería en consultorio o a domicilio?", nuevoEstado: estado };
         }
         const modalidad: "CONSULTORIO" | "DOMICILIO" = esDomicilio ? "DOMICILIO" : "CONSULTORIO";
+
+        // Si ya dijeron el consultorio junto con la modalidad (ej.
+        // "consultorio san blas", "consultorio mitras"), no hace falta
+        // volver a preguntar cual es -- se salta directo a personas.
+        if (modalidad === "CONSULTORIO") {
+          const esSanBlas = normalizado.includes("san blas");
+          const esMitras = normalizado.includes("mitras");
+          if (esSanBlas || esMitras) {
+            const lugar = esSanBlas ? "San Blas" : "Mitras";
+            const nuevoEstado: EstadoAgendado = { fase: "agendando", paso: "personas", modalidad, lugar };
+            return { respuesta: "¿Cuántas personas serían?", nuevoEstado };
+          }
+        }
+
         const nuevoEstado: EstadoAgendado = { fase: "agendando", paso: "lugar", modalidad };
         return { respuesta: siguientePreguntaLugar(modalidad), nuevoEstado };
       }
