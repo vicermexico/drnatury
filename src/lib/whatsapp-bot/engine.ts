@@ -314,7 +314,20 @@ async function calcularRespuestaBase(
   if (estado.fase === "agendando" && estado.paso) {
     switch (estado.paso) {
       case "modalidad": {
-        const modalidad: "CONSULTORIO" | "DOMICILIO" = normalizado.includes("domicilio") ? "DOMICILIO" : "CONSULTORIO";
+        const esDomicilio = normalizado.includes("domicilio");
+        const esConsultorio = normalizado.includes("consultorio");
+        if (!esDomicilio && !esConsultorio) {
+          // No quedo claro si es consultorio o a domicilio -- por
+          // ejemplo, a veces contestan con el dia ("para el jueves")
+          // en vez de esto, sobre todo cuando el cierre de un mensaje
+          // anterior fue "para cuando le gustaria agendar su cita".
+          // Antes se adivinaba CONSULTORIO por default, pero eso
+          // desalineaba todo el flujo despues (el "lugar" quedaba con
+          // texto que en realidad era la respuesta de otra pregunta).
+          // Mejor se vuelve a preguntar sin avanzar.
+          return { respuesta: "¿Sería en consultorio o a domicilio?", nuevoEstado: estado };
+        }
+        const modalidad: "CONSULTORIO" | "DOMICILIO" = esDomicilio ? "DOMICILIO" : "CONSULTORIO";
         const nuevoEstado: EstadoAgendado = { fase: "agendando", paso: "lugar", modalidad };
         return { respuesta: siguientePreguntaLugar(modalidad), nuevoEstado };
       }
