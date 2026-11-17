@@ -15,6 +15,7 @@ const NAV = [
   { href: "/master/almacenistas", label: "Almacen",      icon: "📦" },
   { href: "/master/configuracion", label: "Configuracion", icon: "⚙️" },
   { href: "/master/whatsapp-citas",    label: "WhatsApp Citas",  icon: "💬" },
+  { href: "/master/asistente-whatsapp", label: "Asistente WhatsApp", icon: "🤖" },
   { href: "/master/agua-energetica",  label: "Agua Energetica", icon: "💧" },
   { href: "/master/ph-revision",    label: "Revision de PH", icon: "🧪" },
   { href: "/master/recetas",        label: "Recetas",        icon: "📝" },
