@@ -253,6 +253,57 @@ export async function generarRespuesta(args: {
   return resultadoBase;
 }
 
+// Resuelve el dia que pide la persona (sea en el paso "dia" normal, o
+// porque cambio de opinion sobre el dia estando ya en el paso "hora" --
+// ej. le ofrecimos horas para "hoy" y contesta "mejor para el viernes").
+// Siempre limpia fechaResuelta/turnoResuelto/opcionesHorario/hora viejos,
+// para que no se quede pegado un horario de un dia que ya no aplica.
+async function manejarDia(estado: EstadoAgendado, textoDia: string, normalizadoDia: string): Promise<ResultadoRespuesta> {
+  const fechaStr = interpretarFecha(normalizadoDia);
+
+  // Si piden "hoy", ya no tiene caso preguntar manana o tarde -- puede
+  // que ya sea tarde-noche y "manana" ya no exista. Se buscan horarios
+  // de lo que queda del dia directamente.
+  if (fechaStr && fechaStr === hoyCST()) {
+    const turnoImplicito: Turno = horaActualCST() >= 14 ? "tarde" : "manana";
+    const horarios = await obtenerHorariosDisponibles(fechaStr, estado.modalidad ?? "CONSULTORIO", null);
+    if (horarios.length === 0) {
+      const nuevoEstado: EstadoAgendado = {
+        ...estado,
+        paso: "dia",
+        dia: textoDia.trim(),
+        fechaResuelta: undefined,
+        turnoResuelto: undefined,
+        opcionesHorario: undefined,
+        hora: undefined,
+      };
+      return { respuesta: "Mmm, ya no tengo horario libre para hoy. ¿Para qué otro día le gustaría agendar?", nuevoEstado };
+    }
+    const opcionesLista = horarios.slice(0, 4);
+    const nuevoEstado: EstadoAgendado = {
+      ...estado,
+      paso: "hora",
+      dia: textoDia.trim(),
+      fechaResuelta: fechaStr,
+      turnoResuelto: turnoImplicito,
+      opcionesHorario: opcionesLista,
+      hora: undefined,
+    };
+    return { respuesta: `Tengo disponible hoy: ${opcionesLista.join(", ")}. ¿Cuál le queda mejor?`, nuevoEstado };
+  }
+
+  const nuevoEstado: EstadoAgendado = {
+    ...estado,
+    paso: "turno",
+    dia: textoDia.trim(),
+    fechaResuelta: undefined,
+    turnoResuelto: undefined,
+    opcionesHorario: undefined,
+    hora: undefined,
+  };
+  return { respuesta: "¿Le gustaría por la mañana o por la tarde?", nuevoEstado };
+}
+
 async function calcularRespuestaBase(
   mensaje: string,
   normalizado: string,
@@ -276,30 +327,7 @@ async function calcularRespuestaBase(
         return { respuesta: "¿Para qué día le gustaría agendar?", nuevoEstado };
       }
       case "dia": {
-        const fechaStr = interpretarFecha(normalizar(mensaje));
-        // Si piden "hoy", ya no tiene caso preguntar manana o tarde --
-        // puede que ya sea tarde-noche y "manana" ya no exista. Se
-        // buscan horarios de lo que queda del dia directamente.
-        if (fechaStr && fechaStr === hoyCST()) {
-          const turnoImplicito: Turno = horaActualCST() >= 14 ? "tarde" : "manana";
-          const horarios = await obtenerHorariosDisponibles(fechaStr, estado.modalidad ?? "CONSULTORIO", null);
-          if (horarios.length === 0) {
-            const nuevoEstado: EstadoAgendado = { ...estado, dia: mensaje.trim() };
-            return { respuesta: "Mmm, ya no tengo horario libre para hoy. ¿Para qué otro día le gustaría agendar?", nuevoEstado };
-          }
-          const opcionesLista = horarios.slice(0, 4);
-          const nuevoEstado: EstadoAgendado = {
-            ...estado,
-            paso: "hora",
-            dia: mensaje.trim(),
-            fechaResuelta: fechaStr,
-            turnoResuelto: turnoImplicito,
-            opcionesHorario: opcionesLista,
-          };
-          return { respuesta: `Tengo disponible hoy: ${opcionesLista.join(", ")}. ¿Cuál le queda mejor?`, nuevoEstado };
-        }
-        const nuevoEstado: EstadoAgendado = { ...estado, paso: "turno", dia: mensaje.trim() };
-        return { respuesta: "¿Le gustaría por la mañana o por la tarde?", nuevoEstado };
+        return await manejarDia(estado, mensaje, normalizado);
       }
       case "turno": {
         const fechaStr = interpretarFecha(normalizar(estado.dia ?? ""));
@@ -323,6 +351,16 @@ async function calcularRespuestaBase(
         return { respuesta: `Tengo disponible: ${opcionesLista.join(", ")}. ¿Cuál le queda mejor?`, nuevoEstado };
       }
       case "hora": {
+        // Si contesta sin ningun numero pero mencionando otro dia (ej.
+        // le ofrecimos horarios para "hoy" y dice "mejor para el
+        // viernes"), es que cambio de opinion sobre el DIA, no que esta
+        // contestando la hora -- hay que volver a resolver el dia
+        // completo (y los horarios que le podemos ofrecer ese dia) en
+        // vez de guardar ese texto como si fuera la hora.
+        const tieneDigito = /\d/.test(mensaje);
+        if (!tieneDigito && interpretarFecha(normalizado)) {
+          return await manejarDia(estado, mensaje, normalizado);
+        }
         const horaBonita = buscarEnOpcionesOfrecidas(mensaje, estado.opcionesHorario) ?? formatearHora(mensaje, estado.turnoResuelto ?? null);
         const nuevoEstado: EstadoAgendado = { ...estado, paso: "nombre", hora: horaBonita };
         return { respuesta: "¿A qué nombre le agendo la cita?", nuevoEstado };
