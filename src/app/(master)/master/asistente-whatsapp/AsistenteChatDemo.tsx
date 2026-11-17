@@ -149,8 +149,16 @@ export function AsistenteChatDemo() {
                 {m.texto}
               </div>
               {m.rol === "bot" && m.nota && (
-                <p className={`text-[11px] mt-0.5 px-1 ${m.nota === "sin_entrenar" ? "text-amber-600" : "text-gray-400"}`}>
-                  {m.nota === "sin_entrenar" ? "⚠️ No supo qué contestar" : m.nota}
+                <p
+                  className={`text-[11px] mt-0.5 px-1 ${
+                    m.nota === "sin_entrenar" || m.nota === "mensaje_no_de_anuncio" ? "text-amber-600" : "text-gray-400"
+                  }`}
+                >
+                  {m.nota === "sin_entrenar"
+                    ? "⚠️ No supo qué contestar"
+                    : m.nota === "mensaje_no_de_anuncio"
+                      ? "⚠️ No parece venir de un anuncio -- revísalo tú"
+                      : m.nota}
                 </p>
               )}
               {m.rol === "bot" && corrigiendoId !== m.id && (
