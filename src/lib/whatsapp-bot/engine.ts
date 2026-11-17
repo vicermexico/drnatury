@@ -1,5 +1,5 @@
 import "server-only";
-import { obtenerHorariosDisponibles, interpretarFecha, interpretarTurno } from "./disponibilidad";
+import { obtenerHorariosDisponibles, interpretarFecha, interpretarTurno, formatFechaBonita, formatearHora, type Turno } from "./disponibilidad";
 
 // "Cerebro" del asistente de WhatsApp -- lo usa la pagina de demo/entrenamiento
 // en /master/asistente-whatsapp (texto por ahora, nada conectado a WhatsApp
@@ -21,6 +21,8 @@ export interface EstadoAgendado {
   lugar?: string;
   personas?: string;
   dia?: string;
+  fechaResuelta?: string; // "YYYY-MM-DD", cuando se pudo entender bien el dia
+  turnoResuelto?: Turno;
   hora?: string;
   esperaConfirmacionAgendar?: boolean;
 }
@@ -190,7 +192,7 @@ function construirResumenAgendado(estado: EstadoAgendado, nombre: string): strin
     "",
     `• Nombre: ${nombre}`,
     "• Celular: (el numero de WhatsApp del paciente, automatico)",
-    `• Día: ${estado.dia ?? ""}`,
+    `• Día: ${estado.fechaResuelta ? formatFechaBonita(estado.fechaResuelta) : estado.dia ?? ""}`,
     `• Hora: ${estado.hora ?? ""}`,
     "• Lugar:",
     `  ▪️︎ CONSULTORIO ${lineaConsultorio}`,
@@ -271,11 +273,12 @@ export async function generarRespuesta(args: {
           };
         }
         const opciones = horarios.slice(0, 4).join(", ");
-        const nuevoEstado: EstadoAgendado = { ...estado, paso: "hora" };
+        const nuevoEstado: EstadoAgendado = { ...estado, paso: "hora", fechaResuelta: fechaStr, turnoResuelto: turno };
         return { respuesta: `Tengo disponible: ${opciones}. ¿Cuál le queda mejor?`, nuevoEstado };
       }
       case "hora": {
-        const nuevoEstado: EstadoAgendado = { ...estado, paso: "nombre", hora: mensaje.trim() };
+        const horaBonita = formatearHora(mensaje, estado.turnoResuelto ?? null);
+        const nuevoEstado: EstadoAgendado = { ...estado, paso: "nombre", hora: horaBonita };
         return { respuesta: "¿A qué nombre le agendo la cita?", nuevoEstado };
       }
       case "nombre": {
