@@ -132,6 +132,28 @@ export function interpretarFecha(textoNormalizado: string, ahoraCST: Date = new 
     return manana.toISOString().slice(0, 10);
   }
 
+  // Si dan un numero de dia del mes explicito (ej. "jueves 26", "para
+  // el 26", "el 26 de noviembre"), ese numero manda sobre el nombre
+  // del dia de la semana -- antes, si decian "jueves 26" pero hoy no
+  // era jueves, se calculaba el jueves MAS CERCANO ignorando el "26"
+  // que la persona si dio explicito, agendando un dia equivocado.
+  const numMatch = textoNormalizado.match(/\b([1-9]|[12]\d|3[01])\b/);
+  if (numMatch) {
+    const diaNum = parseInt(numMatch[1], 10);
+    const [y, m, d] = hoyStr.split("-").map(Number);
+    let anio = y;
+    let mes = m;
+    if (diaNum < d) {
+      mes += 1;
+      if (mes > 12) {
+        mes = 1;
+        anio += 1;
+      }
+    }
+    const fecha = new Date(Date.UTC(anio, mes - 1, diaNum, 12));
+    return fecha.toISOString().slice(0, 10);
+  }
+
   const diaMatch = DIAS_SEMANA.find((d) => textoNormalizado.includes(d));
   if (diaMatch) {
     const objetivo = DIAS_SEMANA.indexOf(diaMatch);
@@ -203,12 +225,19 @@ export function formatearHora(texto: string, turno: Turno): string {
 // puede no coincidir con el que se supuso al preguntar el dia.
 export function buscarEnOpcionesOfrecidas(texto: string, opciones: string[] | undefined): string | null {
   if (!opciones || opciones.length === 0) return null;
-  const m = texto.match(/\d{1,2}/);
+  const m = texto.match(/(\d{1,2})(?::(\d{2}))?/);
   if (!m) return null;
-  const buscado = parseInt(m[0], 10);
+  const horaBuscada = parseInt(m[1], 10);
+  const minutoBuscado = m[2] !== undefined ? parseInt(m[2], 10) : null;
+  // Si dan los minutos tambien (ej. "11:30"), hay que exigir que
+  // coincidan exacto -- si no, "11:30" encontraba la primera opcion
+  // que empezara con "11" (ej. "11:00 a.m.") en vez de la correcta.
   const encontrada = opciones.find((op) => {
-    const om = op.match(/^0?(\d{1,2})/);
-    return om ? parseInt(om[1], 10) === buscado : false;
+    const om = op.match(/^0?(\d{1,2}):(\d{2})/);
+    if (!om) return false;
+    if (parseInt(om[1], 10) !== horaBuscada) return false;
+    if (minutoBuscado !== null) return parseInt(om[2], 10) === minutoBuscado;
+    return true;
   });
   return encontrada ?? null;
 }
