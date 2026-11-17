@@ -332,8 +332,12 @@ async function calcularRespuestaBase(
           // Antes se adivinaba CONSULTORIO por default, pero eso
           // desalineaba todo el flujo despues (el "lugar" quedaba con
           // texto que en realidad era la respuesta de otra pregunta).
-          // Mejor se vuelve a preguntar sin avanzar.
-          return { respuesta: "¿Sería en consultorio o a domicilio?", nuevoEstado: estado };
+          // Mejor se vuelve a preguntar sin avanzar -- pero si lo que
+          // dijeron si se puede leer como un dia, se guarda para no
+          // tener que volver a preguntarlo mas adelante.
+          const posibleDia = interpretarFecha(normalizado);
+          const nuevoEstado: EstadoAgendado = posibleDia ? { ...estado, dia: mensaje.trim() } : estado;
+          return { respuesta: "¿Sería en consultorio o a domicilio?", nuevoEstado };
         }
         const modalidad: "CONSULTORIO" | "DOMICILIO" = esDomicilio ? "DOMICILIO" : "CONSULTORIO";
 
@@ -345,12 +349,12 @@ async function calcularRespuestaBase(
           const esMitras = normalizado.includes("mitras");
           if (esSanBlas || esMitras) {
             const lugar = esSanBlas ? "San Blas" : "Mitras";
-            const nuevoEstado: EstadoAgendado = { fase: "agendando", paso: "personas", modalidad, lugar };
+            const nuevoEstado: EstadoAgendado = { ...estado, paso: "personas", modalidad, lugar };
             return { respuesta: "¿Cuántas personas serían?", nuevoEstado };
           }
         }
 
-        const nuevoEstado: EstadoAgendado = { fase: "agendando", paso: "lugar", modalidad };
+        const nuevoEstado: EstadoAgendado = { ...estado, paso: "lugar", modalidad };
         return { respuesta: siguientePreguntaLugar(modalidad), nuevoEstado };
       }
       case "lugar": {
@@ -358,7 +362,14 @@ async function calcularRespuestaBase(
         return { respuesta: "¿Cuántas personas serían?", nuevoEstado };
       }
       case "personas": {
-        const nuevoEstado: EstadoAgendado = { ...estado, paso: "dia", personas: mensaje.trim() };
+        const estadoConPersonas: EstadoAgendado = { ...estado, personas: mensaje.trim() };
+        if (estadoConPersonas.dia) {
+          // Ya habian dicho el dia antes (ej. contestaron con un dia
+          // cuando se les pregunto consultorio/domicilio) -- se usa
+          // ese mismo en vez de volver a preguntarlo.
+          return await manejarDia(estadoConPersonas, estadoConPersonas.dia, normalizar(estadoConPersonas.dia));
+        }
+        const nuevoEstado: EstadoAgendado = { ...estadoConPersonas, paso: "dia" };
         return { respuesta: "¿Para qué día le gustaría agendar?", nuevoEstado };
       }
       case "dia": {
