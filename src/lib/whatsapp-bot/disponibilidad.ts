@@ -133,3 +133,46 @@ export function interpretarTurno(textoNormalizado: string): Turno {
   if (textoNormalizado.includes("manana") || textoNormalizado.includes("temprano")) return "manana";
   return null;
 }
+
+// "2026-11-19" -> "jueves 19/11/2026", para que el resumen final de
+// Agendado muestre la fecha real y no lo que haya escrito la persona
+// ("jueves", "mañana", etc.).
+export function formatFechaBonita(fechaStr: string): string {
+  const [y, m, d] = fechaStr.split("-").map(Number);
+  const fecha = new Date(Date.UTC(y, m - 1, d, 12));
+  const diaSemana = new Intl.DateTimeFormat("es-MX", { weekday: "long", timeZone: "America/Monterrey" }).format(fecha);
+  return `${diaSemana} ${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`;
+}
+
+// Convierte lo que haya escrito la persona para la hora ("3", "3pm",
+// "15:00", "a las 9") a un formato fijo "h:mm am/pm". Si no se puede
+// leer ninguna hora, regresa el texto tal cual para no perder la
+// respuesta.
+export function formatearHora(texto: string, turno: Turno): string {
+  const m = texto.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.?m\.?|p\.?m\.?)?/i);
+  if (!m) return texto.trim();
+  let hora = parseInt(m[1], 10);
+  const minutos = m[2] ?? "00";
+  const sufijoTexto = m[3]?.toLowerCase().replace(/\./g, "");
+
+  let esPM: boolean;
+  if (sufijoTexto?.startsWith("p")) {
+    esPM = true;
+  } else if (sufijoTexto?.startsWith("a")) {
+    esPM = false;
+  } else if (hora === 0) {
+    esPM = false;
+    hora = 12;
+  } else if (hora > 12) {
+    esPM = true;
+    hora -= 12;
+  } else if (hora === 12) {
+    esPM = true; // mediodia
+  } else {
+    // Hora ambigua (1-11, sin am/pm) -- se usa el turno que ya se
+    // pregunto antes para decidir.
+    esPM = turno === "tarde";
+  }
+
+  return `${hora}:${minutos} ${esPM ? "pm" : "am"}`;
+}
