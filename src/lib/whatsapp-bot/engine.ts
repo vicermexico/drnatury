@@ -89,7 +89,7 @@ const URGENCIA_KEYWORDS = ["dolor de pecho", "me duele el pecho", "duele el pech
 const ORDEN_MEDICA_KEYWORDS = ["me dijo el doctor", "me indico el doctor", "me indico el medico", "me dijo el medico", "me mando a hacer", "me receto", "un tac", "hacerme un tac", "resonancia", "estudio de sangre", "analisis de sangre"];
 const PRECIO_KEYWORDS = ["cuesta", "costo", "precio", "cuanto es", "cuanto vale"];
 const DURACION_KEYWORDS = ["cuanto dura", "cuanto tarda", "cuanto tiempo", "dura el estudio", "tarda la cita", "tarda por persona"];
-const AGENDAR_KEYWORDS = ["quiero una cita", "quiero cita", "sacar cita", "agendar", "agenda", "cuando me podria dar", "como le hago para", "dar una cita"];
+const AGENDAR_PALABRAS_ACCION = ["quiero", "sacar", "agend", "dar", "dame", "podria", "pudiera", "como le hago", "cuando"];
 const AFIRMATIVO_KEYWORDS = ["si", "claro", "va", "sale", "dale", "esta bien", "de acuerdo", "porfavor", "por favor"];
 const SINTOMA_KEYWORDS = ["duele", "dolor", "molestia", "me siento", "siento", "adormecid", "hormigueo", "me canso", "cansancio", "mareo"];
 
@@ -109,6 +109,15 @@ const PARTES_CUERPO: { palabra: string; frase: string }[] = [
   { palabra: "rodillas", frase: "sus rodillas" },
   { palabra: "piernas", frase: "sus piernas" },
 ];
+
+// Se fija si hay intencion de agendar sin depender de que sea la frase
+// exacta -- "sacar cita", "sacar una cita", "sacar la cita" deben contar
+// igual. Si ya dice "agend" (agendar/agenda) alcanza solo con eso.
+function esIntencionAgendar(normalizado: string): boolean {
+  if (normalizado.includes("agend")) return true;
+  if (!normalizado.includes("cita")) return false;
+  return AGENDAR_PALABRAS_ACCION.some((p) => normalizado.includes(p));
+}
 
 function detectarParteCuerpo(normalizado: string): string {
   const match = PARTES_CUERPO.find((p) => normalizado.includes(p.palabra));
@@ -250,7 +259,7 @@ export function generarRespuesta(args: {
   }
 
   // 8) Cualquier intencion de agendar arranca el flujo de la cita.
-  if (contieneAlguna(normalizado, AGENDAR_KEYWORDS)) {
+  if (esIntencionAgendar(normalizado)) {
     return {
       respuesta: "¿Sería en consultorio o a domicilio?",
       nuevoEstado: { fase: "agendando", paso: "modalidad" },
