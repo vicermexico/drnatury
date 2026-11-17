@@ -169,6 +169,10 @@ function esIntencionAgendar(normalizado: string): boolean {
   // ya alcanza con que mencione la cita, sin necesitar una palabra de
   // accion aparte -- es la forma mas seca y comun de pedirla.
   if (normalizado.split(" ").length <= 3) return true;
+  // Frases tipo "tendra cita para hoy", "si tengo consulta para el
+  // jueves", "cita para el 27" -- es una forma muy comun de preguntar
+  // si hay horario, y equivale a querer agendar.
+  if (normalizado.includes("para")) return true;
   return tieneAlgunaPalabraParecida(normalizado, AGENDAR_PALABRAS_ACCION);
 }
 
