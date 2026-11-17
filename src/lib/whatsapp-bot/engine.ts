@@ -1,5 +1,5 @@
 import "server-only";
-import { obtenerHorariosDisponibles, interpretarFecha, interpretarTurno, formatFechaBonita, formatearHora, type Turno } from "./disponibilidad";
+import { obtenerHorariosDisponibles, interpretarFecha, interpretarTurno, formatFechaBonita, formatearHora, hoyCST, horaActualCST, type Turno } from "./disponibilidad";
 
 // "Cerebro" del asistente de WhatsApp -- lo usa la pagina de demo/entrenamiento
 // en /master/asistente-whatsapp (texto por ahora, nada conectado a WhatsApp
@@ -252,6 +252,27 @@ export async function generarRespuesta(args: {
         return { respuesta: "¿Para qué día le gustaría agendar?", nuevoEstado };
       }
       case "dia": {
+        const fechaStr = interpretarFecha(normalizar(mensaje));
+        // Si piden "hoy", ya no tiene caso preguntar manana o tarde --
+        // puede que ya sea tarde-noche y "manana" ya no exista. Se
+        // buscan horarios de lo que queda del dia directamente.
+        if (fechaStr && fechaStr === hoyCST()) {
+          const turnoImplicito: Turno = horaActualCST() >= 14 ? "tarde" : "manana";
+          const horarios = await obtenerHorariosDisponibles(fechaStr, estado.modalidad ?? "CONSULTORIO", null);
+          if (horarios.length === 0) {
+            const nuevoEstado: EstadoAgendado = { ...estado, dia: mensaje.trim() };
+            return { respuesta: "Mmm, ya no tengo horario libre para hoy. ¿Para qué otro día le gustaría agendar?", nuevoEstado };
+          }
+          const opciones = horarios.slice(0, 4).join(", ");
+          const nuevoEstado: EstadoAgendado = {
+            ...estado,
+            paso: "hora",
+            dia: mensaje.trim(),
+            fechaResuelta: fechaStr,
+            turnoResuelto: turnoImplicito,
+          };
+          return { respuesta: `Tengo disponible hoy: ${opciones}. ¿Cuál le queda mejor?`, nuevoEstado };
+        }
         const nuevoEstado: EstadoAgendado = { ...estado, paso: "turno", dia: mensaje.trim() };
         return { respuesta: "¿Le gustaría por la mañana o por la tarde?", nuevoEstado };
       }
