@@ -33,6 +33,16 @@ export interface Correccion {
   respuesta: string;
 }
 
+// Un "escrito" es el mensaje pre-llenado que Vic configura en sus
+// anuncios de Facebook/Instagram (ej. "B3 - Hola, ¿podrían darme mas
+// informacion?"). Sirven para que el bot sepa si el primer mensaje de
+// una conversacion de verdad viene de un anuncio (y entonces contesta
+// el saludo automatico) o no (ej. un mensaje de seguimiento de alguien
+// que ya fue atendido antes, que no debe recibir el saludo generico).
+export interface Anuncio {
+  textoNormalizado: string; // ya normalizado y sin el codigo del inicio
+}
+
 export const ESTADO_INICIAL: EstadoAgendado = { fase: "inicio" };
 
 export const WELCOME_TEXT = `Nuestros 2 consultorios de DrNatury estan  ubicados en:
@@ -190,6 +200,32 @@ export function detectarCodigoAnuncio(mensaje: string): string | null {
   return m ? m[1].toUpperCase() : null;
 }
 
+// Quita el codigo del inicio (si tiene) y normaliza, para poder
+// comparar el mensaje que llega contra los "escritos" guardados sin
+// que el codigo (que cambia de anuncio a anuncio) estorbe.
+function quitarCodigoYNormalizar(mensaje: string): string {
+  const sinCodigo = mensaje.trim().replace(/^([A-Za-z]\d{1,3})\s*[-,.]?\s*/, "");
+  return normalizar(sinCodigo);
+}
+
+export function normalizarEscritoAnuncio(mensaje: string): string {
+  return quitarCodigoYNormalizar(mensaje);
+}
+
+// Si no hay ningun escrito guardado todavia, se asume que CUALQUIER
+// primer mensaje viene de un anuncio (asi se comportaba el bot antes
+// de que existiera esta lista) -- para no romper nada mientras Vic
+// todavia no ha subido ninguno. En cuanto haya al menos uno guardado,
+// ya se exige que el mensaje coincida con alguno.
+export function coincideConAnuncio(mensaje: string, anuncios: Anuncio[]): boolean {
+  if (anuncios.length === 0) return true;
+  const normalizado = quitarCodigoYNormalizar(mensaje);
+  if (!normalizado) return false;
+  return anuncios.some(
+    (a) => normalizado === a.textoNormalizado || normalizado.includes(a.textoNormalizado) || a.textoNormalizado.includes(normalizado)
+  );
+}
+
 function siguientePreguntaLugar(modalidad: "CONSULTORIO" | "DOMICILIO"): string {
   return modalidad === "CONSULTORIO"
     ? "¿Sería en Mitras o en San Blas?"
@@ -228,13 +264,26 @@ export async function generarRespuesta(args: {
   mensaje: string;
   estado: EstadoAgendado;
   correcciones: Correccion[];
+  anuncios?: Anuncio[];
 }): Promise<ResultadoRespuesta> {
-  const { mensaje, estado, correcciones } = args;
+  const { mensaje, estado, correcciones, anuncios = [] } = args;
   const normalizado = normalizar(mensaje);
 
-  // 1) Primer mensaje de la conversacion: siempre audio + texto de
-  // bienvenida, sin importar que haya escrito la persona.
+  // 1) Primer mensaje de la conversacion.
   if (estado.fase === "inicio") {
+    // Si no coincide con ningun escrito de anuncio guardado, es
+    // probable que NO venga de hacer clic en un anuncio -- por
+    // ejemplo, un mensaje de seguimiento de alguien que ya fue
+    // atendido antes (ej. preguntando por la sal que le recomendaron).
+    // En ese caso no se manda el saludo generico; se avisa para que
+    // Vic lo revise el mismo.
+    if (!coincideConAnuncio(mensaje, anuncios)) {
+      return {
+        respuesta: "⚠️ Este mensaje no coincide con ningún anuncio guardado. Puede que no venga de un clic a un anuncio de Facebook/Instagram (por ejemplo, un mensaje de seguimiento de alguien que ya atendiste) -- revísalo tú mismo en vez de contestar el saludo automático.",
+        nuevoEstado: { fase: "conversando" },
+        nota: "mensaje_no_de_anuncio",
+      };
+    }
     const codigo = detectarCodigoAnuncio(mensaje);
     return {
       respuesta: `🔊 [Aquí se manda el audio de bienvenida que ya tienes grabado]\n\n${WELCOME_TEXT}`,
