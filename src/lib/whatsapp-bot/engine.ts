@@ -234,13 +234,29 @@ export async function generarRespuesta(args: {
     };
   }
 
+  // El resto de las reglas (incluyendo el flujo de agendado) siempre
+  // corren de todas formas, aunque haya una correccion ensenada --
+  // asi lo que Master ensena solo cambia las PALABRAS de la
+  // respuesta, nunca congela la conversacion a medias esperando el
+  // siguiente mensaje.
+  const resultadoBase = await calcularRespuestaBase(mensaje, normalizado, estado);
+
   // 2) Si ya le ensenaste exactamente que contestar ante este mensaje,
-  // eso manda sobre cualquier otra regla.
+  // se usa ese texto -- pero el paso/estado que ya se calculo arriba
+  // se respeta igual, para que la conversacion siga avanzando bien.
   const correccionExacta = correcciones.find((c) => c.disparador === normalizado);
   if (correccionExacta) {
-    return { respuesta: correccionExacta.respuesta, nuevoEstado: estado, nota: "Respuesta aprendida" };
+    return { ...resultadoBase, respuesta: correccionExacta.respuesta, nota: "Respuesta aprendida" };
   }
 
+  return resultadoBase;
+}
+
+async function calcularRespuestaBase(
+  mensaje: string,
+  normalizado: string,
+  estado: EstadoAgendado
+): Promise<ResultadoRespuesta> {
   // 3) Si estamos a la mitad de agendar una cita, seguimos la pregunta
   // que sigue en ese flujo.
   if (estado.fase === "agendando" && estado.paso) {
