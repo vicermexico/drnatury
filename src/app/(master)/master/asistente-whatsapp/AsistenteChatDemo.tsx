@@ -26,6 +26,7 @@ export function AsistenteChatDemo() {
   const [corrigiendoId, setCorrigiendoId] = useState<number | null>(null);
   const [textoCorreccion, setTextoCorreccion] = useState("");
   const [guardandoCorreccion, setGuardandoCorreccion] = useState(false);
+  const [olvidandoId, setOlvidandoId] = useState<number | null>(null);
 
   async function enviarMensaje() {
     const mensaje = input.trim();
@@ -100,6 +101,23 @@ export function AsistenteChatDemo() {
     }
   }
 
+  async function olvidarCorreccion(m: MensajeUI) {
+    if (!m.mensajePacienteQueLaOrigino) return;
+    setOlvidandoId(m.id);
+    try {
+      const res = await fetch("/api/master/bot-demo/ensenar", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mensaje_paciente: m.mensajePacienteQueLaOrigino }),
+      });
+      if (res.ok) {
+        setMensajes((prev) => prev.map((msg) => (msg.id === m.id ? { ...msg, nota: undefined } : msg)));
+      }
+    } finally {
+      setOlvidandoId(null);
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col h-[70vh]">
       <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
@@ -136,12 +154,23 @@ export function AsistenteChatDemo() {
                 </p>
               )}
               {m.rol === "bot" && corrigiendoId !== m.id && (
-                <button
-                  onClick={() => abrirCorreccion(m)}
-                  className="text-[11px] text-blue-600 hover:text-blue-800 mt-0.5 px-1"
-                >
-                  ✏️ Enseñar respuesta correcta
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => abrirCorreccion(m)}
+                    className="text-[11px] text-blue-600 hover:text-blue-800 mt-0.5 px-1"
+                  >
+                    ✏️ Enseñar respuesta correcta
+                  </button>
+                  {m.nota === "Respuesta aprendida" && (
+                    <button
+                      onClick={() => olvidarCorreccion(m)}
+                      disabled={olvidandoId === m.id}
+                      className="text-[11px] text-gray-400 hover:text-red-600 mt-0.5 px-1 disabled:opacity-50"
+                    >
+                      {olvidandoId === m.id ? "Olvidando..." : "🗑️ Olvidar lo que le enseñé"}
+                    </button>
+                  )}
+                </div>
               )}
               {m.rol === "bot" && corrigiendoId === m.id && (
                 <div className="mt-1 rounded-xl border border-blue-200 bg-blue-50 p-2 space-y-2">

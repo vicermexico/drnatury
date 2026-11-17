@@ -45,3 +45,32 @@ export async function POST(request: NextRequest) {
   if (dbErr) return NextResponse.json({ error: "DB_ERROR", message: dbErr.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
+
+// Borra una correccion que ya no sirve (por ejemplo, porque el bot ya
+// aprendio a contestar eso solo, de raiz, y la correccion vieja se
+// quedo tapando esa mejora). El mismo mensaje de paciente que se uso
+// para ensenarla es lo que identifica cual borrar.
+export async function DELETE(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for") ?? "unknown";
+  if (!checkRateLimit(`bot-demo-olvidar:${ip}`, 60, 60_000)) {
+    return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
+  }
+
+  const { error } = await guardRole("MASTER");
+  if (error) return error;
+
+  const body = await request.json().catch(() => ({})) as { mensaje_paciente?: string };
+  const mensajePaciente = (body.mensaje_paciente ?? "").trim();
+  if (!mensajePaciente) {
+    return NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
+  }
+
+  const admin = createAdminClient();
+  const { error: dbErr } = await admin
+    .from("whatsapp_bot_correcciones")
+    .delete()
+    .eq("disparador", normalizar(mensajePaciente));
+
+  if (dbErr) return NextResponse.json({ error: "DB_ERROR", message: dbErr.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
