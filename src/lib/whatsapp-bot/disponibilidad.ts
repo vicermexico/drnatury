@@ -24,6 +24,18 @@ function horaCST24(isoUTC: string): number {
   return parseInt(hora, 10) % 24;
 }
 
+// Fecha de "hoy" en CST, como "YYYY-MM-DD" -- para saber si el dia que
+// pidieron es el mismo dia de hoy (y entonces ya no tiene caso
+// preguntar "manana o tarde" si ya es tarde-noche, por ejemplo).
+export function hoyCST(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Monterrey" });
+}
+
+// Hora actual en CST en formato 24h (0-23).
+export function horaActualCST(): number {
+  return horaCST24(new Date().toISOString());
+}
+
 export async function obtenerHorariosDisponibles(
   dateStr: string,
   modalidad: "CONSULTORIO" | "DOMICILIO",
@@ -88,12 +100,19 @@ export async function obtenerHorariosDisponibles(
     slots = getAvailableSlots(dateStr, daySchedule, servicio.duration_minutes, capacity, existing ?? [], blockedHours);
   }
 
+  // Si es para hoy, no tiene caso ofrecer horas que ya pasaron (o que
+  // estan a punto de pasar) -- se deja un margen de 1 hora para que
+  // de tiempo de llegar/prepararse.
+  const esHoy = dateStr === hoyCST();
+  const ahoraMasMargenMs = Date.now() + 60 * 60_000;
+  const vigentes = esHoy ? slots.filter((s) => new Date(s.starts_at).getTime() >= ahoraMasMargenMs) : slots;
+
   const filtrados = turno
-    ? slots.filter((s) => {
+    ? vigentes.filter((s) => {
         const h = horaCST24(s.starts_at);
         return turno === "manana" ? h < 14 : h >= 14;
       })
-    : slots;
+    : vigentes;
 
   return filtrados.map((s) => formatCSTTime(s.starts_at));
 }
