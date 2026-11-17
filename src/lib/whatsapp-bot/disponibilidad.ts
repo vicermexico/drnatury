@@ -195,3 +195,20 @@ export function formatearHora(texto: string, turno: Turno): string {
 
   return `${hora}:${minutos} ${esPM ? "pm" : "am"}`;
 }
+
+// Si la persona contesta con un numero suelto (ej. "4") que coincide
+// con una de las horas que el bot ya le ofrecio (ej. "04:00 p.m."),
+// se usa esa opcion tal cual -- es mas confiable que adivinar am/pm
+// por el turno, sobre todo el mismo dia de hoy donde el turno real
+// puede no coincidir con el que se supuso al preguntar el dia.
+export function buscarEnOpcionesOfrecidas(texto: string, opciones: string[] | undefined): string | null {
+  if (!opciones || opciones.length === 0) return null;
+  const m = texto.match(/\d{1,2}/);
+  if (!m) return null;
+  const buscado = parseInt(m[0], 10);
+  const encontrada = opciones.find((op) => {
+    const om = op.match(/^0?(\d{1,2})/);
+    return om ? parseInt(om[1], 10) === buscado : false;
+  });
+  return encontrada ?? null;
+}

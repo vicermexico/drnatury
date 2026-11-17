@@ -1,5 +1,5 @@
 import "server-only";
-import { obtenerHorariosDisponibles, interpretarFecha, interpretarTurno, formatFechaBonita, formatearHora, hoyCST, horaActualCST, type Turno } from "./disponibilidad";
+import { obtenerHorariosDisponibles, interpretarFecha, interpretarTurno, formatFechaBonita, formatearHora, buscarEnOpcionesOfrecidas, hoyCST, horaActualCST, type Turno } from "./disponibilidad";
 
 // "Cerebro" del asistente de WhatsApp -- lo usa la pagina de demo/entrenamiento
 // en /master/asistente-whatsapp (texto por ahora, nada conectado a WhatsApp
@@ -23,6 +23,7 @@ export interface EstadoAgendado {
   dia?: string;
   fechaResuelta?: string; // "YYYY-MM-DD", cuando se pudo entender bien el dia
   turnoResuelto?: Turno;
+  opcionesHorario?: string[]; // las horas que se le ofrecieron, para leer bien si contesta con un numero suelto
   hora?: string;
   esperaConfirmacionAgendar?: boolean;
 }
@@ -286,15 +287,16 @@ async function calcularRespuestaBase(
             const nuevoEstado: EstadoAgendado = { ...estado, dia: mensaje.trim() };
             return { respuesta: "Mmm, ya no tengo horario libre para hoy. ¿Para qué otro día le gustaría agendar?", nuevoEstado };
           }
-          const opciones = horarios.slice(0, 4).join(", ");
+          const opcionesLista = horarios.slice(0, 4);
           const nuevoEstado: EstadoAgendado = {
             ...estado,
             paso: "hora",
             dia: mensaje.trim(),
             fechaResuelta: fechaStr,
             turnoResuelto: turnoImplicito,
+            opcionesHorario: opcionesLista,
           };
-          return { respuesta: `Tengo disponible hoy: ${opciones}. ¿Cuál le queda mejor?`, nuevoEstado };
+          return { respuesta: `Tengo disponible hoy: ${opcionesLista.join(", ")}. ¿Cuál le queda mejor?`, nuevoEstado };
         }
         const nuevoEstado: EstadoAgendado = { ...estado, paso: "turno", dia: mensaje.trim() };
         return { respuesta: "¿Le gustaría por la mañana o por la tarde?", nuevoEstado };
@@ -316,12 +318,12 @@ async function calcularRespuestaBase(
             nuevoEstado,
           };
         }
-        const opciones = horarios.slice(0, 4).join(", ");
-        const nuevoEstado: EstadoAgendado = { ...estado, paso: "hora", fechaResuelta: fechaStr, turnoResuelto: turno };
-        return { respuesta: `Tengo disponible: ${opciones}. ¿Cuál le queda mejor?`, nuevoEstado };
+        const opcionesLista = horarios.slice(0, 4);
+        const nuevoEstado: EstadoAgendado = { ...estado, paso: "hora", fechaResuelta: fechaStr, turnoResuelto: turno, opcionesHorario: opcionesLista };
+        return { respuesta: `Tengo disponible: ${opcionesLista.join(", ")}. ¿Cuál le queda mejor?`, nuevoEstado };
       }
       case "hora": {
-        const horaBonita = formatearHora(mensaje, estado.turnoResuelto ?? null);
+        const horaBonita = buscarEnOpcionesOfrecidas(mensaje, estado.opcionesHorario) ?? formatearHora(mensaje, estado.turnoResuelto ?? null);
         const nuevoEstado: EstadoAgendado = { ...estado, paso: "nombre", hora: horaBonita };
         return { respuesta: "¿A qué nombre le agendo la cita?", nuevoEstado };
       }
