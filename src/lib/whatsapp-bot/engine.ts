@@ -155,6 +155,9 @@ const PARTES_CUERPO: { palabra: string; frase: string }[] = [
 // comunes cuando la gente escribe rapido desde el celular.
 function esIntencionAgendar(normalizado: string): boolean {
   if (normalizado.includes("agend") || normalizado.includes("como le hago")) return true;
+  // "me interesa", "si me interesa", etc. -- no mencionan la palabra
+  // "cita" pero ya es una persona lista para agendar.
+  if (tieneAlgunaPalabraParecida(normalizado, ["interesa", "interesado", "interesada"])) return true;
   const tieneCita = tieneAlgunaPalabraParecida(normalizado, ["cita", "citas"]);
   if (!tieneCita) return false;
   return tieneAlgunaPalabraParecida(normalizado, AGENDAR_PALABRAS_ACCION);
