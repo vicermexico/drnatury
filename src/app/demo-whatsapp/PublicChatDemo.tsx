@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDictado } from "@/hooks/useDictado";
 
 type EstadoAgendado = {
@@ -60,6 +60,14 @@ export function PublicChatDemo() {
   const [input, setInput] = useState("");
   const [primerMensajeEnviado, setPrimerMensajeEnviado] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const finDeMensajesRef = useRef<HTMLDivElement>(null);
+
+  // Cada vez que llega un mensaje nuevo (o mientras el bot esta
+  // "escribiendo"), bajamos solos hasta el final -- asi no hay que
+  // hacerle scroll a mano para ver que contesto el bot.
+  useEffect(() => {
+    finDeMensajesRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [mensajes, enviando]);
 
   // Dictado por voz: cuando la persona termina de hablar, el texto que
   // dijo se escribe en el campo de abajo (no se manda solo, para que
@@ -151,6 +159,7 @@ export function PublicChatDemo() {
           </div>
         ))}
         {enviando && <p className="text-xs text-gray-400 text-center">Escribiendo…</p>}
+        <div ref={finDeMensajesRef} />
       </div>
 
       <div className="shrink-0 flex items-center gap-2 px-3 py-3 border-t border-gray-100 bg-white">
