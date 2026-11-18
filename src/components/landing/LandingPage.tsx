@@ -98,12 +98,9 @@ export function LandingPage({ config, services, fondos = [], personajes = [] }: 
           </div>
         )}
 
-        {/* Nombre de la marca y "Agenda tu cita": al centro, arriba del
-            personaje. El boton va directo al chat, nunca al login. */}
-        <div className="absolute left-1/2 top-1/2 z-20 w-full max-w-xs -translate-x-1/2 -translate-y-1/2 px-6 flex flex-col items-center gap-5">
-          <h1 className="text-center text-2xl font-extrabold tracking-wide text-white [text-shadow:0_2px_12px_rgba(6,78,59,0.9)] lg:text-4xl">
-            DrNatury
-          </h1>
+        {/* "Agenda tu cita": arriba del personaje, cerca de la tarjeta de
+            login. El boton va directo al chat, nunca al login. */}
+        <div className="absolute left-1/2 top-[38%] z-20 w-full max-w-xs -translate-x-1/2 -translate-y-1/2 px-6 flex flex-col items-center gap-5">
           <Link
             href="/chat?origen=inicio"
             className="group relative inline-flex w-full items-center justify-center gap-2 rounded-full px-8 py-4 text-lg font-bold text-white text-center
@@ -126,10 +123,10 @@ export function LandingPage({ config, services, fondos = [], personajes = [] }: 
           }`}
         >
           <div className="w-full overflow-hidden rounded-2xl border-2 border-amber-400 bg-white shadow-2xl ring-4 ring-white/30">
-            <h2 className="bg-emerald-900 px-4 py-2 text-sm font-bold tracking-wide text-white sm:text-base">
+            <h2 className="bg-emerald-900 px-3 py-1.5 text-xs font-bold tracking-wide text-white sm:text-sm">
               Iniciar sesión
             </h2>
-            <div className="p-3">
+            <div className="p-2.5">
               <PhoneLoginForm compacto />
             </div>
           </div>
