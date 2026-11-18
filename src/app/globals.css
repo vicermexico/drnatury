@@ -15,9 +15,10 @@ body {
      como "recargar pagina" (pull-to-refresh) en TODA la pagina, no solo
      dentro del cuadro del chat -- si no, el gesto se activa a nivel de
      toda la pagina y borra la conversacion igual aunque el chat ya
-     tenga su propio candado. */
+     tenga su propio candado. OJO: no ponerle height fijo aqui, porque
+     eso bloquea el scroll normal de la pagina cuando el contenido es
+     mas alto que la pantalla (eso fue lo que paso). */
   overscroll-behavior-y: none;
-  height: 100%;
 }
 body {
   background: var(--background);
