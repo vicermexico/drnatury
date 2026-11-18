@@ -351,6 +351,13 @@ function construirResumenAgendado(
   const lineaConsultorio = estado.modalidad === "CONSULTORIO" ? `Si, ${estado.lugar ?? ""}`.trim() : "No";
   const lineaDomicilio = estado.modalidad === "DOMICILIO" ? `Si, ${estado.lugar ?? ""}`.trim() : "No";
   const diaBonito = estado.fechaResuelta ? formatFechaBonita(estado.fechaResuelta) : estado.dia ?? "";
+  // Ademas de lo "bonito" para mostrar en el chat, se guarda la fecha/hora
+  // en formato exacto (no texto libre) para poder registrar la cita de
+  // verdad en la plataforma sin tener que volver a interpretar el texto.
+  const horaExplicita = extraerHoraExplicita(estado.hora ?? "");
+  const hora24 = horaExplicita
+    ? `${String(horaExplicita.hora24).padStart(2, "0")}:${String(horaExplicita.minuto).padStart(2, "0")}`
+    : null;
 
   const texto = [
     "Agendado",
@@ -377,6 +384,11 @@ function construirResumenAgendado(
       lugar: estado.lugar,
       personas: personasNum,
       costoTotal,
+      // Campos "crudos" (no para mostrar) que usa el endpoint publico para
+      // registrar la cita de verdad en la plataforma.
+      modalidadCodigo: estado.modalidad ?? "CONSULTORIO",
+      fechaISO: estado.fechaResuelta ?? null,
+      hora24,
     },
   };
 }
@@ -390,6 +402,11 @@ export interface ResumenAgendado {
   lugar?: string;
   personas: number;
   costoTotal: number;
+  // "Crudos", no se muestran en el chat -- el endpoint publico los usa
+  // para registrar la cita real en la plataforma (ver crearCitaRapida).
+  modalidadCodigo: "CONSULTORIO" | "DOMICILIO";
+  fechaISO: string | null;
+  hora24: string | null;
 }
 
 // Un mensaje de la serie de bienvenida que Master arma desde el panel
