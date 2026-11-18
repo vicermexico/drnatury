@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type EstadoAgendado = {
   fase: "inicio" | "conversando" | "agendando";
@@ -28,6 +28,11 @@ export function AsistenteChatDemo() {
   const [textoCorreccion, setTextoCorreccion] = useState("");
   const [guardandoCorreccion, setGuardandoCorreccion] = useState(false);
   const [olvidandoId, setOlvidandoId] = useState<number | null>(null);
+  const finDeMensajesRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    finDeMensajesRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [mensajes, enviando]);
 
   async function enviarMensaje() {
     const mensaje = input.trim();
@@ -217,6 +222,7 @@ export function AsistenteChatDemo() {
           </div>
         ))}
         {enviando && <p className="text-xs text-gray-400 text-center">El bot está pensando…</p>}
+        <div ref={finDeMensajesRef} />
       </div>
 
       <div className="shrink-0 flex items-center gap-2 px-3 py-3 border-t border-gray-100 bg-white">
