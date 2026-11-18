@@ -4,7 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { SplashScreen } from "./SplashScreen";
 
-export function SplashWrapper() {
+interface Props {
+  logoUrl?: string | null;
+  nombreUrl?: string | null;
+  mostrarLogo?: boolean;
+  mostrarNombre?: boolean;
+}
+
+export function SplashWrapper({ logoUrl, nombreUrl, mostrarLogo, mostrarNombre }: Props) {
   const router = useRouter();
   const [showSplash, setShowSplash] = useState(true);
 
@@ -15,5 +22,13 @@ export function SplashWrapper() {
 
   if (!showSplash) return null;
 
-  return <SplashScreen onFinish={handleFinish} />;
+  return (
+    <SplashScreen
+      onFinish={handleFinish}
+      logoUrl={logoUrl}
+      nombreUrl={nombreUrl}
+      mostrarLogo={mostrarLogo}
+      mostrarNombre={mostrarNombre}
+    />
+  );
 }
