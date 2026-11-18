@@ -245,8 +245,14 @@ export function coincideConAnuncio(mensaje: string, anuncios: Anuncio[]): boolea
 function contarPersonas(mensaje: string): number {
   const conNumero = mensaje.match(/\d+/);
   if (conNumero) return Math.max(1, parseInt(conNumero[0], 10));
+  // Ej. "yo mi mama y mi hermana" -- falta la coma entre "yo" y "mi
+  // mama", pero igual son 3 personas distintas. Donde aparezca "yo",
+  // "mi", "tu" o "su" pegado a la palabra anterior (sin coma ni "y"),
+  // se trata como el inicio de otra persona.
+  const PRONOMBRE_INICIO = /\s+(mi|tu|su)\b/gi;
   const partes = mensaje
     .split(/,|\s+y\s+/i)
+    .flatMap((parte) => parte.replace(PRONOMBRE_INICIO, "|$1").split("|"))
     .map((p) => p.trim())
     .filter(Boolean);
   return Math.max(1, partes.length);
