@@ -146,6 +146,7 @@ const AGENDAR_PALABRAS_ACCION = [
   "podria", "pudiera", "cuando", "donde", "como", "quien", "numero", "cual",
 ];
 const AFIRMATIVO_KEYWORDS = ["si", "claro", "va", "sale", "dale", "esta bien", "de acuerdo", "porfavor", "por favor"];
+const ACK_KEYWORDS = ["ok", "okay", "oka", "vale", "gracias", "entendido", "perfecto", "excelente", "genial", "bien"];
 const SINTOMA_KEYWORDS = ["duele", "dolor", "molestia", "me siento", "siento", "adormecid", "hormigueo", "me canso", "cansancio", "mareo"];
 
 const PARTES_CUERPO: { palabra: string; frase: string }[] = [
@@ -566,7 +567,16 @@ async function calcularRespuestaBase(
     };
   }
 
-  // 10) No se reconocio nada -- se marca para que Master lo entrene.
+  // 10) Un simple "ok", "gracias", "vale", etc. (sin pregunta ni dato
+  // nuevo) -- en vez de decir que no entendio, se invita a agendar.
+  if (contieneAlguna(normalizado, ACK_KEYWORDS) && normalizado.split(" ").length <= 3) {
+    return {
+      respuesta: "¿Para cuándo le gustaría agendar su cita?",
+      nuevoEstado: { fase: "agendando", paso: "modalidad" },
+    };
+  }
+
+  // 11) No se reconocio nada -- se marca para que Master lo entrene.
   return {
     respuesta: "Mmm, no estoy seguro de cómo contestar eso todavía. Usa el botón de \"Enseñar respuesta\" de abajo para decirme qué debí haber dicho.",
     nuevoEstado: { ...estado, fase: "conversando" },
