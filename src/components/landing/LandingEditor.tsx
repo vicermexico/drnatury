@@ -25,11 +25,28 @@ interface Service {
   order_index: number;
   is_active: boolean;
 }
+interface FondoRow {
+  id: string;
+  tipo: "imagen" | "video";
+  url: string;
+  orden: number;
+  is_active: boolean;
+}
+interface PersonajeRow {
+  id: string;
+  nombre: string | null;
+  puesto: string | null;
+  imagen_url: string;
+  orden: number;
+  is_active: boolean;
+}
 interface Props {
   config: Config;
   services: Service[];
+  fondos: FondoRow[];
+  personajes: PersonajeRow[];
 }
-export function LandingEditor({ config, services }: Props) {
+export function LandingEditor({ config, services, fondos, personajes }: Props) {
   const router = useRouter();
   const [form, setForm] = useState({
     whatsapp_number: config?.whatsapp_number ?? "",
@@ -54,6 +71,17 @@ export function LandingEditor({ config, services }: Props) {
   const [splashNombrePreview, setSplashNombrePreview] = useState<string | null>(config?.splash_nombre_url ?? null);
   const [mostrarNombre, setMostrarNombre] = useState(config?.splash_mostrar_nombre ?? true);
   const [statusSplash, setStatusSplash] = useState<"idle"|"loading"|"ok"|"error">("idle");
+  // Fondos rotando de la portada (varias fotos/videos que van cambiando solos).
+  const [fondoFile, setFondoFile] = useState<File | null>(null);
+  const [fondoPreview, setFondoPreview] = useState<string | null>(null);
+  const [fondoTipo, setFondoTipo] = useState<"imagen" | "video">("imagen");
+  const [statusFondo, setStatusFondo] = useState<"idle"|"loading"|"ok"|"error">("idle");
+  // Personajes (fotos de terapeutas/asistentes que entran deslizandose).
+  const [personajeFile, setPersonajeFile] = useState<File | null>(null);
+  const [personajePreview, setPersonajePreview] = useState<string | null>(null);
+  const [personajeNombre, setPersonajeNombre] = useState("");
+  const [personajePuesto, setPersonajePuesto] = useState("");
+  const [statusPersonaje, setStatusPersonaje] = useState<"idle"|"loading"|"ok"|"error">("idle");
   async function uploadFile(file: File) {
     // Paso 1: pedirle al servidor un permiso de subida (esto es texto,
     // pesa nada, no tiene problema con limites de tamano).
@@ -146,6 +174,117 @@ export function LandingEditor({ config, services }: Props) {
       setStatusSplash("error");
     }
   }
+  async function handleAddFondo() {
+    if (!fondoFile) return;
+    setStatusFondo("loading");
+    try {
+      const url = await uploadFile(fondoFile);
+      const maxOrden = fondos.reduce((m, f) => Math.max(m, f.orden), 0);
+      const res = await fetch("/api/landing/fondos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipo: fondoTipo, url, orden: maxOrden + 1 }),
+      });
+      if (!res.ok) throw new Error();
+      setFondoFile(null);
+      setFondoPreview(null);
+      setStatusFondo("ok");
+      router.refresh();
+    } catch {
+      setStatusFondo("error");
+    }
+  }
+  async function handleToggleFondo(f: FondoRow) {
+    await fetch(`/api/landing/fondos/${f.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: !f.is_active }),
+    });
+    router.refresh();
+  }
+  async function handleDeleteFondo(id: string) {
+    await fetch(`/api/landing/fondos/${id}`, { method: "DELETE" });
+    router.refresh();
+  }
+  async function handleMoveFondo(index: number, direction: -1 | 1) {
+    const ordenados = [...fondos].sort((a, b) => a.orden - b.orden);
+    const vecino = ordenados[index + direction];
+    const actual = ordenados[index];
+    if (!vecino) return;
+    await Promise.all([
+      fetch(`/api/landing/fondos/${actual.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orden: vecino.orden }),
+      }),
+      fetch(`/api/landing/fondos/${vecino.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orden: actual.orden }),
+      }),
+    ]);
+    router.refresh();
+  }
+  async function handleAddPersonaje() {
+    if (!personajeFile) return;
+    setStatusPersonaje("loading");
+    try {
+      const imagen_url = await uploadFile(personajeFile);
+      const maxOrden = personajes.reduce((m, p) => Math.max(m, p.orden), 0);
+      const res = await fetch("/api/landing/personajes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: personajeNombre,
+          puesto: personajePuesto,
+          imagen_url,
+          orden: maxOrden + 1,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      setPersonajeFile(null);
+      setPersonajePreview(null);
+      setPersonajeNombre("");
+      setPersonajePuesto("");
+      setStatusPersonaje("ok");
+      router.refresh();
+    } catch {
+      setStatusPersonaje("error");
+    }
+  }
+  async function handleTogglePersonaje(p: PersonajeRow) {
+    await fetch(`/api/landing/personajes/${p.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: !p.is_active }),
+    });
+    router.refresh();
+  }
+  async function handleDeletePersonaje(id: string) {
+    await fetch(`/api/landing/personajes/${id}`, { method: "DELETE" });
+    router.refresh();
+  }
+  async function handleMovePersonaje(index: number, direction: -1 | 1) {
+    const ordenados = [...personajes].sort((a, b) => a.orden - b.orden);
+    const vecino = ordenados[index + direction];
+    const actual = ordenados[index];
+    if (!vecino) return;
+    await Promise.all([
+      fetch(`/api/landing/personajes/${actual.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orden: vecino.orden }),
+      }),
+      fetch(`/api/landing/personajes/${vecino.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orden: actual.orden }),
+      }),
+    ]);
+    router.refresh();
+  }
+  const fondosOrdenados = [...fondos].sort((a, b) => a.orden - b.orden);
+  const personajesOrdenados = [...personajes].sort((a, b) => a.orden - b.orden);
   return (
     <div className="space-y-6">
       {/* Pantalla de bienvenida (logo + nombre) */}
@@ -295,6 +434,104 @@ export function LandingEditor({ config, services }: Props) {
         {statusVideo === "error" && <p className="text-sm text-red-600">Error al guardar</p>}
         <button onClick={handleSaveVideo} disabled={statusVideo === "loading"} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
           {statusVideo === "loading" ? "Guardando..." : "Guardar video"}
+        </button>
+      </div>
+      {/* Fondos rotando de la portada */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Fondos de la portada</h2>
+          <p className="text-xs text-gray-400 mt-1">
+            Si subes varias fotos o videos, van a ir cambiando solos en la pantalla de inicio. Si no subes ninguno, se usa la imagen/video fijo de arriba.
+          </p>
+        </div>
+        <div className="space-y-2">
+          {fondosOrdenados.length === 0 && <p className="text-sm text-gray-400">No hay fondos agregados.</p>}
+          {fondosOrdenados.map((f, i) => (
+            <div key={f.id} className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                {f.tipo === "imagen" ? (
+                  <img src={f.url} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                ) : (
+                  <video src={f.url} className="w-12 h-12 rounded-lg object-cover shrink-0" muted />
+                )}
+                <p className="text-xs text-gray-500 truncate">{f.tipo === "imagen" ? "Imagen" : "Video"}</p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button type="button" onClick={() => handleMoveFondo(i, -1)} disabled={i === 0} className="w-8 h-8 rounded-lg border border-gray-200 text-gray-500 disabled:opacity-30">↑</button>
+                <button type="button" onClick={() => handleMoveFondo(i, 1)} disabled={i === fondosOrdenados.length - 1} className="w-8 h-8 rounded-lg border border-gray-200 text-gray-500 disabled:opacity-30">↓</button>
+                <button type="button" onClick={() => handleToggleFondo(f)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${f.is_active ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-gray-500 border-gray-200"}`}>
+                  {f.is_active ? "Activo" : "Oculto"}
+                </button>
+                <button type="button" onClick={() => handleDeleteFondo(f.id)} className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-red-200 text-red-600 hover:bg-red-50 transition">Eliminar</button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          {(["imagen", "video"] as const).map((t) => (
+            <button key={t} type="button" onClick={() => setFondoTipo(t)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${fondoTipo === t ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200"}`}>
+              {t === "imagen" ? "Imagen" : "Video"}
+            </button>
+          ))}
+        </div>
+        {fondoPreview && (fondoTipo === "imagen" ? <img src={fondoPreview} alt="Vista previa del fondo" className="w-full h-32 object-cover rounded-xl" /> : <video src={fondoPreview} className="w-full h-32 object-cover rounded-xl" controls />)}
+        <label className="flex items-center justify-center gap-2 cursor-pointer w-full rounded-xl border-2 border-dashed border-gray-300 px-4 py-4 hover:border-blue-400 hover:bg-blue-50 transition">
+          <span className="text-sm font-medium text-gray-600">{fondoFile ? fondoFile.name : "Subir nuevo fondo"}</span>
+          <input type="file" accept={fondoTipo === "imagen" ? "image/*" : "video/mp4"} onChange={e => { const f = e.target.files?.[0]; if (f) { setFondoFile(f); setFondoPreview(URL.createObjectURL(f)); } }} className="hidden" />
+        </label>
+        {statusFondo === "ok" && <p className="text-sm text-green-600 font-medium">Agregado correctamente</p>}
+        {statusFondo === "error" && <p className="text-sm text-red-600">Error al agregar</p>}
+        <button onClick={handleAddFondo} disabled={!fondoFile || statusFondo === "loading"} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
+          {statusFondo === "loading" ? "Subiendo..." : "Agregar fondo"}
+        </button>
+      </div>
+      {/* Personajes (fotos de terapeutas/asistentes) */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Personajes de la portada</h2>
+          <p className="text-xs text-gray-400 mt-1">
+            Fotos de terapeutas o asistentes que van a ir apareciendo en la pantalla de inicio, con su nombre y puesto.
+          </p>
+        </div>
+        <div className="space-y-2">
+          {personajesOrdenados.length === 0 && <p className="text-sm text-gray-400">No hay personajes agregados.</p>}
+          {personajesOrdenados.map((p, i) => (
+            <div key={p.id} className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <img src={p.imagen_url} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{p.nombre || "(sin nombre)"}</p>
+                  <p className="text-xs text-gray-400 truncate">{p.puesto}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button type="button" onClick={() => handleMovePersonaje(i, -1)} disabled={i === 0} className="w-8 h-8 rounded-lg border border-gray-200 text-gray-500 disabled:opacity-30">↑</button>
+                <button type="button" onClick={() => handleMovePersonaje(i, 1)} disabled={i === personajesOrdenados.length - 1} className="w-8 h-8 rounded-lg border border-gray-200 text-gray-500 disabled:opacity-30">↓</button>
+                <button type="button" onClick={() => handleTogglePersonaje(p)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${p.is_active ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-gray-500 border-gray-200"}`}>
+                  {p.is_active ? "Activo" : "Oculto"}
+                </button>
+                <button type="button" onClick={() => handleDeletePersonaje(p.id)} className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-red-200 text-red-600 hover:bg-red-50 transition">Eliminar</button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Nombre</label>
+          <input type="text" value={personajeNombre} onChange={e => setPersonajeNombre(e.target.value)} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400" placeholder="Dr. Alejandro" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Puesto</label>
+          <input type="text" value={personajePuesto} onChange={e => setPersonajePuesto(e.target.value)} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400" placeholder="Terapeuta" />
+        </div>
+        {personajePreview && <img src={personajePreview} alt="Vista previa de la foto" className="w-full h-32 object-contain bg-gray-50 rounded-xl" />}
+        <label className="flex items-center justify-center gap-2 cursor-pointer w-full rounded-xl border-2 border-dashed border-gray-300 px-4 py-4 hover:border-blue-400 hover:bg-blue-50 transition">
+          <span className="text-sm font-medium text-gray-600">{personajeFile ? personajeFile.name : "Subir foto"}</span>
+          <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { setPersonajeFile(f); setPersonajePreview(URL.createObjectURL(f)); } }} className="hidden" />
+        </label>
+        {statusPersonaje === "ok" && <p className="text-sm text-green-600 font-medium">Agregado correctamente</p>}
+        {statusPersonaje === "error" && <p className="text-sm text-red-600">Error al agregar</p>}
+        <button onClick={handleAddPersonaje} disabled={!personajeFile || statusPersonaje === "loading"} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
+          {statusPersonaje === "loading" ? "Subiendo..." : "Agregar personaje"}
         </button>
       </div>
       {/* Servicios */}
