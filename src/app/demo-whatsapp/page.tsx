@@ -8,7 +8,7 @@ import { PublicChatDemo } from "./PublicChatDemo";
 // platicar normal despues, hasta que quede agendada la cita.
 export default function DemoWhatsappPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-50 via-white to-emerald-50 flex flex-col items-center py-6 px-4">
+    <div className="min-h-screen overscroll-none bg-gradient-to-b from-emerald-50 via-white to-emerald-50 flex flex-col items-center py-6 px-4">
       <div className="w-full max-w-md space-y-4">
         <div className="flex flex-col items-center text-center gap-1">
           <Image

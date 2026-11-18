@@ -149,7 +149,7 @@ export function PublicChatDemo() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-gradient-to-b from-emerald-50/40 to-white">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-3 bg-gradient-to-b from-emerald-50/40 to-white">
         {mensajes.length === 0 && (
           <p className="text-sm text-gray-500 text-center mt-10">
             Da clic en el botón de abajo para mandar el mensaje y empezar la conversación.
