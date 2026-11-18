@@ -166,7 +166,7 @@ export function AsistenteChatDemo() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#eae6df]">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-3 bg-[#eae6df]">
         {mensajes.length === 0 && (
           <p className="text-sm text-gray-500 text-center mt-10">
             Escribe algo abajo como si fueras un paciente (por ejemplo lo que pondría al dar clic a tu anuncio) para empezar.

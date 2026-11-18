@@ -218,6 +218,61 @@ export function formatearHora(texto: string, turno: Turno): string {
   return `${hora}:${minutos} ${esPM ? "pm" : "am"}`;
 }
 
+// "2026-11-19" + 1 -> "2026-11-20". Para revisar si hay espacio en los
+// dias siguientes cuando el pedido no cupo en el dia original.
+export function sumarDias(fechaStr: string, dias: number): string {
+  const [y, m, d] = fechaStr.split("-").map(Number);
+  const fecha = new Date(Date.UTC(y, m - 1, d + dias, 12));
+  return fecha.toISOString().slice(0, 10);
+}
+
+// Lee la hora que dijo la persona, pero SOLO cuando no hay forma de
+// confundirla (trae "am"/"pm" explicito, o ya viene en 24 horas tipo
+// "18:00") -- a diferencia de formatearHora, aqui NO se adivina el
+// am/pm por el turno, porque esto se usa para revisar disponibilidad
+// de TODO el dia (manana y tarde juntos), y adivinar mal haria que se
+// agendara a una hora que la persona nunca pidio.
+export function extraerHoraExplicita(texto: string): { hora24: number; minuto: number } | null {
+  const m = texto.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.?m\.?|p\.?m\.?)?/i);
+  if (!m) return null;
+  const hora = parseInt(m[1], 10);
+  const minuto = m[2] !== undefined ? parseInt(m[2], 10) : 0;
+  const sufijo = m[3]?.toLowerCase().replace(/\./g, "");
+
+  if (sufijo) {
+    const esPM = sufijo.startsWith("p");
+    const hora24 = esPM ? (hora % 12) + 12 : hora % 12;
+    return { hora24, minuto };
+  }
+  // Sin am/pm: solo se acepta si ya es inequivoco (13-23, o "0"
+  // medianoche) -- de 1 a 12 sin am/pm es ambiguo, se deja pasar.
+  if (hora >= 13 && hora <= 23) return { hora24: hora, minuto };
+  if (hora === 0) return { hora24: 0, minuto };
+  return null;
+}
+
+// Busca, entre opciones YA FORMATEADAS como "6:00 pm", cual coincide
+// exacto con la hora explicita que dijo la persona (comparando en 24
+// horas, para no confundir "6am" con "6pm"). Si la hora que dijeron es
+// ambigua (sin am/pm y entre 1-12), regresa null -- mejor no adivinar.
+export function buscarHoraExactaEnOpciones(texto: string, opciones: string[]): string | null {
+  const explicita = extraerHoraExplicita(texto);
+  if (!explicita) return null;
+
+  return (
+    opciones.find((op) => {
+      const om = op.match(/^0?(\d{1,2}):(\d{2})\s*(a\.?m\.?|p\.?m\.?)/i);
+      if (!om) return false;
+      const h = parseInt(om[1], 10);
+      const minuto = parseInt(om[2], 10);
+      const sufijo = om[3].toLowerCase().replace(/\./g, "");
+      const esPM = sufijo.startsWith("p");
+      const hora24 = esPM ? (h % 12) + 12 : h % 12;
+      return hora24 === explicita.hora24 && minuto === explicita.minuto;
+    }) ?? null
+  );
+}
+
 // Si la persona contesta con un numero suelto (ej. "4") que coincide
 // con una de las horas que el bot ya le ofrecio (ej. "04:00 p.m."),
 // se usa esa opcion tal cual -- es mas confiable que adivinar am/pm

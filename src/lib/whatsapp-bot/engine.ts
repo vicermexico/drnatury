@@ -1,5 +1,5 @@
 import "server-only";
-import { obtenerHorariosDisponibles, interpretarFecha, interpretarTurno, formatFechaBonita, formatearHora, buscarEnOpcionesOfrecidas, hoyCST, horaActualCST, type Turno } from "./disponibilidad";
+import { obtenerHorariosDisponibles, interpretarFecha, interpretarTurno, formatFechaBonita, formatearHora, buscarEnOpcionesOfrecidas, buscarHoraExactaEnOpciones, extraerHoraExplicita, sumarDias, hoyCST, horaActualCST, type Turno } from "./disponibilidad";
 
 // "Cerebro" del asistente de WhatsApp -- lo usa la pagina de demo/entrenamiento
 // en /master/asistente-whatsapp (texto por ahora, nada conectado a WhatsApp
@@ -610,20 +610,43 @@ async function calcularRespuestaBase(
         // le ofrecimos la tarde y pide otra hora de plano, o pide una
         // hora que ya no tiene espacio), antes de aceptarla a ciegas se
         // revisa contra TODO lo disponible ese dia (sin limitar al turno
-        // que se pregunto al inicio).
+        // que se pregunto al inicio). Aqui ya no se vale adivinar el
+        // am/pm por el turno -- se exige que la hora sea inequivoca,
+        // porque si no, se podria confundir "6pm" con un "6am" libre.
         if (!horaBonita && tieneDigito && estado.fechaResuelta && estado.modalidad) {
           const todasLasOpciones = await obtenerHorariosDisponibles(estado.fechaResuelta, estado.modalidad, null);
-          horaBonita = buscarEnOpcionesOfrecidas(mensaje, todasLasOpciones);
+          horaBonita = buscarHoraExactaEnOpciones(mensaje, todasLasOpciones);
         }
 
         if (!horaBonita && tieneDigito && estado.fechaResuelta && estado.modalidad) {
-          // Ya se reviso y esa hora de plano no tiene espacio -- no se
-          // agenda a ciegas, se avisa y se le vuelve a ofrecer lo que si
-          // hay.
+          // Ya se reviso y esa hora de plano no tiene espacio ese dia --
+          // no se agenda a ciegas. Si se pudo leer bien la hora exacta
+          // que pidieron, se checan tambien los proximos 2 dias por si
+          // ahi si hay espacio a esa misma hora.
+          let avisoOtroDia = "";
+          const horaExplicita = extraerHoraExplicita(mensaje);
+          if (horaExplicita) {
+            for (let i = 1; i <= 2; i++) {
+              const fechaSiguiente = sumarDias(estado.fechaResuelta, i);
+              const opcionesSiguiente = await obtenerHorariosDisponibles(fechaSiguiente, estado.modalidad, null);
+              const encontradaOtroDia = buscarHoraExactaEnOpciones(mensaje, opcionesSiguiente);
+              if (encontradaOtroDia) {
+                // Se le pide que conteste con el numero del dia del mes
+                // (no el nombre del dia de la semana) porque asi la
+                // regla de arriba que detecta cambio de dia lo entiende
+                // sin ambiguedad -- un nombre de dia como "el viernes"
+                // se resuelve a partir de HOY y podria no ser el mismo
+                // viernes que se le esta sugiriendo aqui.
+                const numeroDia = parseInt(fechaSiguiente.split("-")[2], 10);
+                avisoOtroDia = ` Eso sí, el ${formatFechaBonita(fechaSiguiente)} sí tengo espacio a las ${encontradaOtroDia} -- si gusta cambiar su cita a ese día, nada más dígame "el ${numeroDia}".`;
+                break;
+              }
+            }
+          }
           return {
             respuesta: estado.opcionesHorario?.length
-              ? `Mmm, a esa hora ya no tengo espacio. ¿Cuál de estas horas le queda mejor: ${estado.opcionesHorario.join(", ")}?`
-              : "Mmm, a esa hora ya no tengo espacio. ¿A qué otra hora le gustaría agendar?",
+              ? `Mmm, a esa hora ya no tengo espacio ese día.${avisoOtroDia} Si no, ¿cuál de estas horas le queda mejor: ${estado.opcionesHorario.join(", ")}?`
+              : `Mmm, a esa hora ya no tengo espacio ese día.${avisoOtroDia} Si no, ¿a qué otra hora le gustaría agendar?`,
             nuevoEstado: estado,
           };
         }
