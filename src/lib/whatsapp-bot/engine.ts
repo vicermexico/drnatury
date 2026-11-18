@@ -84,6 +84,8 @@ export const REQUISITOS_TEXT = `REQUISITOS
 export const PRECIO_DURACION_TEXT = `El estudio dura de 2 a 3 minutos, más 10 a 15 minutos de consulta (el precio ya incluye consulta y estudio).
 Consultorio: $199. A domicilio: $399.`;
 
+export const TRATAMIENTO_TEXT = `Nosotros damos tratamientos 100% naturales, son compuestos herbolarios. Los costos son de $350 a $490, dependiendo de lo que se necesite -- a veces ni siquiera se llega a necesitar tratamiento, porque basta con mejorar la alimentación. Eso lo vemos bien con el escaneo y en la consulta.`;
+
 // Quita acentos, mayusculas, signos y espacios repetidos para poder
 // comparar texto de forma tolerante (igual que el resto de los parsers
 // de la app).
@@ -138,6 +140,7 @@ const URGENCIA_KEYWORDS = ["dolor de pecho", "me duele el pecho", "duele el pech
 const ORDEN_MEDICA_KEYWORDS = ["me dijo el doctor", "me indico el doctor", "me indico el medico", "me dijo el medico", "me mando a hacer", "me receto", "un tac", "hacerme un tac", "resonancia", "estudio de sangre", "analisis de sangre"];
 const PRECIO_KEYWORDS = ["cuesta", "costo", "precio", "cuanto es", "cuanto vale"];
 const DURACION_KEYWORDS = ["cuanto dura", "cuanto tarda", "cuanto tiempo", "dura el estudio", "tarda la cita", "tarda por persona"];
+const TRATAMIENTO_KEYWORDS = ["tratamiento", "tratamientos"];
 const AGENDAR_PALABRAS_ACCION = [
   "quiero", "quisiera", "necesito", "sacar", "saco", "pedir", "dar", "dame", "deme", "denme",
   "podria", "pudiera", "cuando", "donde", "como", "quien", "numero", "cual",
@@ -160,6 +163,7 @@ const PARTES_CUERPO: { palabra: string; frase: string }[] = [
   { palabra: "brazo", frase: "su brazo" },
   { palabra: "rodillas", frase: "sus rodillas" },
   { palabra: "piernas", frase: "sus piernas" },
+  { palabra: "panza", frase: "su panza" },
 ];
 
 // Se fija si hay intencion de agendar sin depender de que sea la frase
@@ -233,6 +237,34 @@ function siguientePreguntaLugar(modalidad: "CONSULTORIO" | "DOMICILIO"): string 
   return modalidad === "CONSULTORIO"
     ? "¿Sería en Mitras o en San Blas?"
     : "¿En qué municipio sería (García, Santa Catarina, San Pedro, Escobedo, Carmen, Monterrey, San Nicolás o Apodaca)?";
+}
+
+// Para repetir la pregunta del paso en el que ya se estaba, despues de
+// contestar una duda de informacion general (precio, duracion,
+// tratamiento) a la mitad del flujo de agendar -- sin esto, el mensaje
+// de la duda se tomaba como si fuera la respuesta a esa pregunta (ej.
+// "pero dan tratamiento" se tomaba como que si querian agendar).
+function preguntaActualDelPaso(estado: EstadoAgendado): string {
+  switch (estado.paso) {
+    case "modalidad":
+      return "¿Sería en consultorio o a domicilio?";
+    case "lugar":
+      return siguientePreguntaLugar(estado.modalidad ?? "CONSULTORIO");
+    case "personas":
+      return "¿Cuántas personas serían?";
+    case "dia":
+      return "¿Para qué día le gustaría agendar?";
+    case "turno":
+      return "¿Le gustaría por la mañana o por la tarde?";
+    case "hora":
+      return estado.opcionesHorario?.length
+        ? `¿Cuál de estas horas le queda mejor: ${estado.opcionesHorario.join(", ")}?`
+        : "¿A qué hora le quedaría mejor?";
+    case "nombre":
+      return "¿A qué nombre le agendo la cita?";
+    default:
+      return "¿Sería en consultorio o a domicilio?";
+  }
 }
 
 function construirResumenAgendado(estado: EstadoAgendado, nombre: string): string {
@@ -370,8 +402,16 @@ async function calcularRespuestaBase(
   estado: EstadoAgendado
 ): Promise<ResultadoRespuesta> {
   // 3) Si estamos a la mitad de agendar una cita, seguimos la pregunta
-  // que sigue en ese flujo.
+  // que sigue en ese flujo -- pero si a la mitad preguntan algo de
+  // informacion general (tratamiento, precio, duracion), se contesta
+  // esa duda sin perder el avance, y se repite la pregunta pendiente.
   if (estado.fase === "agendando" && estado.paso) {
+    if (contieneAlguna(normalizado, TRATAMIENTO_KEYWORDS)) {
+      return { respuesta: `${TRATAMIENTO_TEXT}\n\n${preguntaActualDelPaso(estado)}`, nuevoEstado: estado };
+    }
+    if (contieneAlguna(normalizado, DURACION_KEYWORDS) || contieneAlguna(normalizado, PRECIO_KEYWORDS)) {
+      return { respuesta: `${PRECIO_DURACION_TEXT}\n\n${preguntaActualDelPaso(estado)}`, nuevoEstado: estado };
+    }
     switch (estado.paso) {
       case "modalidad": {
         const esDomicilio = normalizado.includes("domicilio");
@@ -501,6 +541,12 @@ async function calcularRespuestaBase(
   // pero se repiten seguido).
   if (contieneAlguna(normalizado, DURACION_KEYWORDS) || contieneAlguna(normalizado, PRECIO_KEYWORDS)) {
     return { respuesta: PRECIO_DURACION_TEXT, nuevoEstado: { ...estado, fase: "conversando" } };
+  }
+
+  // Preguntas sobre el tratamiento (que dan, que costo tiene, si
+  // recetan, etc.) -- muy comun que pregunten esto antes de agendar.
+  if (contieneAlguna(normalizado, TRATAMIENTO_KEYWORDS)) {
+    return { respuesta: TRATAMIENTO_TEXT, nuevoEstado: { ...estado, fase: "conversando" } };
   }
 
   // 8) Cualquier intencion de agendar arranca el flujo de la cita.
