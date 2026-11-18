@@ -173,16 +173,21 @@ export function PublicChatDemo() {
               )}
               {m.texto}
               {m.agendado && (
-                <a
-                  href={`https://wa.me/${VIC_WHATSAPP_NUMERO}?text=${encodeURIComponent(
-                    construirMensajeWhatsapp(m.agendado)
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white text-sm font-medium px-4 py-2 hover:brightness-95"
-                >
-                  📲 Confirmar por WhatsApp
-                </a>
+                <>
+                  <p className="mt-3 text-sm text-gray-700">
+                    Para confirmar tu cita y que te recordemos por este medio, da clic aquí:
+                  </p>
+                  <a
+                    href={`https://wa.me/${VIC_WHATSAPP_NUMERO}?text=${encodeURIComponent(
+                      construirMensajeWhatsapp(m.agendado)
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white text-sm font-medium px-4 py-2 hover:brightness-95"
+                  >
+                    📲 Confirmar por WhatsApp
+                  </a>
+                </>
               )}
             </div>
           </div>

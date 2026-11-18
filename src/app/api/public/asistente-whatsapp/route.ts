@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   const anuncios: Anuncio[] = (anunciosRaw ?? []).map((a) => ({ textoNormalizado: a.texto_normalizado as string }));
   const bienvenida = await obtenerSerieBienvenida(admin);
 
-  const resultado = await generarRespuesta({ mensaje, estado, correcciones, anuncios, bienvenida });
+  const resultado = await generarRespuesta({ mensaje, estado, correcciones, anuncios, bienvenida, canalPublico: true });
 
   return NextResponse.json(resultado);
 }
