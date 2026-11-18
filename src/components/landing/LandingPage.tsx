@@ -71,7 +71,7 @@ export function LandingPage({ config, services }: Props) {
         )}
         <div className="relative z-10 flex flex-col items-center gap-4 w-full px-8 mb-16">
           <Link
-            href="/login"
+            href="/chat?origen=inicio"
             className="group relative inline-flex items-center justify-center gap-2 w-full max-w-sm px-10 py-5 rounded-full text-xl font-bold text-white text-center
                        bg-gradient-to-r from-blue-600 via-emerald-500 to-green-600 bg-[length:200%_auto]
                        shadow-[0_8px_30px_rgba(16,185,129,0.35)]
