@@ -17,6 +17,14 @@ interface Config {
   splash_nombre_url: string | null;
   splash_mostrar_logo: boolean;
   splash_mostrar_nombre: boolean;
+  contacto_correo: string | null;
+  contacto_sitio_web: string | null;
+  contacto_direccion: string | null;
+  contacto_horario: string | null;
+  red_facebook: string | null;
+  red_instagram: string | null;
+  dev_nombre: string | null;
+  dev_whatsapp: string | null;
 }
 interface Service {
   id: string;
@@ -72,6 +80,18 @@ export function LandingEditor({ config, services, fondos, personajes }: Props) {
   const [splashNombrePreview, setSplashNombrePreview] = useState<string | null>(config?.splash_nombre_url ?? null);
   const [mostrarNombre, setMostrarNombre] = useState(config?.splash_mostrar_nombre ?? true);
   const [statusSplash, setStatusSplash] = useState<"idle"|"loading"|"ok"|"error">("idle");
+  // Contactos, redes sociales y pie de pagina.
+  const [formContacto, setFormContacto] = useState({
+    contacto_correo: config?.contacto_correo ?? "",
+    contacto_sitio_web: config?.contacto_sitio_web ?? "",
+    contacto_direccion: config?.contacto_direccion ?? "",
+    contacto_horario: config?.contacto_horario ?? "",
+    red_facebook: config?.red_facebook ?? "",
+    red_instagram: config?.red_instagram ?? "",
+    dev_nombre: config?.dev_nombre ?? "",
+    dev_whatsapp: config?.dev_whatsapp ?? "",
+  });
+  const [statusContacto, setStatusContacto] = useState<"idle"|"loading"|"ok"|"error">("idle");
   // Fondos rotando de la portada (varias fotos/videos que van cambiando solos).
   const [fondoFile, setFondoFile] = useState<File | null>(null);
   const [fondoPreview, setFondoPreview] = useState<string | null>(null);
@@ -169,6 +189,12 @@ export function LandingEditor({ config, services, fondos, personajes }: Props) {
     } catch {
       setStatusSplash("error");
     }
+  }
+  async function handleSaveContacto() {
+    setStatusContacto("loading");
+    const ok = await saveConfig(formContacto);
+    setStatusContacto(ok ? "ok" : "error");
+    if (ok) router.refresh();
   }
   async function handleAddFondo() {
     if (!fondoFile) return;
@@ -507,6 +533,51 @@ export function LandingEditor({ config, services, fondos, personajes }: Props) {
             </div>
           ))}
         </div>
+      </div>
+      {/* Contactos, redes sociales y pie de pagina */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Contactos y pie de página</h2>
+          <p className="text-xs text-gray-400 mt-1">
+            Lo que llenes aquí aparece como una sección de contactos antes del pie de página. Si dejas algo vacío, simplemente no se muestra.
+          </p>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Correo</label>
+          <input type="email" value={formContacto.contacto_correo} onChange={e => setFormContacto(f => ({ ...f, contacto_correo: e.target.value }))} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400" placeholder="contacto@drnatury.com" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sitio web</label>
+          <input type="text" value={formContacto.contacto_sitio_web} onChange={e => setFormContacto(f => ({ ...f, contacto_sitio_web: e.target.value }))} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400" placeholder="www.drnatury.com" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Dirección</label>
+          <input type="text" value={formContacto.contacto_direccion} onChange={e => setFormContacto(f => ({ ...f, contacto_direccion: e.target.value }))} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400" placeholder="Dirección del consultorio" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Horario</label>
+          <input type="text" value={formContacto.contacto_horario} onChange={e => setFormContacto(f => ({ ...f, contacto_horario: e.target.value }))} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400" placeholder="Lunes a viernes, 9am a 6pm" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Facebook</label>
+          <input type="text" value={formContacto.red_facebook} onChange={e => setFormContacto(f => ({ ...f, red_facebook: e.target.value }))} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400" placeholder="https://www.facebook.com/drnatury" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Instagram</label>
+          <input type="text" value={formContacto.red_instagram} onChange={e => setFormContacto(f => ({ ...f, red_instagram: e.target.value }))} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400" placeholder="https://www.instagram.com/drnatury" />
+        </div>
+        <div className="pt-2 border-t border-gray-100">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Crédito del desarrollador (pie de página)</p>
+          <div className="space-y-3">
+            <input type="text" value={formContacto.dev_nombre} onChange={e => setFormContacto(f => ({ ...f, dev_nombre: e.target.value }))} className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400" placeholder="Nombre (ej. Grupo Cervantes)" />
+            <input type="text" value={formContacto.dev_whatsapp} onChange={e => setFormContacto(f => ({ ...f, dev_whatsapp: e.target.value }))} className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400" placeholder="WhatsApp (10 dígitos)" />
+          </div>
+        </div>
+        {statusContacto === "ok" && <p className="text-sm text-green-600 font-medium">Guardado correctamente</p>}
+        {statusContacto === "error" && <p className="text-sm text-red-600">Error al guardar</p>}
+        <button onClick={handleSaveContacto} disabled={statusContacto === "loading"} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
+          {statusContacto === "loading" ? "Guardando..." : "Guardar contactos y pie de página"}
+        </button>
       </div>
     </div>
   );
