@@ -381,8 +381,15 @@ export async function generarRespuesta(args: {
   correcciones: Correccion[];
   anuncios?: Anuncio[];
   bienvenida?: BienvenidaItem[];
+  // true cuando quien contesta es un paciente de verdad (chat publico
+  // /demo-whatsapp) -- ahi el bot NUNCA debe sonar como que no sabe que
+  // contestar, ni mencionar nada interno (botones de "ensenar", avisos
+  // para que Vic revise). En el chat de entrenamiento de Master
+  // (canalPublico=false, el valor de siempre) si se queda igual, porque
+  // esos avisos son justo para que Master sepa que hay que entrenarlo.
+  canalPublico?: boolean;
 }): Promise<ResultadoRespuesta> {
-  const { mensaje, estado, correcciones, anuncios = [], bienvenida = [] } = args;
+  const { mensaje, estado, correcciones, anuncios = [], bienvenida = [], canalPublico = false } = args;
   const normalizado = normalizar(mensaje);
 
   // 1) Primer mensaje de la conversacion.
@@ -392,8 +399,9 @@ export async function generarRespuesta(args: {
     // ejemplo, un mensaje de seguimiento de alguien que ya fue
     // atendido antes (ej. preguntando por la sal que le recomendaron).
     // En ese caso no se manda el saludo generico; se avisa para que
-    // Vic lo revise el mismo.
-    if (!coincideConAnuncio(mensaje, anuncios)) {
+    // Vic lo revise el mismo (solo tiene sentido en el chat de
+    // entrenamiento -- a un paciente real nunca se le dice esto).
+    if (!coincideConAnuncio(mensaje, anuncios) && !canalPublico) {
       return {
         respuesta: "⚠️ Este mensaje no coincide con ningún anuncio guardado. Puede que no venga de un clic a un anuncio de Facebook/Instagram (por ejemplo, un mensaje de seguimiento de alguien que ya atendiste) -- revísalo tú mismo en vez de contestar el saludo automático.",
         nuevoEstado: { fase: "conversando" },
@@ -427,7 +435,7 @@ export async function generarRespuesta(args: {
   // asi lo que Master ensena solo cambia las PALABRAS de la
   // respuesta, nunca congela la conversacion a medias esperando el
   // siguiente mensaje.
-  const resultadoBase = await calcularRespuestaBase(mensaje, normalizado, estado);
+  const resultadoBase = await calcularRespuestaBase(mensaje, normalizado, estado, canalPublico);
 
   // 2) Si ya le ensenaste exactamente que contestar ante este mensaje,
   // se usa ese texto -- pero el paso/estado que ya se calculo arriba
@@ -494,7 +502,8 @@ async function manejarDia(estado: EstadoAgendado, textoDia: string, normalizadoD
 async function calcularRespuestaBase(
   mensaje: string,
   normalizado: string,
-  estado: EstadoAgendado
+  estado: EstadoAgendado,
+  canalPublico: boolean
 ): Promise<ResultadoRespuesta> {
   // 3) Si estamos a la mitad de agendar una cita, seguimos la pregunta
   // que sigue en ese flujo -- pero si a la mitad preguntan algo de
@@ -594,8 +603,33 @@ async function calcularRespuestaBase(
         if (!tieneDigito && interpretarFecha(normalizado)) {
           return await manejarDia(estado, mensaje, normalizado);
         }
-        const horaBonita = buscarEnOpcionesOfrecidas(mensaje, estado.opcionesHorario) ?? formatearHora(mensaje, estado.turnoResuelto ?? null);
-        const nuevoEstado: EstadoAgendado = { ...estado, paso: "nombre", hora: horaBonita };
+
+        let horaBonita = buscarEnOpcionesOfrecidas(mensaje, estado.opcionesHorario);
+
+        // Si pidio una hora que no estaba entre las que le ofrecimos (ej.
+        // le ofrecimos la tarde y pide otra hora de plano, o pide una
+        // hora que ya no tiene espacio), antes de aceptarla a ciegas se
+        // revisa contra TODO lo disponible ese dia (sin limitar al turno
+        // que se pregunto al inicio).
+        if (!horaBonita && tieneDigito && estado.fechaResuelta && estado.modalidad) {
+          const todasLasOpciones = await obtenerHorariosDisponibles(estado.fechaResuelta, estado.modalidad, null);
+          horaBonita = buscarEnOpcionesOfrecidas(mensaje, todasLasOpciones);
+        }
+
+        if (!horaBonita && tieneDigito && estado.fechaResuelta && estado.modalidad) {
+          // Ya se reviso y esa hora de plano no tiene espacio -- no se
+          // agenda a ciegas, se avisa y se le vuelve a ofrecer lo que si
+          // hay.
+          return {
+            respuesta: estado.opcionesHorario?.length
+              ? `Mmm, a esa hora ya no tengo espacio. ¿Cuál de estas horas le queda mejor: ${estado.opcionesHorario.join(", ")}?`
+              : "Mmm, a esa hora ya no tengo espacio. ¿A qué otra hora le gustaría agendar?",
+            nuevoEstado: estado,
+          };
+        }
+
+        const horaFinal = horaBonita ?? formatearHora(mensaje, estado.turnoResuelto ?? null);
+        const nuevoEstado: EstadoAgendado = { ...estado, paso: "nombre", hora: horaFinal };
         return { respuesta: "¿A qué nombre le agendo la cita?", nuevoEstado };
       }
       case "nombre": {
@@ -685,7 +719,16 @@ async function calcularRespuestaBase(
     };
   }
 
-  // 12) No se reconocio nada -- se marca para que Master lo entrene.
+  // 12) No se reconocio nada. En el chat de entrenamiento se marca para
+  // que Master lo entrene -- pero a un paciente real NUNCA se le debe
+  // decir que el bot no sabe que contestar, asi que ahi se le contesta
+  // con algo amable que lo encamine a agendar o a preguntar su duda.
+  if (canalPublico) {
+    return {
+      respuesta: "¡Con gusto le ayudo! 😊 ¿Le gustaría agendar su cita, o tiene alguna otra duda sobre nuestros servicios (precio, duración, tratamientos)?",
+      nuevoEstado: { ...estado, fase: "conversando" },
+    };
+  }
   return {
     respuesta: "Mmm, no estoy seguro de cómo contestar eso todavía. Usa el botón de \"Enseñar respuesta\" de abajo para decirme qué debí haber dicho.",
     nuevoEstado: { ...estado, fase: "conversando" },
