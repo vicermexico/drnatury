@@ -142,7 +142,11 @@ const URGENCIA_KEYWORDS = ["dolor de pecho", "me duele el pecho", "duele el pech
 const ORDEN_MEDICA_KEYWORDS = ["me dijo el doctor", "me indico el doctor", "me indico el medico", "me dijo el medico", "me mando a hacer", "me receto", "un tac", "hacerme un tac", "resonancia", "estudio de sangre", "analisis de sangre"];
 const PRECIO_KEYWORDS = ["cuesta", "costo", "precio", "cuanto es", "cuanto vale"];
 const DURACION_KEYWORDS = ["cuanto dura", "cuanto tarda", "cuanto tiempo", "dura el estudio", "tarda la cita", "tarda por persona"];
-const TRATAMIENTO_KEYWORDS = ["tratamiento", "tratamientos"];
+const TRATAMIENTO_KEYWORDS = [
+  "tratamiento", "tratamientos",
+  "medicamento", "medicamentos", "medicina", "medicinas",
+  "receta", "recetan", "recetas",
+];
 const AGENDAR_PALABRAS_ACCION = [
   "quiero", "quisiera", "necesito", "sacar", "saco", "pedir", "dar", "dame", "deme", "denme",
   "podria", "pudiera", "cuando", "donde", "como", "quien", "numero", "cual",
