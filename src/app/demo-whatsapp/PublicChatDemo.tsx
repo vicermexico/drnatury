@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useDictado } from "@/hooks/useDictado";
 
 type EstadoAgendado = {
   fase: "inicio" | "conversando" | "agendando";
@@ -28,6 +29,13 @@ export function PublicChatDemo() {
   const [input, setInput] = useState("");
   const [primerMensajeEnviado, setPrimerMensajeEnviado] = useState(false);
   const [enviando, setEnviando] = useState(false);
+
+  // Dictado por voz: cuando la persona termina de hablar, el texto que
+  // dijo se escribe en el campo de abajo (no se manda solo, para que
+  // pueda revisarlo antes de enviarlo, igual que si lo hubiera escrito).
+  const { soportado: dictadoSoportado, escuchando, iniciar: iniciarDictado, detener: detenerDictado } = useDictado(
+    (texto) => setInput((prev) => (prev ? `${prev} ${texto}` : texto))
+  );
 
   async function enviarMensaje() {
     const esPrimero = !primerMensajeEnviado;
@@ -130,6 +138,18 @@ export function PublicChatDemo() {
             !primerMensajeEnviado ? "bg-gray-50 text-gray-700" : ""
           }`}
         />
+        {primerMensajeEnviado && dictadoSoportado && (
+          <button
+            onClick={() => (escuchando ? detenerDictado() : iniciarDictado())}
+            disabled={enviando}
+            title={escuchando ? "Detener" : "Hablar en vez de escribir"}
+            className={`rounded-full w-10 h-10 flex items-center justify-center shrink-0 shadow-sm disabled:opacity-50 ${
+              escuchando ? "bg-red-500 text-white animate-pulse" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            🎤
+          </button>
+        )}
         <button
           onClick={enviarMensaje}
           disabled={enviando || (primerMensajeEnviado && !input.trim())}
