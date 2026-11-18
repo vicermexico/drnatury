@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { generarRespuesta, ESTADO_INICIAL, type EstadoAgendado, type Correccion, type Anuncio } from "@/lib/whatsapp-bot/engine";
 import { obtenerSerieBienvenida } from "@/lib/whatsapp-bot/bienvenida";
+import { crearCitaRapida } from "@/lib/appointments/quickBook";
 
 // Version PUBLICA (sin login) del "cerebro" del bot -- para la pagina
 // de demo que Vic manda por link a quien quiera (/demo-whatsapp).
@@ -41,6 +42,37 @@ export async function POST(request: NextRequest) {
   const bienvenida = await obtenerSerieBienvenida(admin);
 
   const resultado = await generarRespuesta({ mensaje, estado, correcciones, anuncios, bienvenida, canalPublico: true });
+
+  // Si justo en este turno se termino de agendar (el bot ya dio el
+  // resumen final), se registra la cita de verdad en la plataforma --
+  // igual que cuando Master agenda rapido desde su link privado
+  // (/api/quick/book), pero sin bloquear la respuesta al paciente: si
+  // algo sale mal (ej. ese horario ya se ocupo entre que se lo ofrecimos
+  // y que confirmo), igual se le manda el resumen y el boton de WhatsApp
+  // como siempre, y el error queda en los logs para revisarlo.
+  const agendado = resultado.agendado;
+  if (agendado?.fechaISO && agendado?.hora24) {
+    try {
+      const telefonoDigits = agendado.celular.replace(/\D/g, "") || null;
+      const esDomicilio = agendado.modalidadCodigo === "DOMICILIO";
+      const resultadoCita = await crearCitaRapida(admin, {
+        nombre: agendado.nombre,
+        telefonoDigits,
+        fechaISO: agendado.fechaISO,
+        hora24: agendado.hora24,
+        modalidad: agendado.modalidadCodigo,
+        lugar: esDomicilio ? (agendado.lugar ?? null) : null,
+        numPersonas: agendado.personas,
+        costoTotal: agendado.costoTotal,
+        notas: `Agendado por chat web: ${agendado.nombre}`,
+      });
+      if (!resultadoCita.ok) {
+        console.error("No se pudo registrar la cita del chat publico en la plataforma:", resultadoCita.error, agendado);
+      }
+    } catch (err) {
+      console.error("Error registrando la cita del chat publico en la plataforma:", err);
+    }
+  }
 
   return NextResponse.json(resultado);
 }
