@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { RecorteVerde } from "./RecorteVerde";
 interface Config {
   id: string;
   whatsapp_number: string;
@@ -77,11 +78,6 @@ export function LandingEditor({ config, services, fondos, personajes }: Props) {
   const [fondoTipo, setFondoTipo] = useState<"imagen" | "video">("imagen");
   const [statusFondo, setStatusFondo] = useState<"idle"|"loading"|"ok"|"error">("idle");
   // Personajes (fotos de terapeutas/asistentes que entran deslizandose).
-  const [personajeFile, setPersonajeFile] = useState<File | null>(null);
-  const [personajePreview, setPersonajePreview] = useState<string | null>(null);
-  const [personajeNombre, setPersonajeNombre] = useState("");
-  const [personajePuesto, setPersonajePuesto] = useState("");
-  const [statusPersonaje, setStatusPersonaje] = useState<"idle"|"loading"|"ok"|"error">("idle");
   async function uploadFile(file: File) {
     // Paso 1: pedirle al servidor un permiso de subida (esto es texto,
     // pesa nada, no tiene problema con limites de tamano).
@@ -224,33 +220,6 @@ export function LandingEditor({ config, services, fondos, personajes }: Props) {
       }),
     ]);
     router.refresh();
-  }
-  async function handleAddPersonaje() {
-    if (!personajeFile) return;
-    setStatusPersonaje("loading");
-    try {
-      const imagen_url = await uploadFile(personajeFile);
-      const maxOrden = personajes.reduce((m, p) => Math.max(m, p.orden), 0);
-      const res = await fetch("/api/landing/personajes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombre: personajeNombre,
-          puesto: personajePuesto,
-          imagen_url,
-          orden: maxOrden + 1,
-        }),
-      });
-      if (!res.ok) throw new Error();
-      setPersonajeFile(null);
-      setPersonajePreview(null);
-      setPersonajeNombre("");
-      setPersonajePuesto("");
-      setStatusPersonaje("ok");
-      router.refresh();
-    } catch {
-      setStatusPersonaje("error");
-    }
   }
   async function handleTogglePersonaje(p: PersonajeRow) {
     await fetch(`/api/landing/personajes/${p.id}`, {
@@ -515,24 +484,7 @@ export function LandingEditor({ config, services, fondos, personajes }: Props) {
             </div>
           ))}
         </div>
-        <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Nombre</label>
-          <input type="text" value={personajeNombre} onChange={e => setPersonajeNombre(e.target.value)} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400" placeholder="Dr. Alejandro" />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Puesto</label>
-          <input type="text" value={personajePuesto} onChange={e => setPersonajePuesto(e.target.value)} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400" placeholder="Terapeuta" />
-        </div>
-        {personajePreview && <img src={personajePreview} alt="Vista previa de la foto" className="w-full h-32 object-contain bg-gray-50 rounded-xl" />}
-        <label className="flex items-center justify-center gap-2 cursor-pointer w-full rounded-xl border-2 border-dashed border-gray-300 px-4 py-4 hover:border-blue-400 hover:bg-blue-50 transition">
-          <span className="text-sm font-medium text-gray-600">{personajeFile ? personajeFile.name : "Subir foto"}</span>
-          <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { setPersonajeFile(f); setPersonajePreview(URL.createObjectURL(f)); } }} className="hidden" />
-        </label>
-        {statusPersonaje === "ok" && <p className="text-sm text-green-600 font-medium">Agregado correctamente</p>}
-        {statusPersonaje === "error" && <p className="text-sm text-red-600">Error al agregar</p>}
-        <button onClick={handleAddPersonaje} disabled={!personajeFile || statusPersonaje === "loading"} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
-          {statusPersonaje === "loading" ? "Subiendo..." : "Agregar personaje"}
-        </button>
+        <RecorteVerde orden={personajes.reduce((m, p) => Math.max(m, p.orden), 0) + 1} uploadFile={uploadFile} />
       </div>
       {/* Servicios */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
