@@ -7,6 +7,7 @@ import { Personajes, type Personaje } from "./Personajes";
 import { Servicios } from "./Servicios";
 import { Contactos } from "./Contactos";
 import { RedesYPie } from "./RedesYPie";
+import { PhoneLoginForm } from "@/components/forms/PhoneLoginForm";
 interface Config {
   whatsapp_number: string;
   hero_title: string;
@@ -61,7 +62,7 @@ export function LandingPage({ config, services, fondos = [], personajes = [] }: 
   }, []);
   return (
     <div className="min-h-screen bg-white">
-      <div className="relative w-full h-screen overflow-x-clip">
+      <div className="relative w-full h-[85dvh] min-h-[32rem] overflow-x-clip">
         {/* El recorte del fondo va en su propia caja; la seccion no recorta hacia
             abajo para que el personaje se asome (igual que en appvlc). */}
         <div className="absolute inset-0 overflow-hidden">
@@ -74,10 +75,10 @@ export function LandingPage({ config, services, fondos = [], personajes = [] }: 
               playsInline
               loop={heroVideoLoop}
               onEnded={() => { if (!heroVideoLoop) setVideoEnded(true); }}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover object-top"
             />
           ) : (
-            <Image src={heroImg || "/nombre.jpg"} alt="DrNatury" fill className="object-cover" unoptimized priority />
+            <Image src={heroImg || "/nombre.jpg"} alt="DrNatury" fill className="object-cover object-top" unoptimized priority />
           )}
           <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/55 via-emerald-950/25 to-emerald-950/70" aria-hidden="true" />
         </div>
@@ -97,14 +98,28 @@ export function LandingPage({ config, services, fondos = [], personajes = [] }: 
           </div>
         )}
 
-        {/* Nombre de la marca */}
-        <div className="absolute left-1/2 top-[12rem] z-20 -translate-x-1/2 lg:bottom-[5dvh] lg:top-auto">
+        {/* Nombre de la marca y "Agenda tu cita": al centro, arriba del
+            personaje. El boton va directo al chat, nunca al login. */}
+        <div className="absolute left-1/2 top-1/2 z-20 w-full max-w-xs -translate-x-1/2 -translate-y-1/2 px-6 flex flex-col items-center gap-5">
           <h1 className="text-center text-2xl font-extrabold tracking-wide text-white [text-shadow:0_2px_12px_rgba(6,78,59,0.9)] lg:text-4xl">
             DrNatury
           </h1>
+          <Link
+            href="/chat?origen=inicio"
+            className="group relative inline-flex w-full items-center justify-center gap-2 rounded-full px-8 py-4 text-lg font-bold text-white text-center
+                       bg-gradient-to-r from-blue-600 via-emerald-500 to-green-600 bg-[length:200%_auto]
+                       shadow-[0_8px_30px_rgba(16,185,129,0.4)]
+                       transition-all duration-500 hover:bg-[position:100%_0] hover:shadow-[0_10px_40px_rgba(16,185,129,0.55)] hover:-translate-y-0.5"
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" className="shrink-0">
+              <path d="M12 3C9 8 4 9 4 14c0 4 4 6 8 7 4-1 8-3 8-7 0-5-5-6-8-11Z" fill="currentColor" fillOpacity="0.15" />
+              <path d="M12 21V10M12 10c0-3 2-5 5-6M12 10C11 7 9 6 6 5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Agenda tu cita
+          </Link>
         </div>
 
-        {/* Barra fija arriba a la derecha, con los dos botones */}
+        {/* Barra fija arriba a la derecha, con el login real (celular + contraseña) */}
         <div
           className={`fixed inset-x-3 top-3 z-30 transition-opacity duration-1000 sm:inset-x-auto sm:right-5 sm:top-5 sm:w-80 ${
             barraVisible ? "opacity-100" : "pointer-events-none opacity-0"
@@ -112,29 +127,10 @@ export function LandingPage({ config, services, fondos = [], personajes = [] }: 
         >
           <div className="w-full overflow-hidden rounded-2xl border-2 border-amber-400 bg-white shadow-2xl ring-4 ring-white/30">
             <h2 className="bg-emerald-900 px-4 py-2 text-sm font-bold tracking-wide text-white sm:text-base">
-              DrNatury
+              Iniciar sesión
             </h2>
-            <div className="flex flex-col gap-2 p-3">
-              <Link
-                href="/chat?origen=inicio"
-                className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm font-bold text-white text-center
-                           bg-gradient-to-r from-blue-600 via-emerald-500 to-green-600
-                           shadow transition-all duration-300 hover:shadow-md"
-              >
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" className="shrink-0">
-                  <path d="M12 3C9 8 4 9 4 14c0 4 4 6 8 7 4-1 8-3 8-7 0-5-5-6-8-11Z" fill="currentColor" fillOpacity="0.15" />
-                  <path d="M12 21V10M12 10c0-3 2-5 5-6M12 10C11 7 9 6 6 5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                Agenda tu cita
-              </Link>
-              <Link
-                href="/login"
-                className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm font-semibold text-emerald-900 text-center
-                           border border-emerald-900/20 bg-white
-                           transition-all duration-300 hover:bg-emerald-50"
-              >
-                Iniciar sesión
-              </Link>
+            <div className="p-3">
+              <PhoneLoginForm compacto />
             </div>
           </div>
         </div>

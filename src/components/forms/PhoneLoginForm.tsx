@@ -18,7 +18,7 @@ const COUNTRIES = [
   { code: "+506", flag: "🇨🇷", name: "Costa Rica", maxDigits: 8 },
   { code: "+507", flag: "🇵🇦", name: "Panamá", maxDigits: 8 },
 ];
-export function PhoneLoginForm() {
+export function PhoneLoginForm({ compacto = false }: { compacto?: boolean }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("phone");
   const [countryCode, setCountryCode] = useState("+52");
@@ -99,7 +99,7 @@ export function PhoneLoginForm() {
     });
   }
   return (
-    <div className="space-y-6">
+    <div className={compacto ? "space-y-3 text-sm [&_input]:py-2 [&_select]:py-2 [&_button]:py-2 [&_.space-y-4]:space-y-2 [&_.space-y-6]:space-y-3 [&_label]:mb-0.5" : "space-y-6"}>
       {step === "phone" ? (
         <form onSubmit={submitPhone} className="space-y-4">
           <div>
