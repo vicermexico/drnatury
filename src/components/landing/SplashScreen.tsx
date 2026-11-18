@@ -86,61 +86,94 @@ function FallingLeaves() {
     </>
   );
 }
-export function SplashScreen({ onFinish }: { onFinish: () => void }) {
-  const [phase, setPhase] = useState<"emblema" | "nombre" | "enter">("emblema");
+interface SplashScreenProps {
+  onFinish: () => void;
+  logoUrl?: string | null;
+  nombreUrl?: string | null;
+  mostrarLogo?: boolean;
+  mostrarNombre?: boolean;
+}
+
+export function SplashScreen({
+  onFinish,
+  logoUrl,
+  nombreUrl,
+  mostrarLogo = true,
+  mostrarNombre = true,
+}: SplashScreenProps) {
+  // Si Master desactivo alguna de las 2 imagenes, nos saltamos
+  // directo a la que si esta activa (o directo a "entrar" si
+  // desactivo las dos, aunque eso no deberia pasar normalmente).
+  const faseInicial = mostrarLogo ? "emblema" : mostrarNombre ? "nombre" : "enter";
+  const [phase, setPhase] = useState<"emblema" | "nombre" | "enter">(faseInicial);
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("nombre"), 1000);
-    const t2 = setTimeout(() => setPhase("enter"), 2500);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, []);
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    if (mostrarLogo && mostrarNombre) {
+      timers.push(setTimeout(() => setPhase("nombre"), 1000));
+      timers.push(setTimeout(() => setPhase("enter"), 2500));
+    } else if (mostrarLogo || mostrarNombre) {
+      timers.push(setTimeout(() => setPhase("enter"), 1500));
+    }
+    return () => timers.forEach(clearTimeout);
+  }, [mostrarLogo, mostrarNombre]);
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center overflow-hidden">
       <FallingLeaves />
-      <div
-        style={{
-          opacity: phase === "emblema" ? 1 : 0,
-          transform: phase === "emblema" ? "translateY(0)" : "translateY(-20px)",
-          transition: "all 0.6s ease",
-          position: "absolute",
-          zIndex: 1,
-        }}
-      >
-        <Image src="/logo.jpg" alt="Emblema DrNatury" width={300} height={225} className="object-contain" priority />
-      </div>
-      <div
-        style={{
-          opacity: phase === "nombre" || phase === "enter" ? 1 : 0,
-          transform: phase === "nombre" || phase === "enter" ? "scale(1)" : "scale(0.8)",
-          transition: "all 0.8s ease",
-          position: "absolute",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "32px",
-          zIndex: 1,
-        }}
-      >
-        <Image
-          src="/drnatury-logo-full.png"
-          alt="DrNatury - Bienestar integral y natural"
-          width={340}
-          height={170}
-          unoptimized
-          className="object-contain"
-          priority
-        />
-        {phase === "enter" && (
-          <button
-            onClick={onFinish}
-            className="bg-emerald-400 text-white text-lg font-bold px-12 py-4 rounded-2xl shadow-lg hover:bg-emerald-500 transition animate-pulse"
-          >
-            Entrar
-          </button>
-        )}
-      </div>
+      {mostrarLogo && (
+        <div
+          style={{
+            opacity: phase === "emblema" ? 1 : 0,
+            transform: phase === "emblema" ? "translateY(0)" : "translateY(-20px)",
+            transition: "all 0.6s ease",
+            position: "absolute",
+            zIndex: 1,
+          }}
+        >
+          <Image src={logoUrl || "/logo.jpg"} alt="Emblema DrNatury" width={300} height={225} unoptimized className="object-contain" priority />
+        </div>
+      )}
+      {mostrarNombre && (
+        <div
+          style={{
+            opacity: phase === "nombre" || phase === "enter" ? 1 : 0,
+            transform: phase === "nombre" || phase === "enter" ? "scale(1)" : "scale(0.8)",
+            transition: "all 0.8s ease",
+            position: "absolute",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "32px",
+            zIndex: 1,
+          }}
+        >
+          <Image
+            src={nombreUrl || "/drnatury-logo-full.png"}
+            alt="DrNatury - Bienestar integral y natural"
+            width={340}
+            height={170}
+            unoptimized
+            className="object-contain"
+            priority
+          />
+          {phase === "enter" && (
+            <button
+              onClick={onFinish}
+              className="bg-emerald-400 text-white text-lg font-bold px-12 py-4 rounded-2xl shadow-lg hover:bg-emerald-500 transition animate-pulse"
+            >
+              Entrar
+            </button>
+          )}
+        </div>
+      )}
+      {!mostrarNombre && phase === "enter" && (
+        <button
+          onClick={onFinish}
+          className="absolute z-[2] bg-emerald-400 text-white text-lg font-bold px-12 py-4 rounded-2xl shadow-lg hover:bg-emerald-500 transition animate-pulse"
+          style={{ bottom: "20%" }}
+        >
+          Entrar
+        </button>
+      )}
     </div>
   );
 }

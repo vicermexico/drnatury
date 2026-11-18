@@ -12,6 +12,10 @@ interface Config {
   hero_type: string;
   hero_video_loop: boolean;
   hero_video_logo: boolean;
+  splash_logo_url: string | null;
+  splash_nombre_url: string | null;
+  splash_mostrar_logo: boolean;
+  splash_mostrar_nombre: boolean;
 }
 interface Service {
   id: string;
@@ -42,6 +46,14 @@ export function LandingEditor({ config, services }: Props) {
   const [statusGeneral, setStatusGeneral] = useState<"idle"|"loading"|"ok"|"error">("idle");
   const [statusImage, setStatusImage] = useState<"idle"|"loading"|"ok"|"error">("idle");
   const [statusVideo, setStatusVideo] = useState<"idle"|"loading"|"ok"|"error">("idle");
+  // Pantalla de bienvenida (logo + nombre, antes del boton "Entrar").
+  const [splashLogoFile, setSplashLogoFile] = useState<File | null>(null);
+  const [splashLogoPreview, setSplashLogoPreview] = useState<string | null>(config?.splash_logo_url ?? null);
+  const [mostrarLogo, setMostrarLogo] = useState(config?.splash_mostrar_logo ?? true);
+  const [splashNombreFile, setSplashNombreFile] = useState<File | null>(null);
+  const [splashNombrePreview, setSplashNombrePreview] = useState<string | null>(config?.splash_nombre_url ?? null);
+  const [mostrarNombre, setMostrarNombre] = useState(config?.splash_mostrar_nombre ?? true);
+  const [statusSplash, setStatusSplash] = useState<"idle"|"loading"|"ok"|"error">("idle");
   async function uploadFile(file: File) {
     // Paso 1: pedirle al servidor un permiso de subida (esto es texto,
     // pesa nada, no tiene problema con limites de tamano).
@@ -115,8 +127,76 @@ export function LandingEditor({ config, services }: Props) {
       setStatusVideo("error");
     }
   }
+  async function handleSaveSplash() {
+    setStatusSplash("loading");
+    try {
+      let splash_logo_url = config?.splash_logo_url ?? "";
+      if (splashLogoFile) splash_logo_url = await uploadFile(splashLogoFile);
+      let splash_nombre_url = config?.splash_nombre_url ?? "";
+      if (splashNombreFile) splash_nombre_url = await uploadFile(splashNombreFile);
+      const ok = await saveConfig({
+        splash_logo_url,
+        splash_nombre_url,
+        splash_mostrar_logo: mostrarLogo,
+        splash_mostrar_nombre: mostrarNombre,
+      });
+      setStatusSplash(ok ? "ok" : "error");
+      if (ok) router.refresh();
+    } catch {
+      setStatusSplash("error");
+    }
+  }
   return (
     <div className="space-y-6">
+      {/* Pantalla de bienvenida (logo + nombre) */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Pantalla de bienvenida</h2>
+          <p className="text-xs text-gray-400 mt-1">Las 2 imágenes que salen antes del botón &quot;Entrar&quot;: primero el logo, luego el nombre.</p>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">1. Logo (emblema)</label>
+            <button type="button" onClick={() => setMostrarLogo((v) => !v)} className={`px-3 py-1 rounded-lg text-xs font-semibold border transition ${mostrarLogo ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-gray-500 border-gray-200"}`}>
+              {mostrarLogo ? "Se muestra" : "Oculto"}
+            </button>
+          </div>
+          {mostrarLogo && (
+            <>
+              {splashLogoPreview && <img src={splashLogoPreview} alt="Vista previa del logo" className="w-full h-32 object-contain bg-gray-50 rounded-xl" />}
+              <label className="flex items-center justify-center gap-2 cursor-pointer w-full rounded-xl border-2 border-dashed border-gray-300 px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition">
+                <span className="text-sm font-medium text-gray-600">{splashLogoFile ? splashLogoFile.name : "Cambiar imagen del logo"}</span>
+                <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { setSplashLogoFile(f); setSplashLogoPreview(URL.createObjectURL(f)); } }} className="hidden" />
+              </label>
+            </>
+          )}
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">2. Nombre (letras &quot;DrNatury&quot;)</label>
+            <button type="button" onClick={() => setMostrarNombre((v) => !v)} className={`px-3 py-1 rounded-lg text-xs font-semibold border transition ${mostrarNombre ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-gray-500 border-gray-200"}`}>
+              {mostrarNombre ? "Se muestra" : "Oculto"}
+            </button>
+          </div>
+          {mostrarNombre && (
+            <>
+              {splashNombrePreview && <img src={splashNombrePreview} alt="Vista previa del nombre" className="w-full h-32 object-contain bg-gray-50 rounded-xl" />}
+              <label className="flex items-center justify-center gap-2 cursor-pointer w-full rounded-xl border-2 border-dashed border-gray-300 px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition">
+                <span className="text-sm font-medium text-gray-600">{splashNombreFile ? splashNombreFile.name : "Cambiar imagen del nombre"}</span>
+                <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { setSplashNombreFile(f); setSplashNombrePreview(URL.createObjectURL(f)); } }} className="hidden" />
+              </label>
+            </>
+          )}
+        </div>
+        {!mostrarLogo && !mostrarNombre && (
+          <p className="text-xs text-amber-600">⚠️ Si ocultas las 2, el botón &quot;Entrar&quot; va a salir solo, sin ninguna imagen antes.</p>
+        )}
+        {statusSplash === "ok" && <p className="text-sm text-green-600 font-medium">Guardado correctamente</p>}
+        {statusSplash === "error" && <p className="text-sm text-red-600">Error al guardar</p>}
+        <button onClick={handleSaveSplash} disabled={statusSplash === "loading"} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
+          {statusSplash === "loading" ? "Guardando..." : "Guardar pantalla de bienvenida"}
+        </button>
+      </div>
       {/* Configuracion general */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
         <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Configuracion general</h2>
