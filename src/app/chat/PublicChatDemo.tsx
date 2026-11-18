@@ -40,7 +40,19 @@ const ESTADO_INICIAL: EstadoAgendado = { fase: "inicio" };
 // Mensaje pre-llenado del anuncio -- fijo, no se puede editar ni
 // borrar, solo mandar, para que la persona vea exactamente lo mismo
 // que le llegaria a Vic al hacerle clic a su anuncio de verdad.
-const MENSAJE_INICIAL = "B3 - ¡Hola! ¿Podrían darme más información?";
+const MENSAJE_INICIAL_ANUNCIO = "B3 - ¡Hola! ¿Podrían darme más información?";
+
+// Cuando entran por el boton "Agenda tu cita" de la pagina de inicio
+// (/chat?origen=inicio), en vez del mensaje de anuncio se manda este
+// otro, directo a agendar -- asi el bot se salta el saludo de
+// bienvenida y va directo a la pregunta de consultorio/domicilio.
+const MENSAJE_INICIAL_AGENDAR = "Quisiera agendar mi cita";
+
+function obtenerMensajeInicial(): string {
+  if (typeof window === "undefined") return MENSAJE_INICIAL_ANUNCIO;
+  const params = new URLSearchParams(window.location.search);
+  return params.get("origen") === "inicio" ? MENSAJE_INICIAL_AGENDAR : MENSAJE_INICIAL_ANUNCIO;
+}
 
 // Numero de WhatsApp de Vic -- a donde se manda la confirmacion final de
 // la cita (todavia no hay WhatsApp real conectado al bot, asi que el
@@ -69,6 +81,10 @@ export function PublicChatDemo() {
   const [input, setInput] = useState("");
   const [primerMensajeEnviado, setPrimerMensajeEnviado] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  // Se calcula una sola vez, al montar en el navegador: si viene del
+  // boton "Agenda tu cita" de la pagina de inicio (?origen=inicio) o
+  // del link normal de anuncio (sin ese query param).
+  const [mensajeInicial] = useState<string>(obtenerMensajeInicial);
   const finDeMensajesRef = useRef<HTMLDivElement>(null);
 
   // Cada vez que llega un mensaje nuevo (o mientras el bot esta
@@ -87,7 +103,7 @@ export function PublicChatDemo() {
 
   async function enviarMensaje() {
     const esPrimero = !primerMensajeEnviado;
-    const mensaje = (esPrimero ? MENSAJE_INICIAL : input.trim());
+    const mensaje = (esPrimero ? mensajeInicial : input.trim());
     if (!mensaje || enviando) return;
     setInput("");
     if (esPrimero) setPrimerMensajeEnviado(true);
@@ -198,7 +214,7 @@ export function PublicChatDemo() {
 
       <div className="shrink-0 flex items-center gap-2 px-3 py-3 border-t border-gray-100 bg-white">
         <input
-          value={primerMensajeEnviado ? input : MENSAJE_INICIAL}
+          value={primerMensajeEnviado ? input : mensajeInicial}
           onChange={(e) => primerMensajeEnviado && setInput(e.target.value)}
           readOnly={!primerMensajeEnviado}
           onKeyDown={(e) => {

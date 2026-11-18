@@ -445,6 +445,19 @@ export async function generarRespuesta(args: {
         nota: "mensaje_no_de_anuncio",
       };
     }
+    // Si el primer mensaje YA es una intencion clara de agendar (ej.
+    // el mensaje fijo "Quisiera agendar mi cita" del boton "Agenda tu
+    // cita" en la pagina de inicio), nos saltamos el saludo de
+    // bienvenida y vamos directo a la pregunta de consultorio/
+    // domicilio -- el saludo de bienvenida es para cuando entran
+    // pidiendo informacion (ej. el mensaje de los anuncios), no cuando
+    // ya saben que quieren agendar.
+    if (esIntencionAgendar(normalizado)) {
+      return {
+        respuesta: "¿Sería en consultorio o a domicilio?",
+        nuevoEstado: { fase: "agendando", paso: "modalidad" },
+      };
+    }
     const codigo = detectarCodigoAnuncio(mensaje);
     const serieBienvenida: BienvenidaItem[] =
       bienvenida.length > 0
