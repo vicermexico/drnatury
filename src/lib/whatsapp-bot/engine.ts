@@ -520,6 +520,17 @@ async function calcularRespuestaBase(
         const esDomicilio = normalizado.includes("domicilio");
         const esConsultorio = normalizado.includes("consultorio");
         if (!esDomicilio && !esConsultorio) {
+          // Si lo que dijo es un dolor o molestia (ej. "me duele la
+          // pierna mucho"), no se le repite la pregunta en seco como si
+          // no hubiera dicho nada -- se reconoce lo que dijo primero,
+          // igual que se hace fuera de este flujo (regla 9 de abajo).
+          if (contieneAlguna(normalizado, SINTOMA_KEYWORDS)) {
+            const parte = detectarParteCuerpo(normalizado);
+            return {
+              respuesta: `Ah ok, no se preocupe, debe ser algo sencillo con ${parte}. De cualquier forma, para salir de dudas de qué es exactamente, con el escaneo lo revisamos bien. ¿Sería en consultorio o a domicilio?`,
+              nuevoEstado: estado,
+            };
+          }
           // No quedo claro si es consultorio o a domicilio -- por
           // ejemplo, a veces contestan con el dia ("para el jueves")
           // en vez de esto, sobre todo cuando el cierre de un mensaje
