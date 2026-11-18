@@ -154,7 +154,7 @@ export function PublicChatDemo() {
   }
 
   return (
-    <div className="rounded-3xl border border-emerald-100 bg-white shadow-xl overflow-hidden flex flex-col h-[78vh] max-h-[680px]">
+    <div className="rounded-3xl border border-emerald-100 bg-white shadow-xl overflow-hidden flex flex-col flex-1 min-h-0 sm:flex-none sm:h-[78vh] sm:max-h-[680px]">
       <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500">
         <div className="flex items-center gap-2">
           <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-lg">🌿</div>
