@@ -88,6 +88,11 @@ Consultorio: $199. A domicilio: $399.`;
 
 export const TRATAMIENTO_TEXT = `Nosotros damos tratamientos 100% naturales, son compuestos herbolarios. Los costos son de $350 a $490, dependiendo de lo que se necesite -- a veces ni siquiera se llega a necesitar tratamiento, porque basta con mejorar la alimentación. Eso lo vemos bien con el escaneo y en la consulta.`;
 
+// Cuando preguntan si se les va a quitar, si tiene solucion, si sabran
+// que es, si les pueden ayudar, etc. -- no nos adelantamos a decir que
+// si o que no sin haber visto nada todavia.
+export const PRONOSTICO_TEXT = `Claro que sí le podemos ayudar, pero no nos gusta adelantarnos a decirle algo sin haber visto primero de qué se trata -- para eso es el escaneo, para ver bien de dónde viene.`;
+
 // Quita acentos, mayusculas, signos y espacios repetidos para poder
 // comparar texto de forma tolerante (igual que el resto de los parsers
 // de la app).
@@ -146,6 +151,14 @@ const TRATAMIENTO_KEYWORDS = [
   "tratamiento", "tratamientos",
   "medicamento", "medicamentos", "medicina", "medicinas",
   "receta", "recetan", "recetas",
+];
+const PRONOSTICO_KEYWORDS = [
+  "se me quite", "se le quite", "se te quite",
+  "tendra solucion", "tiene solucion", "hay solucion",
+  "sabran que es", "sabran si", "sabran lo que es",
+  "podria ayudar", "pueden ayudar", "me pueden ayudar", "me podria ayudar",
+  "tiene cura", "se cura", "tiene remedio",
+  "cree que si", "creen que si", "crees que si",
 ];
 const AGENDAR_PALABRAS_ACCION = [
   "quiero", "quisiera", "necesito", "sacar", "saco", "pedir", "dar", "dame", "deme", "denme",
@@ -519,6 +532,9 @@ async function calcularRespuestaBase(
     if (contieneAlguna(normalizado, DURACION_KEYWORDS) || contieneAlguna(normalizado, PRECIO_KEYWORDS)) {
       return { respuesta: `${PRECIO_DURACION_TEXT}\n\n${preguntaActualDelPaso(estado)}`, nuevoEstado: estado };
     }
+    if (contieneAlguna(normalizado, PRONOSTICO_KEYWORDS)) {
+      return { respuesta: `${PRONOSTICO_TEXT}\n\n${preguntaActualDelPaso(estado)}`, nuevoEstado: estado };
+    }
     switch (estado.paso) {
       case "modalidad": {
         const esDomicilio = normalizado.includes("domicilio");
@@ -717,6 +733,15 @@ async function calcularRespuestaBase(
   // recetan, etc.) -- muy comun que pregunten esto antes de agendar.
   if (contieneAlguna(normalizado, TRATAMIENTO_KEYWORDS)) {
     return { respuesta: TRATAMIENTO_TEXT, nuevoEstado: { ...estado, fase: "conversando" } };
+  }
+
+  // Preguntan si se les va a quitar, si tiene solucion, si sabran que
+  // es, etc. -- no nos adelantamos, pero se invita a agendar de una vez.
+  if (contieneAlguna(normalizado, PRONOSTICO_KEYWORDS)) {
+    return {
+      respuesta: `${PRONOSTICO_TEXT} ¿Para cuándo le gustaría agendar su cita?`,
+      nuevoEstado: { fase: "agendando", paso: "modalidad" },
+    };
   }
 
   // 8) Cualquier intencion de agendar arranca el flujo de la cita.
