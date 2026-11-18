@@ -100,7 +100,7 @@ export function LandingPage({ config, services, fondos = [], personajes = [] }: 
 
         {/* "Agenda tu cita": arriba del personaje, cerca de la tarjeta de
             login. El boton va directo al chat, nunca al login. */}
-        <div className="absolute left-1/2 top-[38%] z-20 w-full max-w-xs -translate-x-1/2 -translate-y-1/2 px-6 flex flex-col items-center gap-5">
+        <div className="absolute left-1/2 top-[43%] z-20 w-full max-w-xs -translate-x-1/2 -translate-y-1/2 px-6 flex flex-col items-center gap-5">
           <Link
             href="/chat?origen=inicio"
             className="group relative inline-flex w-full items-center justify-center gap-2 rounded-full px-8 py-4 text-lg font-bold text-white text-center
