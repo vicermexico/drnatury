@@ -189,21 +189,34 @@ export function PublicChatDemo() {
               )}
               {m.texto}
               {m.agendado && (
-                <>
-                  <p className="mt-3 text-sm text-gray-700">
-                    Para confirmar tu cita y que te recordemos por este medio, da clic aquí:
+                // Se resalta bien este bloque (fondo y borde propios) y el
+                // boton lleva una flechita que rebota y un brillo detras
+                // que pulsa de tenue a fuerte, para que no se le pase a la
+                // persona darle clic y de verdad se confirme la cita.
+                <div className="mt-3 rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-3">
+                  <p className="text-center text-sm font-semibold text-emerald-900">
+                    Para confirmar y recordar tu cita por WhatsApp, da clic aquí
                   </p>
-                  <a
-                    href={`https://wa.me/${VIC_WHATSAPP_NUMERO}?text=${encodeURIComponent(
-                      construirMensajeWhatsapp(m.agendado)
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white text-sm font-medium px-4 py-2 hover:brightness-95"
-                  >
-                    📲 Confirmar por WhatsApp
-                  </a>
-                </>
+                  <div className="flex justify-center text-xl leading-none text-emerald-500 animate-bounce" aria-hidden="true">
+                    ⬇️
+                  </div>
+                  <div className="flex justify-center">
+                    <a
+                      href={`https://wa.me/${VIC_WHATSAPP_NUMERO}?text=${encodeURIComponent(
+                        construirMensajeWhatsapp(m.agendado)
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="relative flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white text-sm font-semibold px-5 py-2.5 shadow-lg hover:brightness-95"
+                    >
+                      <span
+                        className="absolute inset-0 -z-10 rounded-full bg-emerald-400 opacity-75 animate-ping pointer-events-none"
+                        aria-hidden="true"
+                      />
+                      📲 Confirmar por WhatsApp
+                    </a>
+                  </div>
+                </div>
               )}
             </div>
           </div>
