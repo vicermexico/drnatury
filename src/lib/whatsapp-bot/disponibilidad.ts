@@ -218,6 +218,23 @@ export function formatearHora(texto: string, turno: Turno): string {
   return `${hora}:${minutos} ${esPM ? "pm" : "am"}`;
 }
 
+// Para que el mensaje no se vea tan largo cuando hay muchos horarios
+// libres (ej. un dia completamente vacio), se muestra nada mas una
+// muestra repartida a lo largo de todo el rango -- desde el primero
+// hasta el ultimo -- en vez de la lista completa. Ojo: esto es solo
+// para lo que se MUESTRA; la persona puede pedir cualquier otra hora
+// de las que no se le mostraron y el bot de todas formas la acepta si
+// de verdad esta libre (eso ya se revisa aparte).
+export function muestrearHorarios(horarios: string[], cantidad = 7): string[] {
+  if (horarios.length <= cantidad) return horarios;
+  const paso = (horarios.length - 1) / (cantidad - 1);
+  const indices = new Set<number>();
+  for (let i = 0; i < cantidad; i++) {
+    indices.add(Math.round(i * paso));
+  }
+  return [...indices].sort((a, b) => a - b).map((i) => horarios[i]);
+}
+
 // "2026-11-19" + 1 -> "2026-11-20". Para revisar si hay espacio en los
 // dias siguientes cuando el pedido no cupo en el dia original.
 export function sumarDias(fechaStr: string, dias: number): string {
