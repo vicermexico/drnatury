@@ -18,5 +18,17 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        // El link publico del chat ahora es /chat (antes /demo-whatsapp).
+        // Se deja esta redireccion para que ningun link viejo repartido
+        // (anuncios, WhatsApp, etc.) se rompa.
+        source: "/demo-whatsapp",
+        destination: "/chat",
+        permanent: true,
+      },
+    ];
+  },
 };
 export default nextConfig;
