@@ -288,19 +288,24 @@ function preguntaActualDelPaso(estado: EstadoAgendado): string {
   }
 }
 
-function construirResumenAgendado(estado: EstadoAgendado, nombre: string, celular: string): string {
+function construirResumenAgendado(
+  estado: EstadoAgendado,
+  nombre: string,
+  celular: string
+): { texto: string; datos: ResumenAgendado } {
   const personasNum = Math.max(1, parseInt(estado.personas ?? "1", 10) || 1);
   const costoPorPersona = estado.modalidad === "DOMICILIO" ? 399 : 199;
   const costoTotal = personasNum * costoPorPersona;
   const lineaConsultorio = estado.modalidad === "CONSULTORIO" ? `Si, ${estado.lugar ?? ""}`.trim() : "No";
   const lineaDomicilio = estado.modalidad === "DOMICILIO" ? `Si, ${estado.lugar ?? ""}`.trim() : "No";
+  const diaBonito = estado.fechaResuelta ? formatFechaBonita(estado.fechaResuelta) : estado.dia ?? "";
 
-  return [
+  const texto = [
     "Agendado",
     "",
     `• Nombre: ${nombre}`,
     `• Celular: ${celular}`,
-    `• Día: ${estado.fechaResuelta ? formatFechaBonita(estado.fechaResuelta) : estado.dia ?? ""}`,
+    `• Día: ${diaBonito}`,
     `• Hora: ${estado.hora ?? ""}`,
     "• Lugar:",
     `  ▪️︎ CONSULTORIO ${lineaConsultorio}`,
@@ -308,6 +313,31 @@ function construirResumenAgendado(estado: EstadoAgendado, nombre: string, celula
     `• # Personas: ${personasNum}`,
     `• COSTO TOTAL $${costoTotal}`,
   ].join("\n");
+
+  return {
+    texto,
+    datos: {
+      nombre,
+      celular,
+      dia: diaBonito,
+      hora: estado.hora ?? "",
+      modalidad: estado.modalidad === "DOMICILIO" ? "A domicilio" : "En consultorio",
+      lugar: estado.lugar,
+      personas: personasNum,
+      costoTotal,
+    },
+  };
+}
+
+export interface ResumenAgendado {
+  nombre: string;
+  celular: string;
+  dia: string;
+  hora: string;
+  modalidad: string;
+  lugar?: string;
+  personas: number;
+  costoTotal: number;
 }
 
 export interface ResultadoRespuesta {
@@ -315,6 +345,10 @@ export interface ResultadoRespuesta {
   nuevoEstado: EstadoAgendado;
   nota?: string;
   audioUrl?: string;
+  // Se llena solo en el mensaje donde se termina de agendar -- lo usa el
+  // chat publico para ofrecer un boton de "confirmar por WhatsApp" con
+  // estos datos ya escritos en el mensaje.
+  agendado?: ResumenAgendado;
 }
 
 // El audio de bienvenida real que Vic ya tiene grabado (lo mismo que
@@ -537,8 +571,9 @@ async function calcularRespuestaBase(
       case "celular": {
         const resumen = construirResumenAgendado(estado, estado.nombre ?? "", mensaje.trim());
         return {
-          respuesta: `${resumen}\n\n${REQUISITOS_TEXT}`,
+          respuesta: `${resumen.texto}\n\n${REQUISITOS_TEXT}`,
           nuevoEstado: { fase: "conversando" },
+          agendado: resumen.datos,
         };
       }
     }
