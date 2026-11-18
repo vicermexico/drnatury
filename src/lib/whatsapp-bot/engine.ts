@@ -160,6 +160,26 @@ const PRONOSTICO_KEYWORDS = [
   "tiene cura", "se cura", "tiene remedio",
   "cree que si", "creen que si", "crees que si",
 ];
+// Cosas especificas que si revisa el escaneo -- cuando preguntan si
+// ven tal organo o condicion (ej. "pueden revisar la prostata?"), se
+// les confirma que si, mencionando lo que preguntaron, en vez de la
+// respuesta generica de "con gusto le ayudo".
+const ESCANEO_TEMAS_KEYWORDS = [
+  "prostata", "prostatitis", "hiperplasia prostatica",
+  "higado graso", "higado", "vesicula", "pancreas",
+  "diabetes", "glucosa",
+  "nervio cerebral", "cerebro",
+  "hormonas", "anemia", "vitaminas",
+  "huesos", "desgaste", "desgastes",
+  "acido urico", "trigliceridos",
+  "osteoporosis", "artritis", "dolores musculares", "dolor muscular",
+  "sistema digestivo", "vista",
+];
+
+function detectarTemaEscaneo(normalizado: string): string | null {
+  return ESCANEO_TEMAS_KEYWORDS.find((t) => normalizado.includes(t)) ?? null;
+}
+
 const AGENDAR_PALABRAS_ACCION = [
   "quiero", "quisiera", "necesito", "sacar", "saco", "pedir", "dar", "dame", "deme", "denme",
   "podria", "pudiera", "cuando", "donde", "como", "quien", "numero", "cual",
@@ -535,6 +555,13 @@ async function calcularRespuestaBase(
     if (contieneAlguna(normalizado, PRONOSTICO_KEYWORDS)) {
       return { respuesta: `${PRONOSTICO_TEXT}\n\n${preguntaActualDelPaso(estado)}`, nuevoEstado: estado };
     }
+    const temaEscaneo = detectarTemaEscaneo(normalizado);
+    if (temaEscaneo) {
+      return {
+        respuesta: `Claro que sí, el escaneo también revisa eso (${temaEscaneo}). No se preocupe, ahí lo vemos bien.\n\n${preguntaActualDelPaso(estado)}`,
+        nuevoEstado: estado,
+      };
+    }
     switch (estado.paso) {
       case "modalidad": {
         const esDomicilio = normalizado.includes("domicilio");
@@ -742,6 +769,19 @@ async function calcularRespuestaBase(
       respuesta: `${PRONOSTICO_TEXT} ¿Para cuándo le gustaría agendar su cita?`,
       nuevoEstado: { fase: "agendando", paso: "modalidad" },
     };
+  }
+
+  // Preguntan por algo especifico que si revisa el escaneo (ej.
+  // "pueden revisar la prostata?") -- se confirma que si, mencionando
+  // lo que preguntaron, en vez de la respuesta generica.
+  {
+    const temaEscaneo = detectarTemaEscaneo(normalizado);
+    if (temaEscaneo) {
+      return {
+        respuesta: `Claro que sí, el escaneo también revisa eso (${temaEscaneo}). No se preocupe, ahí lo vemos bien. ¿Para cuándo le gustaría agendar su cita?`,
+        nuevoEstado: { fase: "agendando", paso: "modalidad" },
+      };
+    }
   }
 
   // 8) Cualquier intencion de agendar arranca el flujo de la cita.
