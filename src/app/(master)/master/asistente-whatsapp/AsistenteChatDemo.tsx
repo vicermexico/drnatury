@@ -11,6 +11,7 @@ interface MensajeUI {
   rol: "paciente" | "bot";
   texto: string;
   nota?: string;
+  audioUrl?: string;
   mensajePacienteQueLaOrigino?: string; // para poder "ensenar" esta respuesta de bot
 }
 
@@ -59,6 +60,7 @@ export function AsistenteChatDemo() {
           rol: "bot",
           texto: data.respuesta,
           nota: data.nota,
+          audioUrl: data.audioUrl,
           mensajePacienteQueLaOrigino: mensaje,
         },
       ]);
@@ -146,6 +148,11 @@ export function AsistenteChatDemo() {
                   m.rol === "bot" ? "bg-emerald-100 text-emerald-950" : "bg-white text-gray-800"
                 }`}
               >
+                {m.audioUrl && (
+                  <audio controls preload="none" className="w-full mb-2 h-10">
+                    <source src={m.audioUrl} />
+                  </audio>
+                )}
                 {m.texto}
               </div>
               {m.rol === "bot" && m.nota && (

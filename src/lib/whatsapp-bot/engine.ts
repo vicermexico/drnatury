@@ -314,7 +314,12 @@ export interface ResultadoRespuesta {
   respuesta: string;
   nuevoEstado: EstadoAgendado;
   nota?: string;
+  audioUrl?: string;
 }
+
+// El audio de bienvenida real que Vic ya tiene grabado (lo mismo que
+// manda siempre de entrada en WhatsApp, antes del texto).
+export const WELCOME_AUDIO_URL = "/audio/bienvenida.mp3";
 
 export async function generarRespuesta(args: {
   mensaje: string;
@@ -342,9 +347,10 @@ export async function generarRespuesta(args: {
     }
     const codigo = detectarCodigoAnuncio(mensaje);
     return {
-      respuesta: `🔊 [Aquí se manda el audio de bienvenida que ya tienes grabado]\n\n${WELCOME_TEXT}`,
+      respuesta: WELCOME_TEXT,
       nuevoEstado: { fase: "conversando" },
       nota: codigo ? `Código de anuncio detectado: ${codigo}` : undefined,
+      audioUrl: WELCOME_AUDIO_URL,
     };
   }
 

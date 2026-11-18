@@ -10,6 +10,7 @@ interface MensajeUI {
   id: number;
   rol: "paciente" | "bot";
   texto: string;
+  audioUrl?: string;
 }
 
 const ESTADO_INICIAL: EstadoAgendado = { fase: "inicio" };
@@ -53,7 +54,10 @@ export function PublicChatDemo() {
         return;
       }
       setEstado(data.nuevoEstado);
-      setMensajes((prev) => [...prev, { id: siguienteId++, rol: "bot", texto: data.respuesta }]);
+      setMensajes((prev) => [
+        ...prev,
+        { id: siguienteId++, rol: "bot", texto: data.respuesta, audioUrl: data.audioUrl },
+      ]);
     } finally {
       setEnviando(false);
     }
@@ -101,6 +105,11 @@ export function PublicChatDemo() {
                   : "bg-emerald-600 text-white rounded-br-sm"
               }`}
             >
+              {m.audioUrl && (
+                <audio controls preload="none" className="w-full mb-2 h-10">
+                  <source src={m.audioUrl} />
+                </audio>
+              )}
               {m.texto}
             </div>
           </div>
