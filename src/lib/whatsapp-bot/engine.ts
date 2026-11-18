@@ -147,6 +147,7 @@ const AGENDAR_PALABRAS_ACCION = [
 ];
 const AFIRMATIVO_KEYWORDS = ["si", "claro", "va", "sale", "dale", "esta bien", "de acuerdo", "porfavor", "por favor"];
 const ACK_KEYWORDS = ["ok", "okay", "oka", "vale", "gracias", "entendido", "perfecto", "excelente", "genial", "bien"];
+const BENDICION_KEYWORDS = ["dios le bendiga", "dios lo bendiga", "dios te bendiga", "bendiciones", "que dios la bendiga", "que dios lo bendiga", "que este bien"];
 const SINTOMA_KEYWORDS = ["duele", "dolor", "molestia", "me siento", "siento", "adormecid", "hormigueo", "me canso", "cansancio", "mareo"];
 
 const PARTES_CUERPO: { palabra: string; frase: string }[] = [
@@ -232,6 +233,21 @@ export function coincideConAnuncio(mensaje: string, anuncios: Anuncio[]): boolea
   return anuncios.some(
     (a) => normalizado === a.textoNormalizado || normalizado.includes(a.textoNormalizado) || a.textoNormalizado.includes(normalizado)
   );
+}
+
+// Si no dan un numero (ej. "pues yo, mi mama y mis hijas" en vez de
+// "4"), antes se guardaba el texto tal cual y al final se contaba como
+// 1 sola persona (parseInt de ese texto da NaN). Ahora, sin numero, se
+// cuentan cuantas personas se mencionan por separado (separadas por
+// comas o "y") -- ese mismo ejemplo da 3: "yo" / "mi mama" / "mis hijas".
+function contarPersonas(mensaje: string): number {
+  const conNumero = mensaje.match(/\d+/);
+  if (conNumero) return Math.max(1, parseInt(conNumero[0], 10));
+  const partes = mensaje
+    .split(/,|\s+y\s+/i)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return Math.max(1, partes.length);
 }
 
 function siguientePreguntaLugar(modalidad: "CONSULTORIO" | "DOMICILIO"): string {
@@ -455,7 +471,7 @@ async function calcularRespuestaBase(
         return { respuesta: "¿Cuántas personas serían?", nuevoEstado };
       }
       case "personas": {
-        const estadoConPersonas: EstadoAgendado = { ...estado, personas: mensaje.trim() };
+        const estadoConPersonas: EstadoAgendado = { ...estado, personas: String(contarPersonas(mensaje)) };
         if (estadoConPersonas.dia) {
           // Ya habian dicho el dia antes (ej. contestaron con un dia
           // cuando se les pregunto consultorio/domicilio) -- se usa
@@ -567,7 +583,17 @@ async function calcularRespuestaBase(
     };
   }
 
-  // 10) Un simple "ok", "gracias", "vale", etc. (sin pregunta ni dato
+  // 10) Despedidas/bendiciones (ej. "dios le bendiga", despues de que
+  // ya se agendo la cita) -- se contesta con calidez en vez de decir
+  // que no se entendio, ya que la conversacion ya se cerro bien.
+  if (contieneAlguna(normalizado, BENDICION_KEYWORDS)) {
+    return {
+      respuesta: "Amén, muchas gracias 🙏 Que tenga un excelente día.",
+      nuevoEstado: { ...estado, fase: "conversando" },
+    };
+  }
+
+  // 11) Un simple "ok", "gracias", "vale", etc. (sin pregunta ni dato
   // nuevo) -- en vez de decir que no entendio, se invita a agendar.
   if (contieneAlguna(normalizado, ACK_KEYWORDS) && normalizado.split(" ").length <= 3) {
     return {
@@ -576,7 +602,7 @@ async function calcularRespuestaBase(
     };
   }
 
-  // 11) No se reconocio nada -- se marca para que Master lo entrene.
+  // 12) No se reconocio nada -- se marca para que Master lo entrene.
   return {
     respuesta: "Mmm, no estoy seguro de cómo contestar eso todavía. Usa el botón de \"Enseñar respuesta\" de abajo para decirme qué debí haber dicho.",
     nuevoEstado: { ...estado, fase: "conversando" },
