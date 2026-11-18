@@ -38,7 +38,7 @@ export function Fondos({ fondos }: { fondos: Fondo[] }) {
             src={f.url}
             alt=""
             loading={n === 0 ? "eager" : "lazy"}
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[1600ms] ${
+            className={`absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-[1600ms] ${
               n === actual % total ? "opacity-100" : "opacity-0"
             }`}
           />
@@ -51,7 +51,7 @@ export function Fondos({ fondos }: { fondos: Fondo[] }) {
             playsInline
             loop={total === 1}
             onEnded={() => setActual((previo) => (previo + 1) % total)}
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-cover object-top"
           />
         ) : null
       )}
