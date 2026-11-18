@@ -16,7 +16,7 @@ export interface MensajeChat {
 
 export interface EstadoAgendado {
   fase: "inicio" | "conversando" | "agendando";
-  paso?: "modalidad" | "lugar" | "personas" | "dia" | "turno" | "hora" | "nombre";
+  paso?: "modalidad" | "lugar" | "personas" | "dia" | "turno" | "hora" | "nombre" | "celular";
   modalidad?: "CONSULTORIO" | "DOMICILIO";
   lugar?: string;
   personas?: string;
@@ -25,6 +25,8 @@ export interface EstadoAgendado {
   turnoResuelto?: Turno;
   opcionesHorario?: string[]; // las horas que se le ofrecieron, para leer bien si contesta con un numero suelto
   hora?: string;
+  nombre?: string;
+  celular?: string; // numero de WhatsApp para el recordatorio -- en WhatsApp real ya se sabe solo, pero en el chat web hay que pedirlo
   esperaConfirmacionAgendar?: boolean;
 }
 
@@ -279,12 +281,14 @@ function preguntaActualDelPaso(estado: EstadoAgendado): string {
         : "¿A qué hora le quedaría mejor?";
     case "nombre":
       return "¿A qué nombre le agendo la cita?";
+    case "celular":
+      return "¿A qué número de WhatsApp le mandamos el recordatorio de su cita?";
     default:
       return "¿Sería en consultorio o a domicilio?";
   }
 }
 
-function construirResumenAgendado(estado: EstadoAgendado, nombre: string): string {
+function construirResumenAgendado(estado: EstadoAgendado, nombre: string, celular: string): string {
   const personasNum = Math.max(1, parseInt(estado.personas ?? "1", 10) || 1);
   const costoPorPersona = estado.modalidad === "DOMICILIO" ? 399 : 199;
   const costoTotal = personasNum * costoPorPersona;
@@ -295,7 +299,7 @@ function construirResumenAgendado(estado: EstadoAgendado, nombre: string): strin
     "Agendado",
     "",
     `• Nombre: ${nombre}`,
-    "• Celular: (el numero de WhatsApp del paciente, automatico)",
+    `• Celular: ${celular}`,
     `• Día: ${estado.fechaResuelta ? formatFechaBonita(estado.fechaResuelta) : estado.dia ?? ""}`,
     `• Hora: ${estado.hora ?? ""}`,
     "• Lugar:",
@@ -521,7 +525,11 @@ async function calcularRespuestaBase(
         return { respuesta: "¿A qué nombre le agendo la cita?", nuevoEstado };
       }
       case "nombre": {
-        const resumen = construirResumenAgendado(estado, mensaje.trim());
+        const nuevoEstado: EstadoAgendado = { ...estado, paso: "celular", nombre: mensaje.trim() };
+        return { respuesta: "¿A qué número de WhatsApp le mandamos el recordatorio de su cita?", nuevoEstado };
+      }
+      case "celular": {
+        const resumen = construirResumenAgendado(estado, estado.nombre ?? "", mensaje.trim());
         return {
           respuesta: `${resumen}\n\n${REQUISITOS_TEXT}`,
           nuevoEstado: { fase: "conversando" },

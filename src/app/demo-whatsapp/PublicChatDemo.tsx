@@ -67,20 +67,26 @@ export function PublicChatDemo() {
   }
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col h-[80vh] max-h-[700px]">
-      <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
-        <p className="text-sm font-medium text-gray-700">DrNatury 🌿</p>
+    <div className="rounded-3xl border border-emerald-100 bg-white shadow-xl overflow-hidden flex flex-col h-[78vh] max-h-[680px]">
+      <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-lg">🌿</div>
+          <div>
+            <p className="text-sm font-semibold text-white leading-tight">DrNatury</p>
+            <p className="text-[11px] text-emerald-50/80 leading-tight">Asistente en línea</p>
+          </div>
+        </div>
         {mensajes.length > 0 && (
           <button
             onClick={reiniciar}
-            className="text-xs font-medium text-gray-500 hover:text-gray-800 px-2 py-1 rounded-lg hover:bg-gray-100"
+            className="text-[11px] font-medium text-white/90 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10"
           >
             🔄 Empezar de nuevo
           </button>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#eae6df]">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-gradient-to-b from-emerald-50/40 to-white">
         {mensajes.length === 0 && (
           <p className="text-sm text-gray-500 text-center mt-10">
             Da clic en el botón de abajo para mandar el mensaje y empezar la conversación.
@@ -89,8 +95,10 @@ export function PublicChatDemo() {
         {mensajes.map((m) => (
           <div key={m.id} className={`flex ${m.rol === "bot" ? "justify-start" : "justify-end"}`}>
             <div
-              className={`max-w-[80%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap shadow-sm ${
-                m.rol === "bot" ? "bg-white text-gray-800" : "bg-emerald-100 text-emerald-950"
+              className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap shadow-sm ${
+                m.rol === "bot"
+                  ? "bg-white text-gray-800 border border-gray-100 rounded-bl-sm"
+                  : "bg-emerald-600 text-white rounded-br-sm"
               }`}
             >
               {m.texto}
@@ -116,7 +124,7 @@ export function PublicChatDemo() {
         <button
           onClick={enviarMensaje}
           disabled={enviando || (primerMensajeEnviado && !input.trim())}
-          className="rounded-full bg-emerald-600 text-white w-10 h-10 flex items-center justify-center hover:bg-emerald-700 disabled:opacity-50 shrink-0"
+          className="rounded-full bg-emerald-600 text-white w-10 h-10 flex items-center justify-center hover:bg-emerald-700 disabled:opacity-50 shrink-0 shadow-sm"
         >
           ➤
         </button>
