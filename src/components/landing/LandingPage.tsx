@@ -61,22 +61,26 @@ export function LandingPage({ config, services, fondos = [], personajes = [] }: 
   }, []);
   return (
     <div className="min-h-screen bg-white">
-      <div className="relative w-full h-screen overflow-hidden">
-        {fondos.length > 0 ? (
-          <Fondos fondos={fondos} />
-        ) : showingVideo ? (
-          <video
-            src={heroVideo}
-            autoPlay
-            playsInline
-            loop={heroVideoLoop}
-            onEnded={() => { if (!heroVideoLoop) setVideoEnded(true); }}
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-        ) : (
-          <Image src={heroImg || "/nombre.jpg"} alt="DrNatury" fill className="object-cover" unoptimized priority />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/55 via-emerald-950/25 to-emerald-950/70" aria-hidden="true" />
+      <div className="relative w-full h-screen overflow-x-clip">
+        {/* El recorte del fondo va en su propia caja; la seccion no recorta hacia
+            abajo para que el personaje se asome (igual que en appvlc). */}
+        <div className="absolute inset-0 overflow-hidden">
+          {fondos.length > 0 ? (
+            <Fondos fondos={fondos} />
+          ) : showingVideo ? (
+            <video
+              src={heroVideo}
+              autoPlay
+              playsInline
+              loop={heroVideoLoop}
+              onEnded={() => { if (!heroVideoLoop) setVideoEnded(true); }}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <Image src={heroImg || "/nombre.jpg"} alt="DrNatury" fill className="object-cover" unoptimized priority />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/55 via-emerald-950/25 to-emerald-950/70" aria-hidden="true" />
+        </div>
         <Personajes personajes={personajes} />
         {showingVideo && heroVideoLogo && (
           <div className="absolute inset-x-0 top-[32%] flex justify-center pointer-events-none">
