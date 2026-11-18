@@ -21,7 +21,7 @@ const PUBLIC_PATHS = [
   "/api/setup",
   "/api/cron",
   "/resultado",
-  "/demo-whatsapp",      // link publico de demo del Asistente de WhatsApp (sin login)
+  "/chat",               // link publico del Asistente de WhatsApp (sin login) -- antes era /demo-whatsapp
   "/api/public",         // endpoints publicos (cada uno valida lo suyo, ej. rate limit)
 ];
 
