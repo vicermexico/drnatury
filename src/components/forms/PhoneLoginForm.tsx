@@ -131,7 +131,9 @@ export function PhoneLoginForm({ compacto = false }: { compacto?: boolean }) {
                 className="w-full rounded-xl border border-gray-300 px-4 py-3 text-lg tracking-widest focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
             </div>
-            <p className="text-xs text-gray-400 mt-1">{selectedCountry.flag} {selectedCountry.name} — {countryCode} + {phone || "..."}</p>
+            {!compacto && (
+              <p className="text-xs text-gray-400 mt-1">{selectedCountry.flag} {selectedCountry.name} — {countryCode} + {phone || "..."}</p>
+            )}
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
