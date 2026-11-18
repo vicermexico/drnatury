@@ -4,6 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { Fondos, type Fondo } from "./Fondos";
 import { Personajes, type Personaje } from "./Personajes";
+import { Servicios } from "./Servicios";
+import { Contactos } from "./Contactos";
+import { RedesYPie } from "./RedesYPie";
 interface Config {
   whatsapp_number: string;
   hero_title: string;
@@ -13,6 +16,14 @@ interface Config {
   hero_type: string;
   hero_video_loop: boolean;
   hero_video_logo: boolean;
+  contacto_correo?: string | null;
+  contacto_sitio_web?: string | null;
+  contacto_direccion?: string | null;
+  contacto_horario?: string | null;
+  red_facebook?: string | null;
+  red_instagram?: string | null;
+  dev_nombre?: string | null;
+  dev_whatsapp?: string | null;
 }
 interface Service {
   id: string;
@@ -35,6 +46,7 @@ export function LandingPage({ config, services, fondos = [], personajes = [] }: 
   const heroVideoLogo = config?.hero_video_logo ?? false;
   const [videoEnded, setVideoEnded] = useState(false);
   const [logoVisible, setLogoVisible] = useState(false);
+  const [barraVisible, setBarraVisible] = useState(false);
   const showingVideo = heroType === "video" && heroVideo && !videoEnded;
   useEffect(() => {
     if (showingVideo && heroVideoLogo) {
@@ -43,9 +55,13 @@ export function LandingPage({ config, services, fondos = [], personajes = [] }: 
     }
     setLogoVisible(false);
   }, [showingVideo, heroVideoLogo]);
+  useEffect(() => {
+    const t = setTimeout(() => setBarraVisible(true), 150);
+    return () => clearTimeout(t);
+  }, []);
   return (
     <div className="min-h-screen bg-white">
-      <div className="relative w-full h-screen flex flex-col items-center justify-end pb-32 overflow-hidden">
+      <div className="relative w-full h-screen overflow-hidden">
         {fondos.length > 0 ? (
           <Fondos fondos={fondos} />
         ) : showingVideo ? (
@@ -58,9 +74,9 @@ export function LandingPage({ config, services, fondos = [], personajes = [] }: 
             className="absolute inset-0 w-full h-full object-cover"
           />
         ) : (
-          <Image src={heroImg || "/nombre.jpg"} alt="Dr. BioEscaner" fill className="object-cover" unoptimized priority />
+          <Image src={heroImg || "/nombre.jpg"} alt="DrNatury" fill className="object-cover" unoptimized priority />
         )}
-        <div className="absolute inset-0 bg-black/30" />
+        <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/55 via-emerald-950/25 to-emerald-950/70" aria-hidden="true" />
         <Personajes personajes={personajes} />
         {showingVideo && heroVideoLogo && (
           <div className="absolute inset-x-0 top-[32%] flex justify-center pointer-events-none">
@@ -76,46 +92,52 @@ export function LandingPage({ config, services, fondos = [], personajes = [] }: 
             />
           </div>
         )}
-        <div className="relative z-10 flex flex-col items-center gap-4 w-full px-8 mb-16">
-          <Link
-            href="/chat?origen=inicio"
-            className="group relative inline-flex items-center justify-center gap-2 w-full max-w-sm px-10 py-5 rounded-full text-xl font-bold text-white text-center
-                       bg-gradient-to-r from-blue-600 via-emerald-500 to-green-600 bg-[length:200%_auto]
-                       shadow-[0_8px_30px_rgba(16,185,129,0.35)]
-                       transition-all duration-500 hover:bg-[position:100%_0] hover:shadow-[0_10px_40px_rgba(16,185,129,0.5)] hover:-translate-y-0.5"
-          >
-            <span className="absolute -inset-1 rounded-full bg-emerald-400/30 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10" />
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" className="shrink-0">
-              <path d="M12 3C9 8 4 9 4 14c0 4 4 6 8 7 4-1 8-3 8-7 0-5-5-6-8-11Z" fill="currentColor" fillOpacity="0.15" />
-              <path d="M12 21V10M12 10c0-3 2-5 5-6M12 10C11 7 9 6 6 5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Agenda tu cita
-          </Link>
-          <Link
-            href="/login"
-            className="inline-flex items-center justify-center gap-2 w-full max-w-sm px-8 py-3.5 rounded-full text-base font-semibold text-white text-center
-                       border border-white/70 bg-white/10 backdrop-blur-sm
-                       transition-all duration-300 hover:bg-white/20 hover:border-white"
-          >
-            Iniciar sesión
-          </Link>
+
+        {/* Nombre de la marca */}
+        <div className="absolute left-1/2 top-[12rem] z-20 -translate-x-1/2 lg:bottom-[5dvh] lg:top-auto">
+          <h1 className="text-center text-2xl font-extrabold tracking-wide text-white [text-shadow:0_2px_12px_rgba(6,78,59,0.9)] lg:text-4xl">
+            DrNatury
+          </h1>
         </div>
-      </div>
-      {services.length > 0 && (
-        <div className="px-6 py-12 max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">Nuestros servicios</h2>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            {services.map((s) => (
-              <Link key={s.id} href={`/inicio/servicio/${s.id}`} className="rounded-2xl border border-gray-200 overflow-hidden bg-white shadow-sm hover:shadow-md transition block">
-                {s.image_url && <img src={s.image_url} alt={s.title} className="w-full h-36 object-cover" />}
-                <div className="p-3">
-                  <p className="text-sm font-semibold text-gray-900">{s.title}</p>
-                </div>
+
+        {/* Barra fija arriba a la derecha, con los dos botones */}
+        <div
+          className={`fixed inset-x-3 top-3 z-30 transition-opacity duration-1000 sm:inset-x-auto sm:right-5 sm:top-5 sm:w-80 ${
+            barraVisible ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
+        >
+          <div className="w-full overflow-hidden rounded-2xl border-2 border-amber-400 bg-white shadow-2xl ring-4 ring-white/30">
+            <h2 className="bg-emerald-900 px-4 py-2 text-sm font-bold tracking-wide text-white sm:text-base">
+              DrNatury
+            </h2>
+            <div className="flex flex-col gap-2 p-3">
+              <Link
+                href="/chat?origen=inicio"
+                className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm font-bold text-white text-center
+                           bg-gradient-to-r from-blue-600 via-emerald-500 to-green-600
+                           shadow transition-all duration-300 hover:shadow-md"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" className="shrink-0">
+                  <path d="M12 3C9 8 4 9 4 14c0 4 4 6 8 7 4-1 8-3 8-7 0-5-5-6-8-11Z" fill="currentColor" fillOpacity="0.15" />
+                  <path d="M12 21V10M12 10c0-3 2-5 5-6M12 10C11 7 9 6 6 5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Agenda tu cita
               </Link>
-            ))}
+              <Link
+                href="/login"
+                className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm font-semibold text-emerald-900 text-center
+                           border border-emerald-900/20 bg-white
+                           transition-all duration-300 hover:bg-emerald-50"
+              >
+                Iniciar sesión
+              </Link>
+            </div>
           </div>
         </div>
-      )}
+      </div>
+      <Servicios services={services} />
+      <Contactos config={config} />
+      <RedesYPie config={config} />
       {config?.whatsapp_number && (
         <a href={waLink} target="_blank" rel="noopener noreferrer" className="fixed bottom-6 right-6 bg-green-500 text-white w-16 h-16 rounded-full flex items-center justify-center shadow-lg hover:bg-green-600 transition z-50">
           <svg viewBox="0 0 24 24" fill="white" width="32" height="32">
