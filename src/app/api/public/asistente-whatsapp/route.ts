@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { generarRespuesta, ESTADO_INICIAL, type EstadoAgendado, type Correccion, type Anuncio } from "@/lib/whatsapp-bot/engine";
+import { obtenerSerieBienvenida } from "@/lib/whatsapp-bot/bienvenida";
 
 // Version PUBLICA (sin login) del "cerebro" del bot -- para la pagina
 // de demo que Vic manda por link a quien quiera (/demo-whatsapp).
@@ -37,8 +38,9 @@ export async function POST(request: NextRequest) {
     .from("whatsapp_bot_anuncios")
     .select("texto_normalizado");
   const anuncios: Anuncio[] = (anunciosRaw ?? []).map((a) => ({ textoNormalizado: a.texto_normalizado as string }));
+  const bienvenida = await obtenerSerieBienvenida(admin);
 
-  const resultado = await generarRespuesta({ mensaje, estado, correcciones, anuncios });
+  const resultado = await generarRespuesta({ mensaje, estado, correcciones, anuncios, bienvenida });
 
   return NextResponse.json(resultado);
 }

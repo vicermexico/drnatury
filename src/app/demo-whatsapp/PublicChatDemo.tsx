@@ -18,12 +18,21 @@ interface ResumenAgendado {
   costoTotal: number;
 }
 
+interface MensajeBienvenidaUI {
+  tipo: "texto" | "audio";
+  contenido: string;
+}
+
 interface MensajeUI {
   id: number;
   rol: "paciente" | "bot";
   texto: string;
   audioUrl?: string;
   agendado?: ResumenAgendado;
+}
+
+function esperar(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 const ESTADO_INICIAL: EstadoAgendado = { fase: "inicio" };
@@ -101,10 +110,28 @@ export function PublicChatDemo() {
         return;
       }
       setEstado(data.nuevoEstado);
-      setMensajes((prev) => [
-        ...prev,
-        { id: siguienteId++, rol: "bot", texto: data.respuesta, audioUrl: data.audioUrl, agendado: data.agendado },
-      ]);
+
+      // El saludo de bienvenida llega como varios mensajes (texto y/o
+      // audio, en el orden que Master armo) -- se mandan uno por uno,
+      // con una pequena pausa entre cada uno, como llegarian de verdad
+      // por WhatsApp.
+      const serieBienvenida = data.mensajesBienvenida as MensajeBienvenidaUI[] | undefined;
+      if (serieBienvenida && serieBienvenida.length > 0) {
+        for (const item of serieBienvenida) {
+          setMensajes((prev) => [
+            ...prev,
+            item.tipo === "audio"
+              ? { id: siguienteId++, rol: "bot", texto: "", audioUrl: item.contenido }
+              : { id: siguienteId++, rol: "bot", texto: item.contenido },
+          ]);
+          await esperar(700);
+        }
+      } else {
+        setMensajes((prev) => [
+          ...prev,
+          { id: siguienteId++, rol: "bot", texto: data.respuesta, audioUrl: data.audioUrl, agendado: data.agendado },
+        ]);
+      }
     } finally {
       setEnviando(false);
     }
@@ -132,6 +159,8 @@ export function PublicChatDemo() {
           <div key={m.id} className={`flex ${m.rol === "bot" ? "justify-start" : "justify-end"}`}>
             <div
               className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap shadow-sm ${
+                m.audioUrl && !m.texto ? "w-64" : ""
+              } ${
                 m.rol === "bot"
                   ? "bg-white text-gray-800 border border-gray-100 rounded-bl-sm"
                   : "bg-emerald-600 text-white rounded-br-sm"

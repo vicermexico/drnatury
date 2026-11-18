@@ -6,6 +6,11 @@ type EstadoAgendado = {
   [key: string]: unknown;
 };
 
+interface MensajeBienvenidaUI {
+  tipo: "texto" | "audio";
+  contenido: string;
+}
+
 interface MensajeUI {
   id: number;
   rol: "paciente" | "bot";
@@ -13,9 +18,14 @@ interface MensajeUI {
   nota?: string;
   audioUrl?: string;
   mensajePacienteQueLaOrigino?: string; // para poder "ensenar" esta respuesta de bot
+  esBienvenida?: boolean; // viene de la serie de bienvenida -- no se "ensena" esto
 }
 
 const ESTADO_INICIAL: EstadoAgendado = { fase: "inicio" };
+
+function esperar(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 let siguienteId = 1;
 
@@ -58,17 +68,34 @@ export function AsistenteChatDemo() {
         return;
       }
       setEstado(data.nuevoEstado);
-      setMensajes((prev) => [
-        ...prev,
-        {
-          id: siguienteId++,
-          rol: "bot",
-          texto: data.respuesta,
-          nota: data.nota,
-          audioUrl: data.audioUrl,
-          mensajePacienteQueLaOrigino: mensaje,
-        },
-      ]);
+
+      // El saludo de bienvenida llega como varios mensajes (texto y/o
+      // audio, en el orden que Master armo desde arriba) -- se mandan
+      // uno por uno, con una pequena pausa entre cada uno.
+      const serieBienvenida = data.mensajesBienvenida as MensajeBienvenidaUI[] | undefined;
+      if (serieBienvenida && serieBienvenida.length > 0) {
+        for (const item of serieBienvenida) {
+          setMensajes((prev) => [
+            ...prev,
+            item.tipo === "audio"
+              ? { id: siguienteId++, rol: "bot", texto: "", audioUrl: item.contenido, esBienvenida: true }
+              : { id: siguienteId++, rol: "bot", texto: item.contenido, esBienvenida: true },
+          ]);
+          await esperar(700);
+        }
+      } else {
+        setMensajes((prev) => [
+          ...prev,
+          {
+            id: siguienteId++,
+            rol: "bot",
+            texto: data.respuesta,
+            nota: data.nota,
+            audioUrl: data.audioUrl,
+            mensajePacienteQueLaOrigino: mensaje,
+          },
+        ]);
+      }
     } finally {
       setEnviando(false);
     }
@@ -150,8 +177,8 @@ export function AsistenteChatDemo() {
             <div className="max-w-[80%]">
               <div
                 className={`rounded-xl px-3 py-2 text-sm whitespace-pre-wrap shadow-sm ${
-                  m.rol === "bot" ? "bg-emerald-100 text-emerald-950" : "bg-white text-gray-800"
-                }`}
+                  m.audioUrl && !m.texto ? "w-64" : ""
+                } ${m.rol === "bot" ? "bg-emerald-100 text-emerald-950" : "bg-white text-gray-800"}`}
               >
                 {m.audioUrl && (
                   <audio controls preload="none" className="w-full mb-2 h-10">
@@ -160,7 +187,7 @@ export function AsistenteChatDemo() {
                 )}
                 {m.texto}
               </div>
-              {m.rol === "bot" && m.nota && (
+              {m.rol === "bot" && !m.esBienvenida && m.nota && (
                 <p
                   className={`text-[11px] mt-0.5 px-1 ${
                     m.nota === "sin_entrenar" || m.nota === "mensaje_no_de_anuncio" ? "text-amber-600" : "text-gray-400"
@@ -173,7 +200,7 @@ export function AsistenteChatDemo() {
                       : m.nota}
                 </p>
               )}
-              {m.rol === "bot" && corrigiendoId !== m.id && (
+              {m.rol === "bot" && !m.esBienvenida && corrigiendoId !== m.id && (
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => abrirCorreccion(m)}

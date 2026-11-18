@@ -346,11 +346,23 @@ export interface ResumenAgendado {
   costoTotal: number;
 }
 
+// Un mensaje de la serie de bienvenida que Master arma desde el panel
+// (/master/asistente-whatsapp) -- puede ser un audio grabado por Master
+// o un texto, en el orden que el mismo decida.
+export interface BienvenidaItem {
+  tipo: "texto" | "audio";
+  contenido: string; // el texto en si, o la URL del audio
+}
+
 export interface ResultadoRespuesta {
   respuesta: string;
   nuevoEstado: EstadoAgendado;
   nota?: string;
   audioUrl?: string;
+  // Se llena solo en el primer mensaje (el saludo de bienvenida) -- el
+  // chat lo manda como varios mensajes seguidos, en vez de uno solo,
+  // respetando el orden que Master armo.
+  mensajesBienvenida?: BienvenidaItem[];
   // Se llena solo en el mensaje donde se termina de agendar -- lo usa el
   // chat publico para ofrecer un boton de "confirmar por WhatsApp" con
   // estos datos ya escritos en el mensaje.
@@ -358,7 +370,9 @@ export interface ResultadoRespuesta {
 }
 
 // El audio de bienvenida real que Vic ya tiene grabado (lo mismo que
-// manda siempre de entrada en WhatsApp, antes del texto).
+// manda siempre de entrada en WhatsApp, antes del texto) -- queda solo
+// como respaldo por si todavia no hay nada configurado en la tabla
+// whatsapp_bot_bienvenida.
 export const WELCOME_AUDIO_URL = "/audio/bienvenida.mp3";
 
 export async function generarRespuesta(args: {
@@ -366,8 +380,9 @@ export async function generarRespuesta(args: {
   estado: EstadoAgendado;
   correcciones: Correccion[];
   anuncios?: Anuncio[];
+  bienvenida?: BienvenidaItem[];
 }): Promise<ResultadoRespuesta> {
-  const { mensaje, estado, correcciones, anuncios = [] } = args;
+  const { mensaje, estado, correcciones, anuncios = [], bienvenida = [] } = args;
   const normalizado = normalizar(mensaje);
 
   // 1) Primer mensaje de la conversacion.
@@ -386,11 +401,24 @@ export async function generarRespuesta(args: {
       };
     }
     const codigo = detectarCodigoAnuncio(mensaje);
+    const serieBienvenida: BienvenidaItem[] =
+      bienvenida.length > 0
+        ? bienvenida
+        : [
+            { tipo: "audio", contenido: WELCOME_AUDIO_URL },
+            { tipo: "texto", contenido: WELCOME_TEXT },
+          ];
     return {
-      respuesta: WELCOME_TEXT,
+      // Se deja tambien en "respuesta" (solo el texto, unido) por si algo
+      // mas adelante necesita leerlo de un jalon -- lo que de verdad
+      // manda el chat es "mensajesBienvenida", uno por uno.
+      respuesta: serieBienvenida
+        .filter((m) => m.tipo === "texto")
+        .map((m) => m.contenido)
+        .join("\n\n"),
       nuevoEstado: { fase: "conversando" },
       nota: codigo ? `Código de anuncio detectado: ${codigo}` : undefined,
-      audioUrl: WELCOME_AUDIO_URL,
+      mensajesBienvenida: serieBienvenida,
     };
   }
 

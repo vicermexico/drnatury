@@ -1,5 +1,6 @@
 import { AsistenteChatDemo } from "./AsistenteChatDemo";
 import { AnunciosManager } from "./AnunciosManager";
+import { BienvenidaManager } from "./BienvenidaManager";
 
 export default function AsistenteWhatsappPage() {
   return (
@@ -11,6 +12,7 @@ export default function AsistenteWhatsappPage() {
           todavia NO esta conectado a tu WhatsApp real, es solo de prueba.
         </p>
       </div>
+      <BienvenidaManager />
       <AnunciosManager />
       <AsistenteChatDemo />
     </div>
