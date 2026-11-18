@@ -239,6 +239,15 @@ function detectarParteCuerpo(normalizado: string): string {
   return match ? match.frase : "eso";
 }
 
+// Respuesta cuando la persona menciona un dolor o molestia. Antes decia
+// "debe ser algo sencillo", pero eso suena a que se le resta importancia
+// a lo que sea que haya dicho (incluso algo serio, ej. "tengo mucho
+// sangrado") -- ahora transmite la misma calma sin adelantar un
+// diagnostico, y deja claro que el escaneo es justo para saber que es.
+function respuestaSintoma(parte: string): string {
+  return `Entiendo, a veces este tipo de molestias con ${parte} está ocasionado por algo fácil de remediar. No se preocupe, que vamos a dar con la raíz del problema y la mejor solución, pero primero hay que hacer el escaneo para tener un buen diagnóstico.`;
+}
+
 // Intenta leer un codigo de anuncio al inicio del primer mensaje, ej.
 // "B3 - Hola..." o "C6, hola...". Solo para mostrarlo en la demo -- el
 // codigo real en produccion vendria del nombre del contacto (P-####) o de
@@ -587,7 +596,7 @@ async function calcularRespuestaBase(
           if (contieneAlguna(normalizado, SINTOMA_KEYWORDS)) {
             const parte = detectarParteCuerpo(normalizado);
             return {
-              respuesta: `Ah ok, no se preocupe, debe ser algo sencillo con ${parte}. De cualquier forma, para salir de dudas de qué es exactamente, con el escaneo lo revisamos bien. ¿Sería en consultorio o a domicilio?`,
+              respuesta: `${respuestaSintoma(parte)} ¿Sería en consultorio o a domicilio?`,
               nuevoEstado: estado,
             };
           }
@@ -809,7 +818,7 @@ async function calcularRespuestaBase(
   if (contieneAlguna(normalizado, SINTOMA_KEYWORDS)) {
     const parte = detectarParteCuerpo(normalizado);
     return {
-      respuesta: `Ah ok, no se preocupe, debe ser algo sencillo con ${parte}. De cualquier forma, para salir de dudas de qué es exactamente, con el escaneo lo revisamos bien. ¿Para cuándo le gustaría agendar su cita?`,
+      respuesta: `${respuestaSintoma(parte)} ¿Para cuándo le gustaría agendar su cita?`,
       nuevoEstado: { fase: "agendando", paso: "modalidad" },
     };
   }
