@@ -7,11 +7,23 @@ type EstadoAgendado = {
   [key: string]: unknown;
 };
 
+interface ResumenAgendado {
+  nombre: string;
+  celular: string;
+  dia: string;
+  hora: string;
+  modalidad: string;
+  lugar?: string;
+  personas: number;
+  costoTotal: number;
+}
+
 interface MensajeUI {
   id: number;
   rol: "paciente" | "bot";
   texto: string;
   audioUrl?: string;
+  agendado?: ResumenAgendado;
 }
 
 const ESTADO_INICIAL: EstadoAgendado = { fase: "inicio" };
@@ -20,6 +32,25 @@ const ESTADO_INICIAL: EstadoAgendado = { fase: "inicio" };
 // borrar, solo mandar, para que la persona vea exactamente lo mismo
 // que le llegaria a Vic al hacerle clic a su anuncio de verdad.
 const MENSAJE_INICIAL = "B3 - ¡Hola! ¿Podrían darme más información?";
+
+// Numero de WhatsApp de Vic -- a donde se manda la confirmacion final de
+// la cita (todavia no hay WhatsApp real conectado al bot, asi que el
+// paciente le da clic y el mismo manda el mensaje ya escrito).
+const VIC_WHATSAPP_NUMERO = "528117105018";
+
+function construirMensajeWhatsapp(a: ResumenAgendado): string {
+  return (
+    `Hola, ya agendé mi cita con el asistente de DrNatury:\n\n` +
+    `• Nombre: ${a.nombre}\n` +
+    `• Celular: ${a.celular}\n` +
+    `• Día: ${a.dia}\n` +
+    `• Hora: ${a.hora}\n` +
+    `• Modalidad: ${a.modalidad}${a.lugar ? ` (${a.lugar})` : ""}\n` +
+    `• # Personas: ${a.personas}\n` +
+    `• Costo total: $${a.costoTotal}\n\n` +
+    `¿Me pueden confirmar y recordar mi cita por este medio (WhatsApp)?`
+  );
+}
 
 let siguienteId = 1;
 
@@ -64,18 +95,11 @@ export function PublicChatDemo() {
       setEstado(data.nuevoEstado);
       setMensajes((prev) => [
         ...prev,
-        { id: siguienteId++, rol: "bot", texto: data.respuesta, audioUrl: data.audioUrl },
+        { id: siguienteId++, rol: "bot", texto: data.respuesta, audioUrl: data.audioUrl, agendado: data.agendado },
       ]);
     } finally {
       setEnviando(false);
     }
-  }
-
-  function reiniciar() {
-    setMensajes([]);
-    setEstado(ESTADO_INICIAL);
-    setPrimerMensajeEnviado(false);
-    setInput("");
   }
 
   return (
@@ -88,14 +112,6 @@ export function PublicChatDemo() {
             <p className="text-[11px] text-emerald-50/80 leading-tight">Asistente en línea</p>
           </div>
         </div>
-        {mensajes.length > 0 && (
-          <button
-            onClick={reiniciar}
-            className="text-[11px] font-medium text-white/90 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10"
-          >
-            🔄 Empezar de nuevo
-          </button>
-        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-gradient-to-b from-emerald-50/40 to-white">
@@ -119,6 +135,18 @@ export function PublicChatDemo() {
                 </audio>
               )}
               {m.texto}
+              {m.agendado && (
+                <a
+                  href={`https://wa.me/${VIC_WHATSAPP_NUMERO}?text=${encodeURIComponent(
+                    construirMensajeWhatsapp(m.agendado)
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white text-sm font-medium px-4 py-2 hover:brightness-95"
+                >
+                  📲 Confirmar por WhatsApp
+                </a>
+              )}
             </div>
           </div>
         ))}
