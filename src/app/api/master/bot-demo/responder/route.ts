@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { guardRole } from "@/lib/auth/api-guard";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { generarRespuesta, ESTADO_INICIAL, type EstadoAgendado, type Correccion, type Anuncio } from "@/lib/whatsapp-bot/engine";
+import { obtenerSerieBienvenida } from "@/lib/whatsapp-bot/bienvenida";
 
 // Pagina de demo/entrenamiento del asistente de WhatsApp (ver
 // /master/asistente-whatsapp): Master escribe como si fuera un paciente,
@@ -39,8 +40,9 @@ export async function POST(request: NextRequest) {
     .from("whatsapp_bot_anuncios")
     .select("texto_normalizado");
   const anuncios: Anuncio[] = (anunciosRaw ?? []).map((a) => ({ textoNormalizado: a.texto_normalizado as string }));
+  const bienvenida = await obtenerSerieBienvenida(admin);
 
-  const resultado = await generarRespuesta({ mensaje, estado, correcciones, anuncios });
+  const resultado = await generarRespuesta({ mensaje, estado, correcciones, anuncios, bienvenida });
 
   return NextResponse.json(resultado);
 }
