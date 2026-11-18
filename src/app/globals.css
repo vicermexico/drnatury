@@ -28,3 +28,101 @@ body {
 input, textarea, select {
   color: #111827 !important;
 }
+
+/* ---- Portada de inicio: fondos rotando y "personajes" (replica de appvlc,
+   en verde en vez de azul marino) ---- */
+
+:root {
+  --sombra-personaje: drop-shadow(0 6px 8px rgba(6, 78, 59, 0.55))
+    drop-shadow(0 20px 26px rgba(0, 0, 0, 0.5));
+}
+
+@keyframes personaje-entra-izq {
+  0% {
+    opacity: 0;
+    transform: translateX(-85vw);
+    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+    filter: var(--sombra-personaje);
+  }
+}
+
+@keyframes personaje-entra-der {
+  0% {
+    opacity: 0;
+    transform: translateX(85vw);
+    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+    filter: var(--sombra-personaje);
+  }
+}
+
+@keyframes grupo-sale-izq {
+  to {
+    opacity: 0;
+    transform: translateX(-45vw);
+  }
+}
+
+@keyframes grupo-sale-der {
+  to {
+    opacity: 0;
+    transform: translateX(45vw);
+  }
+}
+
+.personaje-izq {
+  animation: personaje-entra-izq 1500ms cubic-bezier(0.4, 0.05, 0.2, 1) both;
+  filter: var(--sombra-personaje);
+}
+.personaje-der {
+  animation: personaje-entra-der 1500ms cubic-bezier(0.4, 0.05, 0.2, 1) both;
+  filter: var(--sombra-personaje);
+}
+.grupo-sale-izq {
+  animation: grupo-sale-izq 800ms ease-in both;
+}
+.grupo-sale-der {
+  animation: grupo-sale-der 800ms ease-in both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .personaje-izq,
+  .personaje-der {
+    animation: none;
+  }
+  .grupo-sale-izq,
+  .grupo-sale-der {
+    animation: grupo-sale-suave 800ms ease-in both;
+  }
+  @keyframes grupo-sale-suave {
+    to {
+      opacity: 0;
+    }
+  }
+}
+
+/* Secciones que aparecen al bajar la pagina (usado por el componente Revelar) */
+.revelar {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 800ms ease-out var(--retraso, 0ms),
+    transform 800ms ease-out var(--retraso, 0ms);
+}
+.revelar.visto {
+  opacity: 1;
+  transform: none;
+}

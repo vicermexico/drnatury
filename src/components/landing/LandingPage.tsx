@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { Fondos, type Fondo } from "./Fondos";
+import { Personajes, type Personaje } from "./Personajes";
 interface Config {
   whatsapp_number: string;
   hero_title: string;
@@ -21,8 +23,10 @@ interface Service {
 interface Props {
   config: Config;
   services: Service[];
+  fondos?: Fondo[];
+  personajes?: Personaje[];
 }
-export function LandingPage({ config, services }: Props) {
+export function LandingPage({ config, services, fondos = [], personajes = [] }: Props) {
   const waLink = `https://api.whatsapp.com/send?phone=${config?.whatsapp_number}&text=Hola%21%20Quisiera%20mas%20informacion.`;
   const heroType = config?.hero_type ?? "image";
   const heroImg = config?.splash_gif_url || "/nombre.jpg";
@@ -41,8 +45,10 @@ export function LandingPage({ config, services }: Props) {
   }, [showingVideo, heroVideoLogo]);
   return (
     <div className="min-h-screen bg-white">
-      <div className="relative w-full h-screen flex flex-col items-center justify-end pb-32">
-        {showingVideo ? (
+      <div className="relative w-full h-screen flex flex-col items-center justify-end pb-32 overflow-hidden">
+        {fondos.length > 0 ? (
+          <Fondos fondos={fondos} />
+        ) : showingVideo ? (
           <video
             src={heroVideo}
             autoPlay
@@ -55,6 +61,7 @@ export function LandingPage({ config, services }: Props) {
           <Image src={heroImg || "/nombre.jpg"} alt="Dr. BioEscaner" fill className="object-cover" unoptimized priority />
         )}
         <div className="absolute inset-0 bg-black/30" />
+        <Personajes personajes={personajes} />
         {showingVideo && heroVideoLogo && (
           <div className="absolute inset-x-0 top-[32%] flex justify-center pointer-events-none">
             <Image
