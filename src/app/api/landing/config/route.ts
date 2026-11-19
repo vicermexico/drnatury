@@ -12,6 +12,9 @@ export async function PATCH(req: NextRequest) {
     whatsapp_number?: string;
     hero_title?: string;
     hero_subtitle?: string;
+    chat_perfil_nombre?: string;
+    chat_perfil_foto?: string | null;
+    anuncio_facebook_url?: string | null;
   };
 
   const admin = createAdminClient();
