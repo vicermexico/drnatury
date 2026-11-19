@@ -1,9 +1,18 @@
 import Link from "next/link";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { AsistenteChatDemo } from "./AsistenteChatDemo";
 import { AnunciosManager } from "./AnunciosManager";
 import { BienvenidaManager } from "./BienvenidaManager";
+import { ChatPerfilEditor } from "./ChatPerfilEditor";
 
-export default function AsistenteWhatsappPage() {
+export default async function AsistenteWhatsappPage() {
+  const admin = createAdminClient();
+  const { data: config } = await admin
+    .from("landing_config")
+    .select("chat_perfil_nombre, chat_perfil_foto, anuncio_facebook_url")
+    .limit(1)
+    .maybeSingle();
+
   return (
     <div className="max-w-2xl space-y-6">
       <div className="flex items-start justify-between gap-3">
@@ -29,6 +38,11 @@ export default function AsistenteWhatsappPage() {
           </Link>
         </div>
       </div>
+      <ChatPerfilEditor
+        nombreInicial={config?.chat_perfil_nombre || "DrNatury"}
+        fotoInicial={config?.chat_perfil_foto ?? null}
+        facebookUrlInicial={config?.anuncio_facebook_url ?? null}
+      />
       <BienvenidaManager />
       <AnunciosManager />
       <AsistenteChatDemo />
