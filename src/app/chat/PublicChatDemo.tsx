@@ -410,6 +410,13 @@ export function PublicChatDemo({
             📞
           </button>
         )}
+        <button
+          onClick={() => setMostrarOpciones(true)}
+          title="Más opciones"
+          className="w-10 h-10 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 shrink-0 text-xl leading-none"
+        >
+          ⋮
+        </button>
       </div>
 
       {modoLlamada && (
@@ -461,17 +468,30 @@ export function PublicChatDemo({
             </button>
             <p className="text-sm font-semibold text-gray-900">Info. del contacto</p>
           </div>
-          <div className="flex-1 overflow-y-auto overscroll-contain flex flex-col items-center px-6 py-8">
-            <div className="w-28 h-28 rounded-full bg-emerald-100 flex items-center justify-center text-4xl overflow-hidden mb-3 shrink-0">
-              {perfilFoto ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={perfilFoto} alt={perfilNombre} className="w-full h-full object-cover" />
-              ) : (
-                "🌿"
-              )}
+          <div className="flex-1 overflow-y-auto overscroll-contain flex flex-col items-center">
+            <div className="relative w-full shrink-0">
+              <div className="h-32 w-full overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-700">
+                {perfilFoto && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={perfilFoto}
+                    alt=""
+                    aria-hidden="true"
+                    className="w-full h-full object-cover scale-125 blur-md opacity-70"
+                  />
+                )}
+              </div>
+              <div className="absolute left-1/2 -translate-x-1/2 -bottom-11 w-24 h-24 rounded-full border-4 border-white bg-emerald-100 flex items-center justify-center text-4xl overflow-hidden shadow-lg">
+                {perfilFoto ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={perfilFoto} alt={perfilNombre} className="w-full h-full object-cover" />
+                ) : (
+                  "🌿"
+                )}
+              </div>
             </div>
-            <p className="text-lg font-semibold text-gray-900">{perfilNombre}</p>
-            <div className="w-full mt-6 space-y-2">
+            <p className="text-lg font-semibold text-gray-900 mt-14">{perfilNombre}</p>
+            <div className="w-full mt-6 px-6 pb-8 space-y-2">
               <a
                 href="https://www.drnatury.com"
                 target="_blank"
