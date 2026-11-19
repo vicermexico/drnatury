@@ -54,6 +54,21 @@ function obtenerMensajeInicial(): string {
   return params.get("origen") === "inicio" ? MENSAJE_INICIAL_AGENDAR : MENSAJE_INICIAL_ANUNCIO;
 }
 
+function obtenerOrigen(): "inicio" | "anuncio" {
+  if (typeof window === "undefined") return "anuncio";
+  const params = new URLSearchParams(window.location.search);
+  return params.get("origen") === "inicio" ? "inicio" : "anuncio";
+}
+
+// Un id por conversacion (se genera una sola vez al abrir el chat) para
+// que Master pueda ver en su panel cuantos mensajes llegaron y cuantos
+// se cerraron con cita -- ver tabla chat_leads y
+// /master/asistente-whatsapp/mensajes.
+function nuevoIdConversacion(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 // Numero de WhatsApp de Vic -- a donde se manda la confirmacion final de
 // la cita (todavia no hay WhatsApp real conectado al bot, asi que el
 // paciente le da clic y el mismo manda el mensaje ya escrito).
@@ -85,6 +100,8 @@ export function PublicChatDemo() {
   // boton "Agenda tu cita" de la pagina de inicio (?origen=inicio) o
   // del link normal de anuncio (sin ese query param).
   const [mensajeInicial] = useState<string>(obtenerMensajeInicial);
+  const [origen] = useState<"inicio" | "anuncio">(obtenerOrigen);
+  const [conversacionId] = useState<string>(nuevoIdConversacion);
   const finDeMensajesRef = useRef<HTMLDivElement>(null);
 
   // Cada vez que llega un mensaje nuevo (o mientras el bot esta
@@ -115,7 +132,7 @@ export function PublicChatDemo() {
       const res = await fetch("/api/public/asistente-whatsapp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mensaje, estado }),
+        body: JSON.stringify({ mensaje, estado, conversacionId, origen }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data) {
