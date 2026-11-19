@@ -189,19 +189,36 @@ export function ChatPerfilEditor({ nombreInicial, fotoInicial, facebookUrlInicia
         </div>
       </div>
 
-      {/* Pantalla de opciones -- igual a la del chat */}
-      <div className="flex flex-col items-center px-6 py-6 bg-white">
-        <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center text-3xl overflow-hidden mb-2">
-          {foto ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={foto} alt={nombre} className="w-full h-full object-cover" />
-          ) : (
-            "🌿"
-          )}
+      {/* Pantalla de opciones -- igual a la del chat (foto de portada
+          con el circulo encima, como en WhatsApp) */}
+      <div className="flex flex-col items-center bg-white">
+        <div className="relative w-full shrink-0">
+          <div className="h-24 w-full overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-700">
+            {foto && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={foto} alt="" aria-hidden="true" className="w-full h-full object-cover scale-125 blur-md opacity-70" />
+            )}
+          </div>
+          <div className="absolute left-1/2 -translate-x-1/2 -bottom-8 w-16 h-16 rounded-full border-4 border-white bg-emerald-100 flex items-center justify-center text-2xl overflow-hidden shadow-lg">
+            {foto ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={foto} alt={nombre} className="w-full h-full object-cover" />
+            ) : (
+              "🌿"
+            )}
+          </div>
+          <button
+            onClick={() => inputFotoRef.current?.click()}
+            disabled={statusFoto === "loading"}
+            title="Cambiar foto"
+            className="absolute left-1/2 translate-x-3 -bottom-9 w-6 h-6 rounded-full bg-white shadow border border-gray-200 flex items-center justify-center text-xs disabled:opacity-50"
+          >
+            {statusFoto === "loading" ? "…" : "✏️"}
+          </button>
         </div>
-        <p className="text-base font-semibold text-gray-900">{nombre}</p>
+        <p className="text-base font-semibold text-gray-900 mt-10">{nombre}</p>
 
-        <div className="w-full mt-4 space-y-2">
+        <div className="w-full mt-4 px-6 pb-6 space-y-2">
           <div className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-500">
             🌐 www.drnatury.com <span className="text-[10px] text-gray-400">(fijo, no se edita)</span>
           </div>

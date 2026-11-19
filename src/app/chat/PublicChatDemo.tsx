@@ -68,30 +68,41 @@ function obtenerVozFemenina(): SpeechSynthesisVoice | undefined {
 // Lee un texto en voz alta con la voz del navegador (Web Speech API /
 // SpeechSynthesis) -- igual que el dictado, no tiene ningun costo ni
 // servicio externo.
+//
+// Importante: nunca se queda esperando a que carguen las voces (en
+// varios celulares Android ese aviso nunca llega y la llamada se
+// quedaba pegada sin decir nada) -- si todavia no hay voces cargadas,
+// habla de una vez con la voz que el navegador use por default. Y por
+// si la propia voz nunca avisa que termino (tambien pasa en algunos
+// celulares), hay un tiempo maximo de espera para que la llamada
+// siempre pueda seguir aunque no se escuche nada.
 function hablar(texto: string, opts?: { alTerminar?: () => void }) {
   if (typeof window === "undefined" || !window.speechSynthesis || !texto.trim()) {
     opts?.alTerminar?.();
     return;
   }
-  const emitir = () => {
-    const utter = new SpeechSynthesisUtterance(texto);
-    utter.lang = "es-MX";
-    const voz = obtenerVozFemenina();
-    if (voz) utter.voice = voz;
-    utter.onend = () => opts?.alTerminar?.();
-    utter.onerror = () => opts?.alTerminar?.();
-    window.speechSynthesis.speak(utter);
-    // Bug conocido de Chrome: a veces se come el principio de lo que
-    // va a decir si el navegador llevaba un rato sin hablar -- este
-    // "truco" (pausar y reanudar justo despues de mandarlo a hablar)
-    // evita que se coma esas primeras letras.
-    window.speechSynthesis.pause();
-    window.speechSynthesis.resume();
+  const utter = new SpeechSynthesisUtterance(texto);
+  utter.lang = "es-MX";
+  const voz = obtenerVozFemenina();
+  if (voz) utter.voice = voz;
+
+  let yaTermino = false;
+  const terminar = () => {
+    if (yaTermino) return;
+    yaTermino = true;
+    opts?.alTerminar?.();
   };
-  if (window.speechSynthesis.getVoices().length === 0) {
-    window.speechSynthesis.onvoiceschanged = emitir;
-  } else {
-    emitir();
+  utter.onend = terminar;
+  utter.onerror = terminar;
+  // Tiempo maximo: lo que tardaria una persona leyendolo despacio, con
+  // un minimo de 4 segundos y un tope de 20.
+  const tiempoMaximo = Math.min(20000, Math.max(4000, texto.length * 90));
+  setTimeout(terminar, tiempoMaximo);
+
+  try {
+    window.speechSynthesis.speak(utter);
+  } catch {
+    terminar();
   }
 }
 
@@ -145,6 +156,17 @@ function construirMensajeWhatsapp(a: ResumenAgendado): string {
     `• # Personas: ${a.personas}\n` +
     `• Costo total: $${a.costoTotal}\n\n` +
     `¿Me pueden confirmar y recordar mi cita por este medio (WhatsApp)?`
+  );
+}
+
+// Icono de microfono igual al que usa WhatsApp (en vez del emoji 🎤,
+// que se ve distinto segun el celular).
+function IconoMicrofono({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Z" />
+      <path d="M19 11a1 1 0 0 0-2 0 5 5 0 0 1-10 0 1 1 0 0 0-2 0 7 7 0 0 0 6 6.92V20H9a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2h-2v-2.08A7 7 0 0 0 19 11Z" />
+    </svg>
   );
 }
 
@@ -388,6 +410,13 @@ export function PublicChatDemo({
             📞
           </button>
         )}
+        <button
+          onClick={() => setMostrarOpciones(true)}
+          title="Más opciones"
+          className="w-10 h-10 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 shrink-0 text-xl leading-none"
+        >
+          ⋮
+        </button>
       </div>
 
       {modoLlamada && (
@@ -439,17 +468,30 @@ export function PublicChatDemo({
             </button>
             <p className="text-sm font-semibold text-gray-900">Info. del contacto</p>
           </div>
-          <div className="flex-1 overflow-y-auto overscroll-contain flex flex-col items-center px-6 py-8">
-            <div className="w-28 h-28 rounded-full bg-emerald-100 flex items-center justify-center text-4xl overflow-hidden mb-3 shrink-0">
-              {perfilFoto ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={perfilFoto} alt={perfilNombre} className="w-full h-full object-cover" />
-              ) : (
-                "🌿"
-              )}
+          <div className="flex-1 overflow-y-auto overscroll-contain flex flex-col items-center">
+            <div className="relative w-full shrink-0">
+              <div className="h-32 w-full overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-700">
+                {perfilFoto && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={perfilFoto}
+                    alt=""
+                    aria-hidden="true"
+                    className="w-full h-full object-cover scale-125 blur-md opacity-70"
+                  />
+                )}
+              </div>
+              <div className="absolute left-1/2 -translate-x-1/2 -bottom-11 w-24 h-24 rounded-full border-4 border-white bg-emerald-100 flex items-center justify-center text-4xl overflow-hidden shadow-lg">
+                {perfilFoto ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={perfilFoto} alt={perfilNombre} className="w-full h-full object-cover" />
+                ) : (
+                  "🌿"
+                )}
+              </div>
             </div>
-            <p className="text-lg font-semibold text-gray-900">{perfilNombre}</p>
-            <div className="w-full mt-6 space-y-2">
+            <p className="text-lg font-semibold text-gray-900 mt-14">{perfilNombre}</p>
+            <div className="w-full mt-6 px-6 pb-8 space-y-2">
               <a
                 href="https://www.drnatury.com"
                 target="_blank"
@@ -561,7 +603,7 @@ export function PublicChatDemo({
               escuchando ? "bg-red-500 text-white animate-pulse" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
-            🎤
+            <IconoMicrofono className="w-5 h-5" />
           </button>
         )}
         <button
