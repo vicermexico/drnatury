@@ -120,9 +120,9 @@ export function ChatPerfilEditor({ nombreInicial, fotoInicial, facebookUrlInicia
       </p>
 
       {/* Encabezado -- igual al de /chat */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-[#075E54]">
+      <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200">
         <div className="relative shrink-0">
-          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-lg overflow-hidden">
+          <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-lg overflow-hidden">
             {foto ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={foto} alt={nombre} className="w-full h-full object-cover" />
@@ -134,7 +134,7 @@ export function ChatPerfilEditor({ nombreInicial, fotoInicial, facebookUrlInicia
             onClick={() => inputFotoRef.current?.click()}
             disabled={statusFoto === "loading"}
             title="Cambiar foto"
-            className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white shadow flex items-center justify-center text-[10px] disabled:opacity-50"
+            className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white shadow border border-gray-200 flex items-center justify-center text-[10px] disabled:opacity-50"
           >
             {statusFoto === "loading" ? "…" : "✏️"}
           </button>
@@ -153,7 +153,7 @@ export function ChatPerfilEditor({ nombreInicial, fotoInicial, facebookUrlInicia
         <div className="min-w-0 flex-1">
           {!editandoNombre ? (
             <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-white leading-tight truncate">{nombre}</p>
+              <p className="text-sm font-semibold text-gray-900 leading-tight truncate">{nombre}</p>
               <Lapiz
                 title="Cambiar nombre"
                 onClick={() => {
@@ -167,7 +167,7 @@ export function ChatPerfilEditor({ nombreInicial, fotoInicial, facebookUrlInicia
               <input
                 value={borradorNombre}
                 onChange={(e) => setBorradorNombre(e.target.value)}
-                className="min-w-0 flex-1 rounded-lg px-2 py-1 text-sm text-gray-900"
+                className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2 py-1 text-sm text-gray-900"
                 autoFocus
               />
               <button
@@ -179,13 +179,13 @@ export function ChatPerfilEditor({ nombreInicial, fotoInicial, facebookUrlInicia
               </button>
               <button
                 onClick={() => setEditandoNombre(false)}
-                className="text-[11px] text-emerald-100/80 px-1"
+                className="text-[11px] text-gray-400 px-1"
               >
                 ✕
               </button>
             </div>
           )}
-          <p className="text-[11px] text-emerald-100/80 leading-tight">en línea</p>
+          <p className="text-[11px] text-gray-500 leading-tight">en línea</p>
         </div>
       </div>
 
