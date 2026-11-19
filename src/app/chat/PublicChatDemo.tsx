@@ -334,10 +334,8 @@ export function PublicChatDemo({
           onKeyDown={(e) => {
             if (e.key === "Enter") enviarMensaje();
           }}
-          placeholder="Escribe tu mensaje..."
-          className={`flex-1 rounded-full border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
-            !primerMensajeEnviado ? "bg-gray-50 text-gray-700" : ""
-          }`}
+          placeholder="Mensaje"
+          className="flex-1 rounded-full border border-gray-700 bg-[#2a3942] text-white placeholder-gray-400 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
         {primerMensajeEnviado && dictadoSoportado && (
           <button
