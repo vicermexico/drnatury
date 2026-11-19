@@ -1,6 +1,9 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cstToUTC } from "./availability";
+import { createGoogleCalendarEvent } from "@/lib/calendar/google-events";
+import { buildConfirmUrl, buildUbicacionUrl } from "./tokens";
+import { ensureGoogleContact } from "@/lib/contacts/google-contacts";
 
 // Registra una cita "rapida" (sin cuenta de paciente de verdad) usando el
 // mismo RPC book_appointment() que ya usa el resto de la app -- por lo
@@ -34,6 +37,10 @@ export interface CitaRapidaResultado {
   ok: boolean;
   appointmentId?: string;
   error?: string;
+  confirmUrl?: string;
+  whatsappUrl?: string | null;
+  contactCode?: string | null;
+  calendarSynced?: boolean;
 }
 
 export async function crearCitaRapida(
@@ -129,5 +136,58 @@ export async function crearCitaRapida(
     })
     .eq("id", appointmentId);
 
-  return { ok: true, appointmentId };
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.drnatury.com";
+  const confirmUrl = buildConfirmUrl(appointmentId, baseUrl);
+
+  // Guarda al paciente en el Directorio de contactos del celular de
+  // Master (via Google Contacts), con un codigo "P-####" en vez del
+  // nombre real -- best-effort: si no esta conectado o falla, no se
+  // rompe el agendado. Se hace ANTES de crear el evento de Calendar
+  // para poder usar el mismo codigo en el titulo (igual que /api/quick/book).
+  let contactCode: string | null = null;
+  if (input.telefonoDigits) {
+    const contactResult = await ensureGoogleContact(input.telefonoDigits);
+    contactCode = contactResult.code;
+  }
+
+  let whatsappUrl: string | null = null;
+  if (input.telefonoDigits) {
+    const waPhone = input.telefonoDigits.length === 10 ? `52${input.telefonoDigits}` : input.telefonoDigits;
+    let waMensaje = `Hola ${input.nombre}, te escribo de DrNatury para confirmar tu cita del ${input.fechaISO} a las ${input.hora24}. ¿Puedes confirmarla?`;
+    if (esDomicilio) {
+      waMensaje += `\n\nPara llegar sin problema, ¿nos compartes tu ubicación aquí? ${buildUbicacionUrl(appointmentId, baseUrl)}`;
+    }
+    whatsappUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(waMensaje)}`;
+  }
+
+  // Evento directo en Google Calendar -- tambien best-effort (ver nota de
+  // createGoogleCalendarEvent: nunca lanza error hacia arriba).
+  const location = esDomicilio ? (input.lugar || "A domicilio") : (input.lugar || "Consultorio");
+  const summaryPartes = [String(input.numPersonas)];
+  if (input.lugar) summaryPartes.push(input.lugar);
+  summaryPartes.push(contactCode ?? input.nombre);
+  const summary = summaryPartes.join(" ");
+
+  const descripcionPartes = [`${input.nombre} — ${confirmUrl}`];
+  if (input.costoTotal) descripcionPartes.push(`$${input.costoTotal}`);
+  const { id: googleEventId } = await createGoogleCalendarEvent({
+    summary,
+    description: descripcionPartes.join("\n"),
+    location,
+    startISO: startsAt.toISOString(),
+    endISO: endsAt.toISOString(),
+    colorId: esDomicilio ? "5" : undefined, // 5 = Banana (amarillo)
+  });
+  if (googleEventId) {
+    await admin.from("appointments").update({ google_event_id: googleEventId }).eq("id", appointmentId);
+  }
+
+  return {
+    ok: true,
+    appointmentId,
+    confirmUrl,
+    whatsappUrl,
+    contactCode,
+    calendarSynced: !!googleEventId,
+  };
 }
