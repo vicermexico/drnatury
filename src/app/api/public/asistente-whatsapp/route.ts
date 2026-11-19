@@ -21,6 +21,8 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({})) as {
     mensaje?: string;
     estado?: EstadoAgendado;
+    conversacionId?: string;
+    origen?: string;
   };
 
   const mensaje = (body.mensaje ?? "").trim();
@@ -30,6 +32,30 @@ export async function POST(request: NextRequest) {
   const estado: EstadoAgendado = body.estado ?? ESTADO_INICIAL;
 
   const admin = createAdminClient();
+
+  // Registro ligero de la conversacion (ver tabla chat_leads y
+  // /master/asistente-whatsapp/mensajes): un id por conversacion que el
+  // chat genera una sola vez y manda en cada mensaje -- si es la primera
+  // vez que se ve ese id, se crea el renglon. No bloquea la respuesta si
+  // falla (es solo para las estadisticas de Master).
+  const conversacionId = body.conversacionId;
+  if (conversacionId) {
+    try {
+      const { data: existente } = await admin
+        .from("chat_leads")
+        .select("id")
+        .eq("id", conversacionId)
+        .maybeSingle();
+      if (!existente) {
+        await admin.from("chat_leads").insert({
+          id: conversacionId,
+          origen: body.origen === "inicio" ? "inicio" : "anuncio",
+        });
+      }
+    } catch (err) {
+      console.error("Error registrando el chat_lead:", err);
+    }
+  }
   const { data: correccionesRaw } = await admin
     .from("whatsapp_bot_correcciones")
     .select("disparador, respuesta");
@@ -67,6 +93,11 @@ export async function POST(request: NextRequest) {
       });
       if (!resultadoCita.ok) {
         console.error("No se pudo registrar la cita del chat publico en la plataforma:", resultadoCita.error, agendado);
+      } else if (conversacionId) {
+        await admin
+          .from("chat_leads")
+          .update({ cerrada_con_cita: true, appointment_id: resultadoCita.appointmentId })
+          .eq("id", conversacionId);
       }
     } catch (err) {
       console.error("Error registrando la cita del chat publico en la plataforma:", err);
