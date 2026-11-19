@@ -52,6 +52,12 @@ export async function POST(request: NextRequest) {
           origen: body.origen === "inicio" ? "inicio" : "anuncio",
         });
       }
+      // Se va guardando el texto de cada mensaje del paciente -- solo se
+      // queda guardado si la conversacion al final NO se cierra con cita
+      // (en cuanto se cierra, se borra mas abajo), para que Master pueda
+      // revisar en donde se "rego" el bot en
+      // /master/asistente-whatsapp/revision.
+      await admin.from("chat_messages").insert({ lead_id: conversacionId, rol: "paciente", texto: mensaje });
     } catch (err) {
       console.error("Error registrando el chat_lead:", err);
     }
@@ -68,6 +74,24 @@ export async function POST(request: NextRequest) {
   const bienvenida = await obtenerSerieBienvenida(admin);
 
   const resultado = await generarRespuesta({ mensaje, estado, correcciones, anuncios, bienvenida, canalPublico: true });
+
+  if (conversacionId) {
+    try {
+      if (resultado.mensajesBienvenida && resultado.mensajesBienvenida.length > 0) {
+        await admin.from("chat_messages").insert(
+          resultado.mensajesBienvenida.map((item) => ({
+            lead_id: conversacionId,
+            rol: "bot" as const,
+            texto: item.tipo === "audio" ? "[audio de bienvenida]" : item.contenido,
+          }))
+        );
+      } else {
+        await admin.from("chat_messages").insert({ lead_id: conversacionId, rol: "bot", texto: resultado.respuesta });
+      }
+    } catch (err) {
+      console.error("Error registrando la respuesta del bot:", err);
+    }
+  }
 
   // Si justo en este turno se termino de agendar (el bot ya dio el
   // resumen final), se registra la cita de verdad en la plataforma --
@@ -98,6 +122,10 @@ export async function POST(request: NextRequest) {
           .from("chat_leads")
           .update({ cerrada_con_cita: true, appointment_id: resultadoCita.appointmentId })
           .eq("id", conversacionId);
+        // Ya se cerro con cita -- no hace falta que Master la revise, asi
+        // que se borra el texto guardado (solo se quedan las que NO
+        // cerraron, ver tabla chat_messages).
+        await admin.from("chat_messages").delete().eq("lead_id", conversacionId);
       }
     } catch (err) {
       console.error("Error registrando la cita del chat publico en la plataforma:", err);

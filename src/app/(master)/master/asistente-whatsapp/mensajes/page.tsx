@@ -101,10 +101,14 @@ export default async function MensajesChatPage({
           <p className="text-2xl font-bold text-emerald-700">{cerrados.length}</p>
           <p className="text-xs text-emerald-700/80 mt-1">Cerrados con cita</p>
         </div>
-        <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 text-center">
+        <Link
+          href="/master/asistente-whatsapp/revision"
+          className="rounded-2xl bg-amber-50 border border-amber-200 p-4 text-center hover:border-amber-400 transition"
+        >
           <p className="text-2xl font-bold text-amber-700">{noCerrados}</p>
           <p className="text-xs text-amber-700/80 mt-1">No cerrados</p>
-        </div>
+          <p className="text-[10px] text-amber-600 mt-0.5 underline">Revisar</p>
+        </Link>
       </div>
 
       <div className="space-y-3">

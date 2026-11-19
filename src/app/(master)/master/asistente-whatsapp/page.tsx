@@ -14,12 +14,20 @@ export default function AsistenteWhatsappPage() {
             todavia NO esta conectado a tu WhatsApp real, es solo de prueba.
           </p>
         </div>
-        <Link
-          href="/master/asistente-whatsapp/mensajes"
-          className="shrink-0 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition"
-        >
-          Ver mensajes
-        </Link>
+        <div className="flex shrink-0 gap-2">
+          <Link
+            href="/master/asistente-whatsapp/revision"
+            className="rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-600 transition"
+          >
+            Revisión
+          </Link>
+          <Link
+            href="/master/asistente-whatsapp/mensajes"
+            className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition"
+          >
+            Ver mensajes
+          </Link>
+        </div>
       </div>
       <BienvenidaManager />
       <AnunciosManager />
