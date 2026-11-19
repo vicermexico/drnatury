@@ -304,6 +304,25 @@ function contarPersonas(mensaje: string): number {
   return Math.max(1, partes.length);
 }
 
+// Municipios donde de verdad se da el servicio a domicilio -- si
+// dicen uno que no esta aqui (ej. Guadalupe), no se debe dejar seguir
+// agendando, hay que avisarle y volver a preguntar.
+const MUNICIPIOS_DOMICILIO = [
+  "garcia",
+  "santa catarina",
+  "san pedro",
+  "escobedo",
+  "carmen",
+  "monterrey",
+  "san nicolas",
+  "apodaca",
+];
+
+function municipioDomicilioValido(mensaje: string): boolean {
+  const normalizado = normalizar(mensaje);
+  return MUNICIPIOS_DOMICILIO.some((m) => normalizado.includes(m));
+}
+
 function siguientePreguntaLugar(modalidad: "CONSULTORIO" | "DOMICILIO"): string {
   return modalidad === "CONSULTORIO"
     ? "¿Sería en Mitras o en San Blas?"
@@ -650,6 +669,15 @@ async function calcularRespuestaBase(
         return { respuesta: siguientePreguntaLugar(modalidad), nuevoEstado };
       }
       case "lugar": {
+        if (estado.modalidad === "DOMICILIO" && !municipioDomicilioValido(mensaje)) {
+          // No es un municipio donde se de el servicio a domicilio --
+          // no se deja avanzar, se vuelve a preguntar.
+          return {
+            respuesta:
+              "Uy, a ese municipio todavía no llegamos a domicilio. Por ahora solo cubrimos García, Santa Catarina, San Pedro, Escobedo, Carmen, Monterrey, San Nicolás y Apodaca. ¿En cuál de esos sería, o prefiere mejor en consultorio?",
+            nuevoEstado: estado,
+          };
+        }
         const nuevoEstado: EstadoAgendado = { ...estado, paso: "personas", lugar: mensaje.trim() };
         return { respuesta: "¿Cuántas personas serían?", nuevoEstado };
       }
