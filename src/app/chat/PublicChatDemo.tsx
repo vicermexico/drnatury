@@ -194,12 +194,12 @@ export function PublicChatDemo({
   }
 
   return (
-    <div className="relative rounded-3xl border border-emerald-100 bg-white shadow-xl overflow-hidden flex flex-col flex-1 min-h-0 sm:flex-none sm:h-[78vh] sm:max-h-[680px]">
+    <div className="relative bg-white overflow-hidden flex flex-col flex-1 min-h-0">
       <button
         onClick={() => setMostrarOpciones(true)}
-        className="shrink-0 flex items-center gap-3 px-4 py-3 bg-[#075E54] text-left hover:brightness-110 transition"
+        className="shrink-0 flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 text-left hover:bg-gray-50 transition"
       >
-        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-lg shrink-0 overflow-hidden">
+        <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-lg shrink-0 overflow-hidden">
           {perfilFoto ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={perfilFoto} alt={perfilNombre} className="w-full h-full object-cover" />
@@ -208,22 +208,22 @@ export function PublicChatDemo({
           )}
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-white leading-tight truncate">{perfilNombre}</p>
-          <p className="text-[11px] text-emerald-100/80 leading-tight">{enviando ? "escribiendo..." : "en línea"}</p>
+          <p className="text-sm font-semibold text-gray-900 leading-tight truncate">{perfilNombre}</p>
+          <p className="text-[11px] text-gray-500 leading-tight">{enviando ? "escribiendo..." : "en línea"}</p>
         </div>
       </button>
 
       {mostrarOpciones && (
         <div className="absolute inset-0 z-20 bg-white flex flex-col">
-          <div className="shrink-0 flex items-center gap-3 px-4 py-3 bg-[#075E54]">
+          <div className="shrink-0 flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200">
             <button
               onClick={() => setMostrarOpciones(false)}
-              className="text-white text-xl leading-none px-1 -ml-1"
+              className="text-gray-700 text-xl leading-none px-1 -ml-1"
               aria-label="Cerrar"
             >
               ←
             </button>
-            <p className="text-sm font-semibold text-white">Info. del contacto</p>
+            <p className="text-sm font-semibold text-gray-900">Info. del contacto</p>
           </div>
           <div className="flex-1 overflow-y-auto overscroll-contain flex flex-col items-center px-6 py-8">
             <div className="w-28 h-28 rounded-full bg-emerald-100 flex items-center justify-center text-4xl overflow-hidden mb-3 shrink-0">
