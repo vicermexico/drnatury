@@ -54,14 +54,13 @@ export async function POST(request: NextRequest) {
   if (agendado?.fechaISO && agendado?.hora24) {
     try {
       const telefonoDigits = agendado.celular.replace(/\D/g, "") || null;
-      const esDomicilio = agendado.modalidadCodigo === "DOMICILIO";
       const resultadoCita = await crearCitaRapida(admin, {
         nombre: agendado.nombre,
         telefonoDigits,
         fechaISO: agendado.fechaISO,
         hora24: agendado.hora24,
         modalidad: agendado.modalidadCodigo,
-        lugar: esDomicilio ? (agendado.lugar ?? null) : null,
+        lugar: agendado.lugar ?? null,
         numPersonas: agendado.personas,
         costoTotal: agendado.costoTotal,
         notas: `Agendado por chat web: ${agendado.nombre}`,
