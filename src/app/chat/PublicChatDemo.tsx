@@ -35,6 +35,55 @@ function esperar(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+type FaseLlamada = "inactivo" | "escuchando" | "pensando" | "hablando";
+
+// Para que la llamada de voz no se sienta tan robot, mientras el bot
+// "piensa" la respuesta (la misma pausa de 1 a 2 segundos de siempre)
+// dice una de estas muletillas en vez de quedarse callado -- cambia
+// cual le toca cada vez, para que no suene repetido.
+const FRASES_PENSANDO = ["Mmm...", "Ehh...", "Pues..."];
+function elegirFrasePensando(): string {
+  return FRASES_PENSANDO[Math.floor(Math.random() * FRASES_PENSANDO.length)];
+}
+
+// Busca una voz en español que suene a mujer entre las que ya trae el
+// navegador (sin ningun servicio de pago) -- si no encuentra ninguna
+// que calce con esos nombres, se queda con la primera voz en español
+// que haya, y si ni eso hay, con la que sea.
+function obtenerVozFemenina(): SpeechSynthesisVoice | undefined {
+  if (typeof window === "undefined" || !window.speechSynthesis) return undefined;
+  const voces = window.speechSynthesis.getVoices();
+  const esVoces = voces.filter((v) => v.lang?.toLowerCase().startsWith("es"));
+  const femenina = esVoces.find((v) =>
+    /female|mujer|helena|sabina|m[oó]nica|lucia|luc[ií]a|paulina|elena|laura|camila|esperanza|isabela/i.test(v.name)
+  );
+  return femenina ?? esVoces[0] ?? voces[0];
+}
+
+// Lee un texto en voz alta con la voz del navegador (Web Speech API /
+// SpeechSynthesis) -- igual que el dictado, no tiene ningun costo ni
+// servicio externo.
+function hablar(texto: string, opts?: { alTerminar?: () => void }) {
+  if (typeof window === "undefined" || !window.speechSynthesis || !texto.trim()) {
+    opts?.alTerminar?.();
+    return;
+  }
+  const emitir = () => {
+    const utter = new SpeechSynthesisUtterance(texto);
+    utter.lang = "es-MX";
+    const voz = obtenerVozFemenina();
+    if (voz) utter.voice = voz;
+    utter.onend = () => opts?.alTerminar?.();
+    utter.onerror = () => opts?.alTerminar?.();
+    window.speechSynthesis.speak(utter);
+  };
+  if (window.speechSynthesis.getVoices().length === 0) {
+    window.speechSynthesis.onvoiceschanged = emitir;
+  } else {
+    emitir();
+  }
+}
+
 const ESTADO_INICIAL: EstadoAgendado = { fase: "inicio" };
 
 // Mensaje pre-llenado del anuncio -- fijo, no se puede editar ni
@@ -114,6 +163,12 @@ export function PublicChatDemo({
   const [primerMensajeEnviado, setPrimerMensajeEnviado] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [mostrarOpciones, setMostrarOpciones] = useState(false);
+  // Llamada de voz: mientras esta activa, no se escribe ni se ve nada
+  // en pantalla -- el paciente habla, se le manda al bot por detras
+  // igual que un mensaje normal, y la respuesta se lee en voz alta.
+  const [modoLlamada, setModoLlamada] = useState(false);
+  const [faseLlamada, setFaseLlamada] = useState<FaseLlamada>("inactivo");
+  const modoLlamadaRef = useRef(false);
   // Se calcula una sola vez, al montar en el navegador: si viene del
   // boton "Agenda tu cita" de la pagina de inicio (?origen=inicio) o
   // del link normal de anuncio (sin ese query param).
@@ -121,6 +176,13 @@ export function PublicChatDemo({
   const [origen] = useState<"inicio" | "anuncio">(obtenerOrigen);
   const [conversacionId] = useState<string>(nuevoIdConversacion);
   const finDeMensajesRef = useRef<HTMLDivElement>(null);
+  // Guarda siempre el estado mas reciente de la conversacion para que
+  // la llamada de voz (que se vuelve a llamar sola, sin que la persona
+  // le de clic a nada) nunca use un estado viejo.
+  const estadoRef = useRef(estado);
+  useEffect(() => {
+    estadoRef.current = estado;
+  }, [estado]);
 
   // Cada vez que llega un mensaje nuevo (o mientras el bot esta
   // "escribiendo"), bajamos solos hasta el final -- asi no hay que
@@ -132,8 +194,16 @@ export function PublicChatDemo({
   // Dictado por voz: cuando la persona termina de hablar, el texto que
   // dijo se escribe en el campo de abajo (no se manda solo, para que
   // pueda revisarlo antes de enviarlo, igual que si lo hubiera escrito).
+  // En llamada de voz (modoLlamada) ese mismo dictado se usa distinto:
+  // el texto no se ve, se manda derecho al bot (ver manejarTextoDeLlamada).
   const { soportado: dictadoSoportado, escuchando, iniciar: iniciarDictado, detener: detenerDictado } = useDictado(
-    (texto) => setInput((prev) => (prev ? `${prev} ${texto}` : texto))
+    (texto) => {
+      if (modoLlamadaRef.current) {
+        manejarTextoDeLlamada(texto);
+      } else {
+        setInput((prev) => (prev ? `${prev} ${texto}` : texto));
+      }
+    }
   );
 
   async function enviarMensaje() {
@@ -193,25 +263,159 @@ export function PublicChatDemo({
     }
   }
 
+  // Manda lo que el paciente dijo (ya convertido a texto por el
+  // dictado) al mismo endpoint de siempre, pero sin mostrar nada en
+  // pantalla: mientras espera la respuesta dice una muletilla en voz
+  // alta ("Mmm...", "Ehh...", "Pues...") y, en cuanto llega la
+  // respuesta de verdad, la lee completa con voz de mujer. Al
+  // terminar de hablar, se vuelve a poner a escuchar solo.
+  async function manejarTextoDeLlamada(texto: string) {
+    if (!modoLlamadaRef.current) return;
+    const esPrimero = !primerMensajeEnviado;
+    if (esPrimero) setPrimerMensajeEnviado(true);
+
+    setFaseLlamada("pensando");
+    hablar(elegirFrasePensando());
+
+    const inicio = Date.now();
+    try {
+      const res = await fetch("/api/public/asistente-whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mensaje: texto, estado: estadoRef.current, conversacionId, origen }),
+      });
+      const data = await res.json().catch(() => null);
+
+      const demoraRestante = RESPUESTA_DEMORA_MIN_MS - (Date.now() - inicio);
+      if (demoraRestante > 0) await esperar(demoraRestante);
+
+      if (!modoLlamadaRef.current) return;
+
+      if (!res.ok || !data) {
+        setFaseLlamada("hablando");
+        hablar("Perdón, hubo un error, ¿puedes repetir?", { alTerminar: reanudarEscuchaLlamada });
+        return;
+      }
+
+      setEstado(data.nuevoEstado);
+      estadoRef.current = data.nuevoEstado;
+
+      const serieBienvenida = data.mensajesBienvenida as MensajeBienvenidaUI[] | undefined;
+      const textoRespuesta =
+        serieBienvenida && serieBienvenida.length > 0
+          ? serieBienvenida
+              .filter((item) => item.tipo === "texto")
+              .map((item) => item.contenido)
+              .join(". ")
+          : data.respuesta;
+
+      setFaseLlamada("hablando");
+      hablar(textoRespuesta, { alTerminar: reanudarEscuchaLlamada });
+    } catch {
+      if (!modoLlamadaRef.current) return;
+      setFaseLlamada("hablando");
+      hablar("Perdón, hubo un error, ¿puedes repetir?", { alTerminar: reanudarEscuchaLlamada });
+    }
+  }
+
+  function reanudarEscuchaLlamada() {
+    if (!modoLlamadaRef.current) return;
+    setFaseLlamada("escuchando");
+    iniciarDictado();
+  }
+
+  function activarLlamada() {
+    setModoLlamada(true);
+    modoLlamadaRef.current = true;
+    if (!primerMensajeEnviado) {
+      manejarTextoDeLlamada(mensajeInicial);
+    } else {
+      reanudarEscuchaLlamada();
+    }
+  }
+
+  function colgarLlamada() {
+    modoLlamadaRef.current = false;
+    setModoLlamada(false);
+    setFaseLlamada("inactivo");
+    detenerDictado();
+    window.speechSynthesis?.cancel();
+  }
+
   return (
     <div className="relative bg-white overflow-hidden flex flex-col flex-1 min-h-0">
-      <button
-        onClick={() => setMostrarOpciones(true)}
-        className="shrink-0 flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 text-left hover:bg-gray-50 transition"
-      >
-        <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-lg shrink-0 overflow-hidden">
-          {perfilFoto ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={perfilFoto} alt={perfilNombre} className="w-full h-full object-cover" />
-          ) : (
-            "🌿"
-          )}
+      <div className="shrink-0 flex items-center gap-1 px-2 py-2 bg-white border-b border-gray-200">
+        <button
+          onClick={() => setMostrarOpciones(true)}
+          className="flex items-center gap-3 flex-1 min-w-0 text-left px-2 py-1 rounded-xl hover:bg-gray-50 transition"
+        >
+          <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-lg shrink-0 overflow-hidden">
+            {perfilFoto ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={perfilFoto} alt={perfilNombre} className="w-full h-full object-cover" />
+            ) : (
+              "🌿"
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-gray-900 leading-tight truncate">{perfilNombre}</p>
+            <p className="text-[11px] text-gray-500 leading-tight">{enviando ? "escribiendo..." : "en línea"}</p>
+          </div>
+        </button>
+        {dictadoSoportado && (
+          <button
+            onClick={activarLlamada}
+            title="Llamada de voz"
+            className="w-10 h-10 rounded-full flex items-center justify-center text-emerald-700 hover:bg-gray-100 shrink-0 text-lg"
+          >
+            📞
+          </button>
+        )}
+      </div>
+
+      {modoLlamada && (
+        <div className="absolute inset-0 z-30 bg-gray-900 flex flex-col items-center justify-between py-10 px-6">
+          <div className="text-center">
+            <p className="text-white text-base font-semibold">{perfilNombre}</p>
+            <p className="text-gray-300 text-xs mt-1">
+              {faseLlamada === "escuchando"
+                ? "Escuchando..."
+                : faseLlamada === "pensando"
+                  ? "Pensando..."
+                  : faseLlamada === "hablando"
+                    ? "Hablando..."
+                    : "Llamada de voz"}
+            </p>
+          </div>
+
+          <div
+            className={`relative w-40 h-40 rounded-full flex items-center justify-center overflow-hidden ${
+              faseLlamada === "escuchando"
+                ? "bg-emerald-500"
+                : faseLlamada === "pensando"
+                  ? "bg-amber-500"
+                  : faseLlamada === "hablando"
+                    ? "bg-sky-500"
+                    : "bg-gray-500"
+            } animate-pulse`}
+          >
+            {perfilFoto ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={perfilFoto} alt={perfilNombre} className="w-24 h-24 rounded-full object-cover" />
+            ) : (
+              <span className="text-5xl">🌿</span>
+            )}
+          </div>
+
+          <button
+            onClick={colgarLlamada}
+            title="Colgar"
+            className="w-14 h-14 rounded-full bg-red-600 flex items-center justify-center text-white text-2xl shadow-lg rotate-[135deg]"
+          >
+            📞
+          </button>
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-900 leading-tight truncate">{perfilNombre}</p>
-          <p className="text-[11px] text-gray-500 leading-tight">{enviando ? "escribiendo..." : "en línea"}</p>
-        </div>
-      </button>
+      )}
 
       {mostrarOpciones && (
         <div className="absolute inset-0 z-20 bg-white flex flex-col">
