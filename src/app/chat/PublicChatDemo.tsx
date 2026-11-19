@@ -90,12 +90,30 @@ function construirMensajeWhatsapp(a: ResumenAgendado): string {
 
 let siguienteId = 1;
 
-export function PublicChatDemo() {
+// Para que no se vea tan rapido (como si fuera un robot contestando al
+// instante), el bot siempre se tarda al menos esto en contestar -- si
+// la respuesta de verdad llega mas rapido, se espera lo que falte; si
+// ya se tardo mas que esto (por ejemplo por internet lento), no se le
+// suma nada extra.
+const RESPUESTA_DEMORA_MIN_MS = 1500;
+
+interface PublicChatDemoProps {
+  perfilNombre?: string;
+  perfilFoto?: string | null;
+  facebookUrl?: string | null;
+}
+
+export function PublicChatDemo({
+  perfilNombre = "DrNatury",
+  perfilFoto = null,
+  facebookUrl = null,
+}: PublicChatDemoProps) {
   const [mensajes, setMensajes] = useState<MensajeUI[]>([]);
   const [estado, setEstado] = useState<EstadoAgendado>(ESTADO_INICIAL);
   const [input, setInput] = useState("");
   const [primerMensajeEnviado, setPrimerMensajeEnviado] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [mostrarOpciones, setMostrarOpciones] = useState(false);
   // Se calcula una sola vez, al montar en el navegador: si viene del
   // boton "Agenda tu cita" de la pagina de inicio (?origen=inicio) o
   // del link normal de anuncio (sin ese query param).
@@ -127,6 +145,7 @@ export function PublicChatDemo() {
     setEnviando(true);
 
     setMensajes((prev) => [...prev, { id: siguienteId++, rol: "paciente", texto: mensaje }]);
+    const inicio = Date.now();
 
     try {
       const res = await fetch("/api/public/asistente-whatsapp", {
@@ -135,6 +154,10 @@ export function PublicChatDemo() {
         body: JSON.stringify({ mensaje, estado, conversacionId, origen }),
       });
       const data = await res.json().catch(() => null);
+
+      const demoraRestante = RESPUESTA_DEMORA_MIN_MS - (Date.now() - inicio);
+      if (demoraRestante > 0) await esperar(demoraRestante);
+
       if (!res.ok || !data) {
         setMensajes((prev) => [
           ...prev,
@@ -171,16 +194,78 @@ export function PublicChatDemo() {
   }
 
   return (
-    <div className="rounded-3xl border border-emerald-100 bg-white shadow-xl overflow-hidden flex flex-col flex-1 min-h-0 sm:flex-none sm:h-[78vh] sm:max-h-[680px]">
-      <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500">
-        <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-lg">🌿</div>
-          <div>
-            <p className="text-sm font-semibold text-white leading-tight">DrNatury</p>
-            <p className="text-[11px] text-emerald-50/80 leading-tight">Asistente en línea</p>
+    <div className="relative rounded-3xl border border-emerald-100 bg-white shadow-xl overflow-hidden flex flex-col flex-1 min-h-0 sm:flex-none sm:h-[78vh] sm:max-h-[680px]">
+      <button
+        onClick={() => setMostrarOpciones(true)}
+        className="shrink-0 flex items-center gap-3 px-4 py-3 bg-[#075E54] text-left hover:brightness-110 transition"
+      >
+        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-lg shrink-0 overflow-hidden">
+          {perfilFoto ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={perfilFoto} alt={perfilNombre} className="w-full h-full object-cover" />
+          ) : (
+            "🌿"
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-white leading-tight truncate">{perfilNombre}</p>
+          <p className="text-[11px] text-emerald-100/80 leading-tight">{enviando ? "escribiendo..." : "en línea"}</p>
+        </div>
+      </button>
+
+      {mostrarOpciones && (
+        <div className="absolute inset-0 z-20 bg-white flex flex-col">
+          <div className="shrink-0 flex items-center gap-3 px-4 py-3 bg-[#075E54]">
+            <button
+              onClick={() => setMostrarOpciones(false)}
+              className="text-white text-xl leading-none px-1 -ml-1"
+              aria-label="Cerrar"
+            >
+              ←
+            </button>
+            <p className="text-sm font-semibold text-white">Info. del contacto</p>
+          </div>
+          <div className="flex-1 overflow-y-auto overscroll-contain flex flex-col items-center px-6 py-8">
+            <div className="w-28 h-28 rounded-full bg-emerald-100 flex items-center justify-center text-4xl overflow-hidden mb-3 shrink-0">
+              {perfilFoto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={perfilFoto} alt={perfilNombre} className="w-full h-full object-cover" />
+              ) : (
+                "🌿"
+              )}
+            </div>
+            <p className="text-lg font-semibold text-gray-900">{perfilNombre}</p>
+            <div className="w-full mt-6 space-y-2">
+              <a
+                href="https://www.drnatury.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-800 hover:bg-gray-50"
+              >
+                🌐 Visitar www.drnatury.com
+              </a>
+              {facebookUrl && (
+                <a
+                  href={facebookUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-800 hover:bg-gray-50"
+                >
+                  📘 Ver nuestro anuncio de Facebook
+                </a>
+              )}
+              <a
+                href={`https://wa.me/${VIC_WHATSAPP_NUMERO}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-800 hover:bg-gray-50"
+              >
+                📲 Escribir por WhatsApp
+              </a>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-3 bg-gradient-to-b from-emerald-50/40 to-white">
         {mensajes.length === 0 && (
@@ -238,7 +323,6 @@ export function PublicChatDemo() {
             </div>
           </div>
         ))}
-        {enviando && <p className="text-xs text-gray-400 text-center">Escribiendo…</p>}
         <div ref={finDeMensajesRef} />
       </div>
 

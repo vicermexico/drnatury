@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { PublicChatDemo } from "./PublicChatDemo";
 
 // Pagina publica (sin login) para mandar aqui el trafico de los
@@ -6,7 +7,17 @@ import { PublicChatDemo } from "./PublicChatDemo";
 // de a WhatsApp. El primer mensaje viene fijo (el escrito del
 // anuncio) y no se puede editar ni borrar nada -- solo mandarlo y
 // platicar normal despues, hasta que quede agendada la cita.
-export default function DemoWhatsappPage() {
+export default async function DemoWhatsappPage() {
+  // Nombre, foto y link del anuncio de Facebook que se ven en el
+  // encabezado del chat y en su pantalla de opciones -- los edita
+  // Master desde /master/asistente-whatsapp.
+  const admin = createAdminClient();
+  const { data: config } = await admin
+    .from("landing_config")
+    .select("chat_perfil_nombre, chat_perfil_foto, anuncio_facebook_url")
+    .limit(1)
+    .maybeSingle();
+
   return (
     // En el celular la altura se fija a lo que realmente se ve en pantalla
     // (100dvh, que sí descuenta la barra del navegador) para que el cuadro
@@ -26,7 +37,11 @@ export default function DemoWhatsappPage() {
           />
           <p className="text-sm text-gray-500">Chatea con nosotros para agendar tu cita</p>
         </div>
-        <PublicChatDemo />
+        <PublicChatDemo
+          perfilNombre={config?.chat_perfil_nombre || "DrNatury"}
+          perfilFoto={config?.chat_perfil_foto ?? null}
+          facebookUrl={config?.anuncio_facebook_url ?? null}
+        />
         <p className="shrink-0 text-center text-[11px] text-gray-400">
           🌿 Bienestar integral y natural
         </p>
