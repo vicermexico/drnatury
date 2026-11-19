@@ -37,11 +37,16 @@ function esperar(ms: number) {
 
 type FaseLlamada = "inactivo" | "escuchando" | "pensando" | "hablando";
 
+// Lo primero que se escucha al activar la llamada de voz -- el bot
+// saluda primero, como si de verdad contestara una llamada, y hasta
+// que termina de decirlo se pone a escuchar al paciente.
+const SALUDO_LLAMADA = "Hola, ¿quieres agendar una cita?";
+
 // Para que la llamada de voz no se sienta tan robot, mientras el bot
 // "piensa" la respuesta (la misma pausa de 1 a 2 segundos de siempre)
 // dice una de estas muletillas en vez de quedarse callado -- cambia
 // cual le toca cada vez, para que no suene repetido.
-const FRASES_PENSANDO = ["Mmm...", "Ehh...", "Pues..."];
+const FRASES_PENSANDO = ["Mmm", "Ehh", "Pues"];
 function elegirFrasePensando(): string {
   return FRASES_PENSANDO[Math.floor(Math.random() * FRASES_PENSANDO.length)];
 }
@@ -76,6 +81,12 @@ function hablar(texto: string, opts?: { alTerminar?: () => void }) {
     utter.onend = () => opts?.alTerminar?.();
     utter.onerror = () => opts?.alTerminar?.();
     window.speechSynthesis.speak(utter);
+    // Bug conocido de Chrome: a veces se come el principio de lo que
+    // va a decir si el navegador llevaba un rato sin hablar -- este
+    // "truco" (pausar y reanudar justo despues de mandarlo a hablar)
+    // evita que se coma esas primeras letras.
+    window.speechSynthesis.pause();
+    window.speechSynthesis.resume();
   };
   if (window.speechSynthesis.getVoices().length === 0) {
     window.speechSynthesis.onvoiceschanged = emitir;
@@ -327,11 +338,17 @@ export function PublicChatDemo({
   function activarLlamada() {
     setModoLlamada(true);
     modoLlamadaRef.current = true;
-    if (!primerMensajeEnviado) {
-      manejarTextoDeLlamada(mensajeInicial);
-    } else {
-      reanudarEscuchaLlamada();
-    }
+    setFaseLlamada("hablando");
+    hablar(SALUDO_LLAMADA, {
+      alTerminar: () => {
+        if (!modoLlamadaRef.current) return;
+        if (!primerMensajeEnviado) {
+          manejarTextoDeLlamada(MENSAJE_INICIAL_AGENDAR);
+        } else {
+          reanudarEscuchaLlamada();
+        }
+      },
+    });
   }
 
   function colgarLlamada() {
@@ -398,14 +415,7 @@ export function PublicChatDemo({
                     ? "bg-sky-500"
                     : "bg-gray-500"
             } animate-pulse`}
-          >
-            {perfilFoto ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={perfilFoto} alt={perfilNombre} className="w-24 h-24 rounded-full object-cover" />
-            ) : (
-              <span className="text-5xl">🌿</span>
-            )}
-          </div>
+          />
 
           <button
             onClick={colgarLlamada}
@@ -539,7 +549,8 @@ export function PublicChatDemo({
             if (e.key === "Enter") enviarMensaje();
           }}
           placeholder="Mensaje"
-          className="flex-1 rounded-full border border-gray-700 bg-[#2a3942] text-white placeholder-gray-400 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          style={{ color: "#fff", WebkitTextFillColor: "#fff", colorScheme: "dark" }}
+          className="flex-1 rounded-full border border-gray-700 bg-[#2a3942] caret-white placeholder-gray-400 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
         {primerMensajeEnviado && dictadoSoportado && (
           <button
