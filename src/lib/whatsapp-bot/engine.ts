@@ -23,6 +23,11 @@ export interface EstadoAgendado {
   dia?: string;
   fechaResuelta?: string; // "YYYY-MM-DD", cuando se pudo entender bien el dia
   turnoResuelto?: Turno;
+  // Cuando ya dijeron "por la mañana"/"por la tarde" en un mensaje que
+  // TODAVIA no traia el dia (ej. primero dicen "por la tarde" y el dia
+  // lo contestan hasta el siguiente mensaje), se guarda aqui para no
+  // volver a preguntarlo en cuanto se resuelva el dia -- ver manejarDia.
+  turnoPendiente?: Turno;
   opcionesHorario?: string[]; // las horas que se le ofrecieron, para leer bien si contesta con un numero suelto
   hora?: string;
   nombre?: string;
@@ -458,17 +463,24 @@ function detectarModalidadYLugar(normalizado: string): { modalidad: "CONSULTORIO
 async function iniciarFlujoAgendado(normalizado: string, mensaje: string): Promise<ResultadoRespuesta> {
   const detectado = detectarModalidadYLugar(normalizado);
   const dia = interpretarFecha(normalizado) ? mensaje.trim() : undefined;
+  // Si ya dicen "por la mañana"/"por la tarde" pero TODAVIA no el dia
+  // (ej. "consultorio San Blas por la tarde", sin decir para cuando),
+  // se guarda para no volver a preguntarlo en cuanto contesten el dia
+  // en otro mensaje aparte -- si el dia SI viene en este mismo mensaje,
+  // no hace falta guardarlo aqui porque manejarDia ya lo lee derecho
+  // del mismo texto.
+  const turnoPendiente = !dia ? interpretarTurno(normalizado) ?? undefined : undefined;
   if (!detectado) {
     return {
       respuesta: "¿Sería en consultorio o a domicilio?",
-      nuevoEstado: { fase: "agendando", paso: "modalidad", ...(dia ? { dia } : {}) },
+      nuevoEstado: { fase: "agendando", paso: "modalidad", ...(dia ? { dia } : {}), ...(turnoPendiente ? { turnoPendiente } : {}) },
     };
   }
   const { modalidad, lugar } = detectado;
   if (!lugar) {
     return {
       respuesta: siguientePreguntaLugar(modalidad),
-      nuevoEstado: { fase: "agendando", paso: "lugar", modalidad, ...(dia ? { dia } : {}) },
+      nuevoEstado: { fase: "agendando", paso: "lugar", modalidad, ...(dia ? { dia } : {}), ...(turnoPendiente ? { turnoPendiente } : {}) },
     };
   }
 
@@ -476,7 +488,7 @@ async function iniciarFlujoAgendado(normalizado: string, mensaje: string): Promi
   if (personas == null) {
     return {
       respuesta: "¿Cuántas personas serían?",
-      nuevoEstado: { fase: "agendando", paso: "personas", modalidad, lugar, ...(dia ? { dia } : {}) },
+      nuevoEstado: { fase: "agendando", paso: "personas", modalidad, lugar, ...(dia ? { dia } : {}), ...(turnoPendiente ? { turnoPendiente } : {}) },
     };
   }
 
@@ -486,6 +498,7 @@ async function iniciarFlujoAgendado(normalizado: string, mensaje: string): Promi
     lugar,
     personas: String(personas),
     ...(dia ? { dia } : {}),
+    ...(turnoPendiente ? { turnoPendiente } : {}),
   };
   if (dia) {
     return manejarDia(estadoConPersonas, dia, normalizar(dia));
@@ -725,6 +738,7 @@ async function manejarDia(estado: EstadoAgendado, textoDia: string, normalizadoD
         dia: textoDia.trim(),
         fechaResuelta: undefined,
         turnoResuelto: undefined,
+        turnoPendiente: undefined,
         opcionesHorario: undefined,
         hora: undefined,
       };
@@ -736,6 +750,7 @@ async function manejarDia(estado: EstadoAgendado, textoDia: string, normalizadoD
       dia: textoDia.trim(),
       fechaResuelta: fechaStr,
       turnoResuelto: turnoImplicito,
+      turnoPendiente: undefined,
       opcionesHorario: horarios,
       hora: undefined,
     };
@@ -743,12 +758,14 @@ async function manejarDia(estado: EstadoAgendado, textoDia: string, normalizadoD
   }
 
   // Si el mismo mensaje del dia ya deja claro el turno tambien (ej. "el
-  // sabado por la tarde"), no hace falta volver a preguntarlo -- se
-  // buscan de una vez los horarios para ese turno.
+  // sabado por la tarde"), o si ya lo habian dicho antes en otro
+  // mensaje (turnoPendiente, ver iniciarFlujoAgendado), no hace falta
+  // volver a preguntarlo -- se buscan de una vez los horarios para ese
+  // turno.
   if (fechaStr) {
-    const turnoDetectado = interpretarTurno(normalizadoDia);
-    if (turnoDetectado) {
-      const horarios = await obtenerHorariosDisponibles(fechaStr, estado.modalidad ?? "CONSULTORIO", turnoDetectado);
+    const turnoFinal = interpretarTurno(normalizadoDia) ?? estado.turnoPendiente ?? null;
+    if (turnoFinal) {
+      const horarios = await obtenerHorariosDisponibles(fechaStr, estado.modalidad ?? "CONSULTORIO", turnoFinal);
       if (horarios.length === 0) {
         const nuevoEstado: EstadoAgendado = {
           ...estado,
@@ -756,6 +773,7 @@ async function manejarDia(estado: EstadoAgendado, textoDia: string, normalizadoD
           dia: textoDia.trim(),
           fechaResuelta: undefined,
           turnoResuelto: undefined,
+          turnoPendiente: undefined,
           opcionesHorario: undefined,
           hora: undefined,
         };
@@ -769,7 +787,8 @@ async function manejarDia(estado: EstadoAgendado, textoDia: string, normalizadoD
         paso: "hora",
         dia: textoDia.trim(),
         fechaResuelta: fechaStr,
-        turnoResuelto: turnoDetectado,
+        turnoResuelto: turnoFinal,
+        turnoPendiente: undefined,
         opcionesHorario: horarios,
         hora: undefined,
       };
@@ -783,6 +802,7 @@ async function manejarDia(estado: EstadoAgendado, textoDia: string, normalizadoD
     dia: textoDia.trim(),
     fechaResuelta: undefined,
     turnoResuelto: undefined,
+    turnoPendiente: undefined,
     opcionesHorario: undefined,
     hora: undefined,
   };
