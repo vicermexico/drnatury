@@ -308,17 +308,47 @@ export function coincideConAnuncio(mensaje: string, anuncios: Anuncio[]): boolea
 function contarPersonas(mensaje: string): number {
   const conNumero = mensaje.match(/\d+/);
   if (conNumero) return Math.max(1, parseInt(conNumero[0], 10));
+  // Muy seguido la respuesta trae una frase de relleno antes de la
+  // lista de personas (ej. "vamos hacer mi mama mi tia y yo", "seriamos
+  // mi esposa y yo") -- sin quitarla, esa frase se contaba como si
+  // fuera una persona mas (dando 4 en vez de 3 en ese ejemplo).
+  const sinRelleno = mensaje.replace(
+    /^\s*(vamos a ser|vamos a hacer|vamos hacer|vamos ser|vamos a ir|iriamos|seriamos|somos)\b\s*/i,
+    ""
+  );
   // Ej. "yo mi mama y mi hermana" -- falta la coma entre "yo" y "mi
   // mama", pero igual son 3 personas distintas. Donde aparezca "yo",
   // "mi", "tu" o "su" pegado a la palabra anterior (sin coma ni "y"),
   // se trata como el inicio de otra persona.
   const PRONOMBRE_INICIO = /\s+(mi|tu|su)\b/gi;
-  const partes = mensaje
+  const partes = sinRelleno
     .split(/,|\s+y\s+/i)
     .flatMap((parte) => parte.replace(PRONOMBRE_INICIO, "|$1").split("|"))
     .map((p) => p.trim())
     .filter(Boolean);
   return Math.max(1, partes.length);
+}
+
+const PALABRAS_NUMERO: Record<string, number> = {
+  uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10,
+};
+
+// Lee cuantas personas serian, pero SOLO cuando el numero (o la
+// palabra: "dos", "tres", etc.) viene bien pegado a la palabra
+// "persona(s)" (ej. "2 personas", "vamos a ser 2 personas"). A
+// diferencia de contarPersonas (que se usa cuando SI se esta
+// contestando derecho la pregunta "¿cuantas personas serian?", ahi
+// cualquier numero en el mensaje vale), aqui no se puede usar
+// cualquier numero que aparezca en el mensaje inicial completo, porque
+// facil se cruza con la hora (ej. "a las 5pm") o el dia (ej. "el 26
+// a las 2"). Si no se menciona asi de claro, regresa null -- no se
+// adivina.
+function detectarPersonasExplicitas(normalizado: string): number | null {
+  const conDigito = normalizado.match(/\b([1-9]|10)\s*personas?\b/);
+  if (conDigito) return parseInt(conDigito[1], 10);
+  const conPalabra = normalizado.match(/\b(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+personas?\b/);
+  if (conPalabra) return PALABRAS_NUMERO[conPalabra[1]];
+  return null;
 }
 
 // Municipios donde de verdad se da el servicio a domicilio -- si
@@ -419,11 +449,13 @@ function detectarModalidadYLugar(normalizado: string): { modalidad: "CONSULTORIO
 // Arranca el flujo de agendar cita. Si el mensaje que lo disparo ya
 // deja claro la modalidad (y a veces el lugar), nos saltamos esas
 // preguntas en vez de preguntar algo que ya contestaron. Igual, si ya
-// menciona para que dia (ej. "para la proxima semana el sabado"), se
-// guarda ese texto en "dia" -- no se pregunta "¿para que dia?" mas
-// adelante (ver el paso "personas" en calcularRespuestaBase, que ya
-// reusa ese texto guardado en vez de volver a preguntarlo).
-function iniciarFlujoAgendado(normalizado: string, mensaje: string): ResultadoRespuesta {
+// menciona para que dia (ej. "para la proxima semana el sabado") o
+// cuantas personas (ej. "vamos a ser 2 personas"), se guarda eso --
+// no se pregunta de nuevo algo que ya contestaron en este mismo
+// mensaje. Es async porque, si ya se sabe TODO (modalidad, lugar,
+// personas Y dia de un jalon), se reusa manejarDia para ya ofrecer
+// horario de una vez, igual que si lo hubiera contestado paso a paso.
+async function iniciarFlujoAgendado(normalizado: string, mensaje: string): Promise<ResultadoRespuesta> {
   const detectado = detectarModalidadYLugar(normalizado);
   const dia = interpretarFecha(normalizado) ? mensaje.trim() : undefined;
   if (!detectado) {
@@ -433,16 +465,32 @@ function iniciarFlujoAgendado(normalizado: string, mensaje: string): ResultadoRe
     };
   }
   const { modalidad, lugar } = detectado;
-  if (lugar) {
+  if (!lugar) {
+    return {
+      respuesta: siguientePreguntaLugar(modalidad),
+      nuevoEstado: { fase: "agendando", paso: "lugar", modalidad, ...(dia ? { dia } : {}) },
+    };
+  }
+
+  const personas = detectarPersonasExplicitas(normalizado);
+  if (personas == null) {
     return {
       respuesta: "¿Cuántas personas serían?",
       nuevoEstado: { fase: "agendando", paso: "personas", modalidad, lugar, ...(dia ? { dia } : {}) },
     };
   }
-  return {
-    respuesta: siguientePreguntaLugar(modalidad),
-    nuevoEstado: { fase: "agendando", paso: "lugar", modalidad, ...(dia ? { dia } : {}) },
+
+  const estadoConPersonas: EstadoAgendado = {
+    fase: "agendando",
+    modalidad,
+    lugar,
+    personas: String(personas),
+    ...(dia ? { dia } : {}),
   };
+  if (dia) {
+    return manejarDia(estadoConPersonas, dia, normalizar(dia));
+  }
+  return { respuesta: "¿Para qué día le gustaría agendar?", nuevoEstado: { ...estadoConPersonas, paso: "dia" } };
 }
 
 // Para repetir la pregunta del paso en el que ya se estaba, despues de
