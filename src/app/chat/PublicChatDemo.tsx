@@ -216,13 +216,18 @@ export function PublicChatDemo({
   const [primerMensajeEnviado, setPrimerMensajeEnviado] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [mostrarOpciones, setMostrarOpciones] = useState(false);
-  // En cuanto se agenda una cita a domicilio en esta conversacion, aqui
-  // se guarda el id + token para poder mandar la ubicacion -- habilita
-  // el icono de pin junto al microfono (antes de eso no hay a que cita
-  // pegarle la ubicacion, asi que el icono no se muestra).
+  // El icono de pin esta SIEMPRE disponible, desde que se abre el chat
+  // (el paciente puede mandar su ubicacion en cualquier momento, no
+  // solo despues de agendar). En cuanto se agenda una cita a domicilio
+  // en esta conversacion, aqui se guarda el id + token real para
+  // poder pegarle la ubicacion. Si el paciente manda su ubicacion
+  // ANTES de que exista ese id (porque todavia no termina de agendar),
+  // se guarda en ubicacionPendiente y se manda sola en cuanto
+  // ubicacionDatos aparezca (ver el useEffect mas abajo).
   const [ubicacionDatos, setUbicacionDatos] = useState<UbicacionDatos | null>(null);
+  const [ubicacionPendiente, setUbicacionPendiente] = useState<{ lat: number; lng: number } | null>(null);
   const [mostrarModalUbicacion, setMostrarModalUbicacion] = useState(false);
-  const [estadoUbicacion, setEstadoUbicacion] = useState<"inicio" | "cargando" | "listo" | "error">("inicio");
+  const [estadoUbicacion, setEstadoUbicacion] = useState<"inicio" | "cargando" | "listo" | "guardada" | "error">("inicio");
   const [errorUbicacion, setErrorUbicacion] = useState("");
   // Llamada de voz: mientras esta activa, no se escribe ni se ve nada
   // en pantalla -- el paciente habla, se le manda al bot por detras
@@ -271,12 +276,28 @@ export function PublicChatDemo({
     }
   );
 
+  // En cuanto haya un id+token de verdad (ya se agendo la cita a
+  // domicilio), manda sola la ubicacion que se habia quedado
+  // esperando -- asi no importa en que momento el paciente le haya
+  // dado clic al icono de pin.
+  useEffect(() => {
+    if (!ubicacionDatos || !ubicacionPendiente) return;
+    fetch(`/api/appointments/${ubicacionDatos.appointmentId}/ubicacion`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: ubicacionDatos.token, lat: ubicacionPendiente.lat, lng: ubicacionPendiente.lng }),
+    }).catch(() => {});
+    setUbicacionPendiente(null);
+  }, [ubicacionDatos, ubicacionPendiente]);
+
   // Usa el mismo endpoint que ya existe para el link de /ubicacion/[id]
   // que se manda por WhatsApp (ver UbicacionButton.tsx) -- aqui nada mas
   // se dispara desde el icono de pin dentro del chat en vez de un link
-  // aparte.
+  // aparte. El icono esta disponible desde el inicio: si todavia no
+  // existe una cita a domicilio de verdad (ubicacionDatos), la
+  // ubicacion se guarda en ubicacionPendiente y se manda sola en
+  // cuanto se agende (ver el useEffect de arriba).
   function mandarUbicacionActual() {
-    if (!ubicacionDatos) return;
     if (!("geolocation" in navigator)) {
       setEstadoUbicacion("error");
       setErrorUbicacion("Tu celular no permite compartir ubicación desde aquí. Intenta desde Chrome o Safari.");
@@ -285,6 +306,11 @@ export function PublicChatDemo({
     setEstadoUbicacion("cargando");
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
+        if (!ubicacionDatos) {
+          setUbicacionPendiente({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          setEstadoUbicacion("guardada");
+          return;
+        }
         try {
           const res = await fetch(`/api/appointments/${ubicacionDatos.appointmentId}/ubicacion`, {
             method: "PATCH",
@@ -687,13 +713,17 @@ export function PublicChatDemo({
             className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
-            {estadoUbicacion === "listo" ? (
+            {estadoUbicacion === "listo" || estadoUbicacion === "guardada" ? (
               <div className="text-center space-y-2 py-2">
                 <div className="mx-auto w-14 h-14 rounded-full bg-emerald-500 flex items-center justify-center text-2xl text-white shadow-md">
                   ✓
                 </div>
                 <p className="text-sm font-bold text-emerald-700">¡Ubicación enviada!</p>
-                <p className="text-xs text-gray-500">Ya sabemos exactamente dónde llegar. Nos vemos pronto 🙌</p>
+                <p className="text-xs text-gray-500">
+                  {estadoUbicacion === "listo"
+                    ? "Ya sabemos exactamente dónde llegar. Nos vemos pronto 🙌"
+                    : "En cuanto termine de agendarse su cita a domicilio, se la agregamos a la agenda de DrNatury."}
+                </p>
                 <button
                   onClick={() => setMostrarModalUbicacion(false)}
                   className="mt-2 text-xs text-gray-500 underline"
@@ -756,15 +786,13 @@ export function PublicChatDemo({
           style={{ color: "#fff", WebkitTextFillColor: "#fff", colorScheme: "dark" }}
           className="flex-1 rounded-full border border-gray-700 bg-[#2a3942] caret-white placeholder-gray-400 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
-        {ubicacionDatos && (
-          <button
-            onClick={abrirModalUbicacion}
-            title="Mandar mi ubicación actual"
-            className="rounded-full w-10 h-10 flex items-center justify-center shrink-0 shadow-sm bg-gray-100 hover:bg-gray-200"
-          >
-            <IconoUbicacion className="w-5 h-5" />
-          </button>
-        )}
+        <button
+          onClick={abrirModalUbicacion}
+          title="Mandar mi ubicación actual"
+          className="rounded-full w-10 h-10 flex items-center justify-center shrink-0 shadow-sm bg-gray-100 hover:bg-gray-200"
+        >
+          <IconoUbicacion className="w-5 h-5" />
+        </button>
         {dictadoSoportado && (
           <button
             onClick={() => (escuchando ? detenerDictado() : iniciarDictado())}
