@@ -28,6 +28,13 @@ export interface EstadoAgendado {
   // lo contestan hasta el siguiente mensaje), se guarda aqui para no
   // volver a preguntarlo en cuanto se resuelva el dia -- ver manejarDia.
   turnoPendiente?: Turno;
+  // Cuando ya dijeron una hora explicita (ej. "a las 5pm") en un
+  // mensaje que TODAVIA no traia el dia completo, se guarda el texto
+  // tal cual aqui -- en cuanto se resuelven los horarios libres del
+  // dia (ver manejarDia), se intenta agendar esa hora derecho (si de
+  // verdad esta libre) en vez de preguntar otra vez "cual hora le
+  // queda mejor" ignorando lo que ya habia dicho.
+  horaPendiente?: string;
   opcionesHorario?: string[]; // las horas que se le ofrecieron, para leer bien si contesta con un numero suelto
   hora?: string;
   nombre?: string;
@@ -470,17 +477,37 @@ async function iniciarFlujoAgendado(normalizado: string, mensaje: string): Promi
   // no hace falta guardarlo aqui porque manejarDia ya lo lee derecho
   // del mismo texto.
   const turnoPendiente = !dia ? interpretarTurno(normalizado) ?? undefined : undefined;
+  // Si ya dijeron una hora explicita (ej. "5pm") desde este primer
+  // mensaje, se guarda para intentar agendarla derecho en cuanto se
+  // sepa el dia (ver manejarDia) -- a diferencia de turnoPendiente, se
+  // guarda aunque el dia SI venga en este mismo mensaje, porque
+  // manejarDia nunca reserva la hora exacta por su cuenta, solo
+  // ofrece la lista para escoger.
+  const horaPendiente = extraerHoraExplicita(mensaje) ? mensaje.trim() : undefined;
   if (!detectado) {
     return {
       respuesta: "¿Sería en consultorio o a domicilio?",
-      nuevoEstado: { fase: "agendando", paso: "modalidad", ...(dia ? { dia } : {}), ...(turnoPendiente ? { turnoPendiente } : {}) },
+      nuevoEstado: {
+        fase: "agendando",
+        paso: "modalidad",
+        ...(dia ? { dia } : {}),
+        ...(turnoPendiente ? { turnoPendiente } : {}),
+        ...(horaPendiente ? { horaPendiente } : {}),
+      },
     };
   }
   const { modalidad, lugar } = detectado;
   if (!lugar) {
     return {
       respuesta: siguientePreguntaLugar(modalidad),
-      nuevoEstado: { fase: "agendando", paso: "lugar", modalidad, ...(dia ? { dia } : {}), ...(turnoPendiente ? { turnoPendiente } : {}) },
+      nuevoEstado: {
+        fase: "agendando",
+        paso: "lugar",
+        modalidad,
+        ...(dia ? { dia } : {}),
+        ...(turnoPendiente ? { turnoPendiente } : {}),
+        ...(horaPendiente ? { horaPendiente } : {}),
+      },
     };
   }
 
@@ -488,7 +515,15 @@ async function iniciarFlujoAgendado(normalizado: string, mensaje: string): Promi
   if (personas == null) {
     return {
       respuesta: "¿Cuántas personas serían?",
-      nuevoEstado: { fase: "agendando", paso: "personas", modalidad, lugar, ...(dia ? { dia } : {}), ...(turnoPendiente ? { turnoPendiente } : {}) },
+      nuevoEstado: {
+        fase: "agendando",
+        paso: "personas",
+        modalidad,
+        lugar,
+        ...(dia ? { dia } : {}),
+        ...(turnoPendiente ? { turnoPendiente } : {}),
+        ...(horaPendiente ? { horaPendiente } : {}),
+      },
     };
   }
 
@@ -499,6 +534,7 @@ async function iniciarFlujoAgendado(normalizado: string, mensaje: string): Promi
     personas: String(personas),
     ...(dia ? { dia } : {}),
     ...(turnoPendiente ? { turnoPendiente } : {}),
+    ...(horaPendiente ? { horaPendiente } : {}),
   };
   if (dia) {
     return manejarDia(estadoConPersonas, dia, normalizar(dia));
@@ -722,6 +758,16 @@ export async function generarRespuesta(args: {
 // ej. le ofrecimos horas para "hoy" y contesta "mejor para el viernes").
 // Siempre limpia fechaResuelta/turnoResuelto/opcionesHorario/hora viejos,
 // para que no se quede pegado un horario de un dia que ya no aplica.
+// Si ya habia una hora explicita pedida desde antes (horaPendiente,
+// ver iniciarFlujoAgendado) y de verdad esta libre entre las opciones
+// que se acaban de calcular para el dia, regresa esa hora ya con el
+// formato bonito ("5:00 pm") -- si no, regresa null y se sigue el
+// flujo normal de ofrecer la lista para escoger.
+function intentarHoraPendiente(estado: EstadoAgendado, horarios: string[]): string | null {
+  if (!estado.horaPendiente) return null;
+  return buscarHoraExactaEnOpciones(estado.horaPendiente, horarios);
+}
+
 async function manejarDia(estado: EstadoAgendado, textoDia: string, normalizadoDia: string): Promise<ResultadoRespuesta> {
   const fechaStr = interpretarFecha(normalizadoDia);
 
@@ -739,10 +785,26 @@ async function manejarDia(estado: EstadoAgendado, textoDia: string, normalizadoD
         fechaResuelta: undefined,
         turnoResuelto: undefined,
         turnoPendiente: undefined,
+        horaPendiente: undefined,
         opcionesHorario: undefined,
         hora: undefined,
       };
       return { respuesta: "Mmm, ya no tengo horario libre para hoy. ¿Para qué otro día le gustaría agendar?", nuevoEstado };
+    }
+    const horaExacta = intentarHoraPendiente(estado, horarios);
+    if (horaExacta) {
+      const nuevoEstado: EstadoAgendado = {
+        ...estado,
+        paso: "nombre",
+        dia: textoDia.trim(),
+        fechaResuelta: fechaStr,
+        turnoResuelto: turnoImplicito,
+        turnoPendiente: undefined,
+        horaPendiente: undefined,
+        opcionesHorario: horarios,
+        hora: horaExacta,
+      };
+      return { respuesta: "¿A qué nombre le agendo la cita?", nuevoEstado };
     }
     const nuevoEstado: EstadoAgendado = {
       ...estado,
@@ -751,6 +813,7 @@ async function manejarDia(estado: EstadoAgendado, textoDia: string, normalizadoD
       fechaResuelta: fechaStr,
       turnoResuelto: turnoImplicito,
       turnoPendiente: undefined,
+      horaPendiente: undefined,
       opcionesHorario: horarios,
       hora: undefined,
     };
@@ -774,6 +837,7 @@ async function manejarDia(estado: EstadoAgendado, textoDia: string, normalizadoD
           fechaResuelta: undefined,
           turnoResuelto: undefined,
           turnoPendiente: undefined,
+          horaPendiente: undefined,
           opcionesHorario: undefined,
           hora: undefined,
         };
@@ -782,6 +846,21 @@ async function manejarDia(estado: EstadoAgendado, textoDia: string, normalizadoD
           nuevoEstado,
         };
       }
+      const horaExacta = intentarHoraPendiente(estado, horarios);
+      if (horaExacta) {
+        const nuevoEstado: EstadoAgendado = {
+          ...estado,
+          paso: "nombre",
+          dia: textoDia.trim(),
+          fechaResuelta: fechaStr,
+          turnoResuelto: turnoFinal,
+          turnoPendiente: undefined,
+          horaPendiente: undefined,
+          opcionesHorario: horarios,
+          hora: horaExacta,
+        };
+        return { respuesta: "¿A qué nombre le agendo la cita?", nuevoEstado };
+      }
       const nuevoEstado: EstadoAgendado = {
         ...estado,
         paso: "hora",
@@ -789,6 +868,7 @@ async function manejarDia(estado: EstadoAgendado, textoDia: string, normalizadoD
         fechaResuelta: fechaStr,
         turnoResuelto: turnoFinal,
         turnoPendiente: undefined,
+        horaPendiente: undefined,
         opcionesHorario: horarios,
         hora: undefined,
       };
@@ -927,13 +1007,33 @@ async function calcularRespuestaBase(
         }
         const horarios = await obtenerHorariosDisponibles(fechaStr, estado.modalidad ?? "CONSULTORIO", turno);
         if (horarios.length === 0) {
-          const nuevoEstado: EstadoAgendado = { ...estado, paso: "dia" };
+          const nuevoEstado: EstadoAgendado = { ...estado, paso: "dia", horaPendiente: undefined };
           return {
             respuesta: "Mmm, no tengo horario libre ese día. ¿Para qué otro día le gustaría agendar?",
             nuevoEstado,
           };
         }
-        const nuevoEstado: EstadoAgendado = { ...estado, paso: "hora", fechaResuelta: fechaStr, turnoResuelto: turno, opcionesHorario: horarios };
+        const horaExacta = intentarHoraPendiente(estado, horarios);
+        if (horaExacta) {
+          const nuevoEstado: EstadoAgendado = {
+            ...estado,
+            paso: "nombre",
+            fechaResuelta: fechaStr,
+            turnoResuelto: turno,
+            horaPendiente: undefined,
+            opcionesHorario: horarios,
+            hora: horaExacta,
+          };
+          return { respuesta: "¿A qué nombre le agendo la cita?", nuevoEstado };
+        }
+        const nuevoEstado: EstadoAgendado = {
+          ...estado,
+          paso: "hora",
+          fechaResuelta: fechaStr,
+          turnoResuelto: turno,
+          horaPendiente: undefined,
+          opcionesHorario: horarios,
+        };
         return { respuesta: `Tengo disponible: ${muestrearHorarios(horarios).join(", ")}. ¿Cuál le queda mejor?`, nuevoEstado };
       }
       case "hora": {

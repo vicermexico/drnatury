@@ -139,6 +139,21 @@ export function interpretarFecha(textoNormalizado: string, ahoraCST: Date = new 
   const hoyStr = ahoraCST.toLocaleDateString("en-CA", { timeZone: "America/Monterrey" });
   if (textoNormalizado.includes("hoy")) return hoyStr;
 
+  // "en 8 dias", "de mañana en 8 dias", "de hoy en 8 dias" -- cuentan
+  // los dias EXACTOS a partir de hoy. Esto va antes del checar la
+  // palabra "manana" sola, porque "de manana en 8 dias" es un modismo
+  // (como "de hoy en ocho") donde "manana" NO significa "el dia de
+  // manana" -- significa "a partir de manana", y lo que de verdad
+  // cuenta es el numero de dias que sigue. Sin este caso, "de manana
+  // en 8 dias" se leia como "manana" a secas, ignorando el "en 8 dias".
+  const enDiasMatch = textoNormalizado.match(/\ben\s+(\d{1,2})\s*dias?\b/);
+  if (enDiasMatch) {
+    const n = parseInt(enDiasMatch[1], 10);
+    const [y, m, d] = hoyStr.split("-").map(Number);
+    const fecha = new Date(Date.UTC(y, m - 1, d + n, 12));
+    return fecha.toISOString().slice(0, 10);
+  }
+
   if (/\bmanana\b/.test(textoNormalizado) && !textoNormalizado.includes("por la manana") && !textoNormalizado.includes("en la manana")) {
     const [y, m, d] = hoyStr.split("-").map(Number);
     const manana = new Date(Date.UTC(y, m - 1, d + 1, 12));
@@ -188,6 +203,12 @@ export function interpretarFecha(textoNormalizado: string, ahoraCST: Date = new 
 
 export function interpretarTurno(textoNormalizado: string): Turno {
   if (textoNormalizado.includes("tarde")) return "tarde";
+  // "de manana en 8 dias" usa la palabra "manana" como parte del
+  // modismo de fecha relativa (ver interpretarFecha) -- NO quiere decir
+  // que pide el turno de la manana. Sin esta excepcion, ese mensaje se
+  // leia como turno="manana" y pisaba el turno ("tarde") que la
+  // persona ya habia dicho antes.
+  if (/\bmanana\s+en\s+\d/.test(textoNormalizado)) return null;
   if (textoNormalizado.includes("manana") || textoNormalizado.includes("temprano")) return "manana";
   return null;
 }
