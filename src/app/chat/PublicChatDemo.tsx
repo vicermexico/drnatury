@@ -655,7 +655,7 @@ export function PublicChatDemo({
           <div key={m.id} className={`flex ${m.rol === "bot" ? "justify-start" : "justify-end"}`}>
             <div
               className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap shadow-sm ${
-                m.audioUrl && !m.texto ? "w-64" : ""
+                m.audioUrl && !m.texto ? "w-72" : ""
               } ${
                 m.rol === "bot"
                   ? "bg-white text-gray-800 border border-gray-100 rounded-bl-sm"
@@ -663,7 +663,7 @@ export function PublicChatDemo({
               }`}
             >
               {m.audioUrl && (
-                <audio controls preload="none" className="w-full mb-2 h-10">
+                <audio controls preload="none" className="w-full mb-2 h-12">
                   <source src={m.audioUrl} />
                 </audio>
               )}
