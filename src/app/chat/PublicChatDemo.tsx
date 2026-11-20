@@ -784,7 +784,7 @@ export function PublicChatDemo({
           }}
           placeholder="Mensaje"
           style={{ color: "#fff", WebkitTextFillColor: "#fff", colorScheme: "dark" }}
-          className="flex-1 rounded-full border border-gray-700 bg-[#2a3942] caret-white placeholder-gray-400 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className="flex-1 min-w-0 rounded-full border border-gray-700 bg-[#2a3942] caret-white placeholder-gray-400 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
         <button
           onClick={abrirModalUbicacion}
