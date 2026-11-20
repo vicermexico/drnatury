@@ -265,6 +265,24 @@ const BENDICION_KEYWORDS = ["dios le bendiga", "dios lo bendiga", "dios te bendi
 const SINTOMA_KEYWORDS = ["duele", "dolor", "molestia", "me siento", "siento", "adormecid", "hormigueo", "me canso", "cansancio", "mareo"];
 const UBICACION_KEYWORDS = ["ubicacion", "direccion", "donde queda", "donde quedan", "donde estan", "donde esta", "como llego", "mapa", "localizacion"];
 
+// Frases tipo "deje lo reviso", "lo checo y despues le aviso", "deje
+// lo hablo con mis hijos y le digo", "despues le digo" -- la persona
+// SI quiere agendar, pero todavia no en este momento (lo va a pensar,
+// consultar con alguien, o checar su agenda). No hay que insistir con
+// la pregunta pendiente como si no hubiera dicho nada (ej. seguir
+// preguntando "¿consultorio o domicilio?") -- se le da espacio con
+// calidez, sin presionar, y se deja la puerta abierta para cuando
+// ella misma vuelva a escribir.
+function esDejarParaDespues(normalizado: string): boolean {
+  return (
+    /\b(deje|dejeme)\b[\s\S]{0,20}\b(reviso|checo|veo|pienso|hablo|consulto|platico)\b/.test(normalizado) ||
+    /\bdespues\b[\s\S]{0,20}\b(aviso|digo|confirmo|comento|hablamos|contesto|platicamos)\b/.test(normalizado) ||
+    /\blo (pienso|checo|reviso|platico|consulto)\b/.test(normalizado)
+  );
+}
+
+const DEJAR_PARA_DESPUES_TEXT = "Claro, primero Dios y estaré al pendiente para agendarle.";
+
 const PARTES_CUERPO: { palabra: string; frase: string }[] = [
   { palabra: "espalda", frase: "su espalda" },
   { palabra: "talon", frase: "su talón" },
@@ -792,6 +810,12 @@ export async function generarRespuesta(args: {
         nuevoEstado: { fase: "agendando", paso: "modalidad" },
       };
     }
+    // Si de plano dice que lo va a pensar/checar y despues avisa, no
+    // se le insiste con preguntas de agendar desde este primer
+    // mensaje (ver esDejarParaDespues arriba).
+    if (esDejarParaDespues(normalizado)) {
+      return { respuesta: DEJAR_PARA_DESPUES_TEXT, nuevoEstado: { fase: "conversando" } };
+    }
     // Si el primer mensaje YA es una intencion clara de agendar (ej.
     // el mensaje fijo "Quisiera agendar mi cita" del boton "Agenda tu
     // cita" en la pagina de inicio), nos saltamos el saludo de
@@ -992,6 +1016,12 @@ async function calcularRespuestaBase(
   if (estado.fase === "agendando" && estado.paso) {
     if (esUrgencia(normalizado)) {
       return { respuesta: `${URGENCIA_TEXT}\n\n${preguntaActualDelPaso(estado)}`, nuevoEstado: estado };
+    }
+    // Si dice que lo va a pensar/checar y despues avisa, aqui si NO
+    // se repite la pregunta pendiente -- insistir seria justo lo que
+    // no se debe hacer cuando alguien ya pidio espacio.
+    if (esDejarParaDespues(normalizado)) {
+      return { respuesta: DEJAR_PARA_DESPUES_TEXT, nuevoEstado: { ...estado, fase: "conversando" } };
     }
     if (contieneAlguna(normalizado, TRATAMIENTO_KEYWORDS)) {
       return { respuesta: `${TRATAMIENTO_TEXT}\n\n${preguntaActualDelPaso(estado)}`, nuevoEstado: estado };
@@ -1218,6 +1248,12 @@ async function calcularRespuestaBase(
       respuesta: `${URGENCIA_TEXT} ¿Para cuándo le gustaría agendar su cita?`,
       nuevoEstado: { fase: "agendando", paso: "modalidad" },
     };
+  }
+
+  // Si dice que lo va a pensar/checar y despues avisa, no se le
+  // insiste con la invitacion a agendar (ver esDejarParaDespues arriba).
+  if (esDejarParaDespues(normalizado)) {
+    return { respuesta: DEJAR_PARA_DESPUES_TEXT, nuevoEstado: { ...estado, fase: "conversando" } };
   }
 
   // 5) Ya trae indicacion medica especifica (TAC, estudio, etc.)
