@@ -13,7 +13,11 @@ interface MensajeBienvenidaUI {
 export function BienvenidaManager() {
   const [mensajes, setMensajes] = useState<MensajeBienvenidaUI[]>([]);
   const [cargando, setCargando] = useState(true);
-  const [abierto, setAbierto] = useState(false);
+  // Ahora esta pantalla vive en su propia pagina (ver
+  // /master/asistente-whatsapp/bienvenida), ya no esta mezclada junto
+  // con las demas -- por eso empieza abierta de una vez, aunque se
+  // deja el boton de colapsar por si Master quiere ocultarla un rato.
+  const [abierto, setAbierto] = useState(true);
   const [textoNuevo, setTextoNuevo] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [subiendoAudio, setSubiendoAudio] = useState(false);

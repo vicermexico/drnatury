@@ -18,7 +18,9 @@ export function CorreccionesManager() {
   const [correcciones, setCorrecciones] = useState<CorreccionUI[]>([]);
   const [cargando, setCargando] = useState(true);
   const [borrandoId, setBorrandoId] = useState<string | null>(null);
-  const [abierto, setAbierto] = useState(false);
+  // Ahora esta pantalla vive en su propia pagina (ver
+  // /master/asistente-whatsapp/correcciones) -- empieza abierta de una vez.
+  const [abierto, setAbierto] = useState(true);
 
   async function cargar() {
     setCargando(true);
