@@ -150,7 +150,10 @@ export function interpretarFecha(textoNormalizado: string, ahoraCST: Date = new 
   // del dia de la semana -- antes, si decian "jueves 26" pero hoy no
   // era jueves, se calculaba el jueves MAS CERCANO ignorando el "26"
   // que la persona si dio explicito, agendando un dia equivocado.
-  const numMatch = textoNormalizado.match(/\b([1-9]|[12]\d|3[01])\b/);
+  // Ojo: un numero pegado a la palabra "persona(s)" (ej. "vamos a ser
+  // 2 personas") NO es el dia del mes -- sin este cuidado, "2
+  // personas" se leia como "el dia 2", agendando un mes completo mal.
+  const numMatch = textoNormalizado.match(/\b([1-9]|[12]\d|3[01])\b(?!\s*personas?\b)/);
   if (numMatch) {
     const diaNum = parseInt(numMatch[1], 10);
     const [y, m, d] = hoyStr.split("-").map(Number);
