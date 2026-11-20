@@ -13,7 +13,9 @@ export function AnunciosManager() {
   const [textoNuevo, setTextoNuevo] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [borrandoId, setBorrandoId] = useState<string | null>(null);
-  const [abierto, setAbierto] = useState(false);
+  // Ahora esta pantalla vive en su propia pagina (ver
+  // /master/asistente-whatsapp/anuncios) -- empieza abierta de una vez.
+  const [abierto, setAbierto] = useState(true);
 
   async function cargar() {
     setCargando(true);
