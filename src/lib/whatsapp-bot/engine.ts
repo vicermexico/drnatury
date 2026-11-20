@@ -331,6 +331,41 @@ function buscarMunicipioDomicilio(normalizado: string): string | null {
   return match ? match.bonito : null;
 }
 
+// Municipios cercanos (area metropolitana de Monterrey) a los que
+// todavia NO se da servicio a domicilio -- para distinguir cuando de
+// verdad dijeron un municipio que no se cubre (ej. "Guadalupe") de
+// cuando no dijeron ningun municipio en claro (ej. mencionaron una
+// colonia o una calle, como "valle de Lincoln sector Mitras", que no
+// es el nombre de ningun municipio). En el primer caso se le avisa que
+// ese municipio no se cubre; en el segundo, mejor se le vuelve a
+// preguntar el municipio en vez de asumir que ya contesto algo
+// invalido. No hace falta la lista completa de los +2400 municipios
+// de México -- con los de esta zona alcanza para casi todos los casos
+// reales, ya que los pacientes son de por aqui.
+const MUNICIPIOS_CERCANOS_NO_CUBIERTOS = [
+  "guadalupe",
+  "juarez",
+  "cadereyta",
+  "santiago",
+  "pesqueria",
+  "zuazua",
+  "salinas victoria",
+  "cienega de flores",
+  "abasolo",
+  "hidalgo",
+  "allende",
+  "montemorelos",
+  "linares",
+  "china",
+  "los ramones",
+  "marin",
+];
+
+function municipioCercanoNoCubierto(mensaje: string): boolean {
+  const normalizado = normalizar(mensaje);
+  return MUNICIPIOS_CERCANOS_NO_CUBIERTOS.some((m) => normalizado.includes(m));
+}
+
 function siguientePreguntaLugar(modalidad: "CONSULTORIO" | "DOMICILIO"): string {
   return modalidad === "CONSULTORIO"
     ? "¿Sería en Mitras o en San Blas?"
@@ -712,13 +747,23 @@ async function calcularRespuestaBase(
       }
       case "lugar": {
         if (estado.modalidad === "DOMICILIO" && !municipioDomicilioValido(mensaje)) {
-          // No es un municipio donde se de el servicio a domicilio --
-          // no se deja avanzar, se vuelve a preguntar.
-          return {
-            respuesta:
-              "Uy, a ese municipio todavía no llegamos a domicilio. Por ahora solo cubrimos García, Santa Catarina, San Pedro, Escobedo, Carmen, Monterrey, San Nicolás y Apodaca. ¿En cuál de esos sería, o prefiere mejor en consultorio?",
-            nuevoEstado: estado,
-          };
+          if (municipioCercanoNoCubierto(mensaje)) {
+            // Si mencionaron un municipio real y cercano que de plano
+            // no se cubre (ej. Guadalupe), se le avisa -- ahi si ya
+            // contesto algo, nada mas que no se puede.
+            return {
+              respuesta:
+                "Uy, a ese municipio todavía no llegamos a domicilio. Por ahora solo cubrimos García, Santa Catarina, San Pedro, Escobedo, Carmen, Monterrey, San Nicolás y Apodaca. ¿En cuál de esos sería, o prefiere mejor en consultorio?",
+              nuevoEstado: estado,
+            };
+          }
+          // No se reconocio ningun nombre de municipio (ni de los que
+          // se cubren ni de los cercanos que no se cubren) -- lo mas
+          // probable es que haya dicho una colonia, calle o referencia
+          // (ej. "valle de Lincoln sector Mitras"), no el municipio en
+          // si. No se le dice que ese municipio no se cubre (porque
+          // todavia no dijo ninguno) -- se le vuelve a pedir derecho.
+          return { respuesta: "¿Me puede decir en qué municipio vive, por favor?", nuevoEstado: estado };
         }
         const nuevoEstado: EstadoAgendado = { ...estado, paso: "personas", lugar: mensaje.trim() };
         return { respuesta: "¿Cuántas personas serían?", nuevoEstado };
