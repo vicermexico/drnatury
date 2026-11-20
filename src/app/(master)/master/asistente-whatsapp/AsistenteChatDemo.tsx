@@ -202,11 +202,15 @@ export function AsistenteChatDemo() {
             <div className="max-w-[80%]">
               <div
                 className={`rounded-xl px-3 py-2 text-sm whitespace-pre-wrap shadow-sm ${
-                  m.audioUrl && !m.texto ? "w-64" : ""
-                } ${m.rol === "bot" ? "bg-emerald-100 text-emerald-950" : "bg-white text-gray-800"}`}
+                  m.audioUrl && !m.texto
+                    ? "w-72 bg-white border border-gray-200 text-gray-800"
+                    : m.rol === "bot"
+                      ? "bg-emerald-100 text-emerald-950"
+                      : "bg-white text-gray-800"
+                }`}
               >
                 {m.audioUrl && (
-                  <audio controls preload="none" className="w-full mb-2 h-10">
+                  <audio controls preload="none" className="w-full mb-2 h-12">
                     <source src={m.audioUrl} />
                   </audio>
                 )}
