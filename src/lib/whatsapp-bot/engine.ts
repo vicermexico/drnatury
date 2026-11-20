@@ -200,7 +200,25 @@ function tieneAlgunaPalabraParecida(normalizado: string, objetivos: string[]): b
   return tokens.some((t) => objetivos.some((o) => palabraSeParece(t, o)));
 }
 
-const URGENCIA_KEYWORDS = ["dolor de pecho", "me duele el pecho", "duele el pecho", "falta de aire", "no puedo respirar", "me ahogo", "ahogo"];
+const URGENCIA_KEYWORDS = ["dolor de pecho", "falta de aire", "no puedo respirar", "me ahogo", "ahogo"];
+
+// "me duele el pecho", pero tambien "me duele MUCHO el pecho", "duele
+// bastante el pecho", etc. -- antes se buscaba la frase pegada tal
+// cual ("me duele el pecho"/"duele el pecho"), y con cualquier palabra
+// de relleno en medio (un adverbio como "mucho") ya no se reconocia
+// como urgencia.
+const DOLOR_PECHO_REGEX = /duele.{0,20}pecho|pecho.{0,20}duele/;
+
+function esUrgencia(normalizado: string): boolean {
+  return contieneAlguna(normalizado, URGENCIA_KEYWORDS) || DOLOR_PECHO_REGEX.test(normalizado);
+}
+
+// Ante cualquier mencion de un dolor o molestia que suene urgente,
+// SIEMPRE se le da importancia primero a eso -- nunca se le hace de
+// lado aunque en el mismo mensaje ya pidan la cita -- pero sin dejar
+// la conversacion colgada: despues de la recomendacion, se vuelve al
+// camino de cerrar la cita (se sigue preguntando para agendar).
+const URGENCIA_TEXT = "Eso sí es bueno que lo chequen pronto con un médico o en una clínica, nada más para estar tranquilos de que todo esté bien.";
 const ORDEN_MEDICA_KEYWORDS = ["me dijo el doctor", "me indico el doctor", "me indico el medico", "me dijo el medico", "me mando a hacer", "me receto", "un tac", "hacerme un tac", "resonancia", "estudio de sangre", "analisis de sangre"];
 const PRECIO_KEYWORDS = ["cuesta", "costo", "precio", "cuanto es", "cuanto vale"];
 const DURACION_KEYWORDS = ["cuanto dura", "cuanto tarda", "cuanto tiempo", "dura el estudio", "tarda la cita", "tarda por persona"];
@@ -752,6 +770,28 @@ export async function generarRespuesta(args: {
         nota: "mensaje_no_de_anuncio",
       };
     }
+    // Si YA desde este primer mensaje mencionan algo de urgencia (ej.
+    // "quiero una cita doc es que me duele mucho el pecho"), eso se
+    // contesta primero sin excepcion -- aunque en el mismo mensaje ya
+    // pidan la cita, no se le hace de lado la urgencia para saltar
+    // derecho a preguntar consultorio/domicilio.
+    if (esUrgencia(normalizado)) {
+      return {
+        respuesta: `${URGENCIA_TEXT} ¿Para cuándo le gustaría agendar su cita?`,
+        nuevoEstado: { fase: "agendando", paso: "modalidad" },
+      };
+    }
+    // Igual si mencionan un dolor o molestia (no urgente) desde este
+    // primer mensaje -- se reconoce primero lo que dijo antes de
+    // seguir con el camino de cerrar la cita (igual que la regla 9 de
+    // mas abajo, para cuando esto pasa a mitad de la conversacion).
+    if (contieneAlguna(normalizado, SINTOMA_KEYWORDS)) {
+      const parte = detectarParteCuerpo(normalizado);
+      return {
+        respuesta: `${respuestaSintoma(parte)} ¿Sería en consultorio o a domicilio?`,
+        nuevoEstado: { fase: "agendando", paso: "modalidad" },
+      };
+    }
     // Si el primer mensaje YA es una intencion clara de agendar (ej.
     // el mensaje fijo "Quisiera agendar mi cita" del boton "Agenda tu
     // cita" en la pagina de inicio), nos saltamos el saludo de
@@ -950,6 +990,9 @@ async function calcularRespuestaBase(
   // informacion general (tratamiento, precio, duracion), se contesta
   // esa duda sin perder el avance, y se repite la pregunta pendiente.
   if (estado.fase === "agendando" && estado.paso) {
+    if (esUrgencia(normalizado)) {
+      return { respuesta: `${URGENCIA_TEXT}\n\n${preguntaActualDelPaso(estado)}`, nuevoEstado: estado };
+    }
     if (contieneAlguna(normalizado, TRATAMIENTO_KEYWORDS)) {
       return { respuesta: `${TRATAMIENTO_TEXT}\n\n${preguntaActualDelPaso(estado)}`, nuevoEstado: estado };
     }
@@ -1167,11 +1210,13 @@ async function calcularRespuestaBase(
     }
   }
 
-  // 4) Conversacion libre: urgencias primero, sin excepcion.
-  if (contieneAlguna(normalizado, URGENCIA_KEYWORDS)) {
+  // 4) Conversacion libre: urgencias primero, sin excepcion -- pero
+  // sin dejar la conversacion colgada, se vuelve al camino de cerrar
+  // la cita (ver URGENCIA_TEXT arriba).
+  if (esUrgencia(normalizado)) {
     return {
-      respuesta: "Eso sí es bueno que lo chequen pronto con un médico o en una clínica, nada más para estar tranquilos de que todo esté bien. Y ya después con calma lo podemos ver aquí también.",
-      nuevoEstado: { ...estado, fase: "conversando" },
+      respuesta: `${URGENCIA_TEXT} ¿Para cuándo le gustaría agendar su cita?`,
+      nuevoEstado: { fase: "agendando", paso: "modalidad" },
     };
   }
 
