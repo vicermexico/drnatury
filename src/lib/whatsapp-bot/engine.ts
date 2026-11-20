@@ -306,21 +306,29 @@ function contarPersonas(mensaje: string): number {
 
 // Municipios donde de verdad se da el servicio a domicilio -- si
 // dicen uno que no esta aqui (ej. Guadalupe), no se debe dejar seguir
-// agendando, hay que avisarle y volver a preguntar.
-const MUNICIPIOS_DOMICILIO = [
-  "garcia",
-  "santa catarina",
-  "san pedro",
-  "escobedo",
-  "carmen",
-  "monterrey",
-  "san nicolas",
-  "apodaca",
+// agendando, hay que avisarle y volver a preguntar. Se guarda junto
+// con su forma "bonita" (con mayusculas y acentos) para poder usarla
+// directo como "lugar" cuando se detecta mencionado (ver
+// detectarModalidadYLugar) sin tener que volver a preguntarlo.
+const MUNICIPIOS_DOMICILIO: { normalizado: string; bonito: string }[] = [
+  { normalizado: "garcia", bonito: "García" },
+  { normalizado: "santa catarina", bonito: "Santa Catarina" },
+  { normalizado: "san pedro", bonito: "San Pedro" },
+  { normalizado: "escobedo", bonito: "Escobedo" },
+  { normalizado: "carmen", bonito: "Carmen" },
+  { normalizado: "monterrey", bonito: "Monterrey" },
+  { normalizado: "san nicolas", bonito: "San Nicolás" },
+  { normalizado: "apodaca", bonito: "Apodaca" },
 ];
 
 function municipioDomicilioValido(mensaje: string): boolean {
   const normalizado = normalizar(mensaje);
-  return MUNICIPIOS_DOMICILIO.some((m) => normalizado.includes(m));
+  return MUNICIPIOS_DOMICILIO.some((m) => normalizado.includes(m.normalizado));
+}
+
+function buscarMunicipioDomicilio(normalizado: string): string | null {
+  const match = MUNICIPIOS_DOMICILIO.find((m) => normalizado.includes(m.normalizado));
+  return match ? match.bonito : null;
 }
 
 function siguientePreguntaLugar(modalidad: "CONSULTORIO" | "DOMICILIO"): string {
@@ -329,38 +337,44 @@ function siguientePreguntaLugar(modalidad: "CONSULTORIO" | "DOMICILIO"): string 
     : "¿En qué municipio sería (García, Santa Catarina, San Pedro, Escobedo, Carmen, Monterrey, San Nicolás o Apodaca)?";
 }
 
-// Si el mensaje ya dice claramente "consultorio" o "a domicilio" (y no
-// los dos a la vez, que seria ambiguo), se puede saber la modalidad
-// sin tener que preguntarla. Esto es lo que faltaba para que, cuando
-// alguien pide su cita mencionando "a mi domicilio" desde el primer
-// mensaje, el bot no se la vuelva a preguntar mas adelante -- antes
-// esto solo se checaba DENTRO de la pregunta de modalidad (paso
-// "modalidad"), nunca en el mensaje que arranca el flujo.
-function detectarModalidadExplicita(normalizado: string): "CONSULTORIO" | "DOMICILIO" | null {
-  const esDomicilio = normalizado.includes("domicilio");
-  const esConsultorio = normalizado.includes("consultorio");
-  if (esDomicilio && !esConsultorio) return "DOMICILIO";
-  if (esConsultorio && !esDomicilio) return "CONSULTORIO";
+// Si el mensaje ya deja claro, de un modo u otro, que modalidad (y a
+// veces hasta el lugar) quiere, se puede saber sin tener que
+// preguntarlo. No solo cuenta decir la palabra "consultorio" o
+// "domicilio" -- mencionar uno de los consultorios (San Blas, Mitras)
+// o uno de los municipios de domicilio (García, Monterrey, etc.)
+// tambien lo deja igual de claro, aunque no se diga la palabra exacta
+// (ej. "la dirección que me queda en San Blas" ya implica
+// CONSULTORIO). Si el mensaje mezcla senales de las dos modalidades a
+// la vez (raro, pero puede pasar), se considera ambiguo y se pregunta
+// igual que antes, para no adivinar mal.
+function detectarModalidadYLugar(normalizado: string): { modalidad: "CONSULTORIO" | "DOMICILIO"; lugar?: string } | null {
+  const esSanBlas = normalizado.includes("san blas");
+  const esMitras = normalizado.includes("mitras");
+  const indicaConsultorio = normalizado.includes("consultorio") || esSanBlas || esMitras;
+  const municipio = buscarMunicipioDomicilio(normalizado);
+  const indicaDomicilio = normalizado.includes("domicilio") || !!municipio;
+
+  if (indicaConsultorio && indicaDomicilio) return null;
+  if (indicaConsultorio) {
+    return { modalidad: "CONSULTORIO", lugar: esSanBlas ? "San Blas" : esMitras ? "Mitras" : undefined };
+  }
+  if (indicaDomicilio) {
+    return { modalidad: "DOMICILIO", lugar: municipio ?? undefined };
+  }
   return null;
 }
 
 // Arranca el flujo de agendar cita. Si el mensaje que lo disparo ya
-// menciona la modalidad (consultorio o domicilio), nos saltamos esa
-// pregunta -- y de una vez el lugar tambien, si ya lo dijeron junto
-// (ej. "consultorio san blas") -- en vez de preguntar algo que ya
-// contestaron.
+// deja claro la modalidad (y a veces el lugar), nos saltamos esas
+// preguntas en vez de preguntar algo que ya contestaron.
 function iniciarFlujoAgendado(normalizado: string): ResultadoRespuesta {
-  const modalidad = detectarModalidadExplicita(normalizado);
-  if (!modalidad) {
+  const detectado = detectarModalidadYLugar(normalizado);
+  if (!detectado) {
     return { respuesta: "¿Sería en consultorio o a domicilio?", nuevoEstado: { fase: "agendando", paso: "modalidad" } };
   }
-  if (modalidad === "CONSULTORIO") {
-    const esSanBlas = normalizado.includes("san blas");
-    const esMitras = normalizado.includes("mitras");
-    if (esSanBlas || esMitras) {
-      const lugar = esSanBlas ? "San Blas" : "Mitras";
-      return { respuesta: "¿Cuántas personas serían?", nuevoEstado: { fase: "agendando", paso: "personas", modalidad, lugar } };
-    }
+  const { modalidad, lugar } = detectado;
+  if (lugar) {
+    return { respuesta: "¿Cuántas personas serían?", nuevoEstado: { fase: "agendando", paso: "personas", modalidad, lugar } };
   }
   return { respuesta: siguientePreguntaLugar(modalidad), nuevoEstado: { fase: "agendando", paso: "lugar", modalidad } };
 }
@@ -655,9 +669,8 @@ async function calcularRespuestaBase(
     }
     switch (estado.paso) {
       case "modalidad": {
-        const esDomicilio = normalizado.includes("domicilio");
-        const esConsultorio = normalizado.includes("consultorio");
-        if (!esDomicilio && !esConsultorio) {
+        const detectado = detectarModalidadYLugar(normalizado);
+        if (!detectado) {
           // Si lo que dijo es un dolor o molestia (ej. "me duele la
           // pierna mucho"), no se le repite la pregunta en seco como si
           // no hubiera dicho nada -- se reconoce lo que dijo primero,
@@ -683,19 +696,15 @@ async function calcularRespuestaBase(
           const nuevoEstado: EstadoAgendado = posibleDia ? { ...estado, dia: mensaje.trim() } : estado;
           return { respuesta: "¿Sería en consultorio o a domicilio?", nuevoEstado };
         }
-        const modalidad: "CONSULTORIO" | "DOMICILIO" = esDomicilio ? "DOMICILIO" : "CONSULTORIO";
 
-        // Si ya dijeron el consultorio junto con la modalidad (ej.
-        // "consultorio san blas", "consultorio mitras"), no hace falta
-        // volver a preguntar cual es -- se salta directo a personas.
-        if (modalidad === "CONSULTORIO") {
-          const esSanBlas = normalizado.includes("san blas");
-          const esMitras = normalizado.includes("mitras");
-          if (esSanBlas || esMitras) {
-            const lugar = esSanBlas ? "San Blas" : "Mitras";
-            const nuevoEstado: EstadoAgendado = { ...estado, paso: "personas", modalidad, lugar };
-            return { respuesta: "¿Cuántas personas serían?", nuevoEstado };
-          }
+        const { modalidad, lugar } = detectado;
+        // Si ya dejaron claro el lugar junto con la modalidad (ej.
+        // "consultorio san blas", o mencionan directo un municipio de
+        // domicilio), no hace falta volver a preguntar cual es -- se
+        // salta directo a personas.
+        if (lugar) {
+          const nuevoEstado: EstadoAgendado = { ...estado, paso: "personas", modalidad, lugar };
+          return { respuesta: "¿Cuántas personas serían?", nuevoEstado };
         }
 
         const nuevoEstado: EstadoAgendado = { ...estado, paso: "lugar", modalidad };
