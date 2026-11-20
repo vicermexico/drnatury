@@ -32,6 +32,15 @@ interface MensajeUI {
   agendado?: ResumenAgendado;
 }
 
+// Datos para mandar la ubicacion actual de la cita a domicilio que se
+// acaba de agendar en esta conversacion (ver UbicacionButton.tsx, que
+// usa este mismo token para el link que se manda por WhatsApp -- aqui
+// se reutiliza el mismo mecanismo pero dentro del chat).
+interface UbicacionDatos {
+  appointmentId: string;
+  token: string;
+}
+
 function esperar(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -166,6 +175,21 @@ function IconoMicrofono({ className }: { className?: string }) {
   );
 }
 
+// Icono de "pin" de ubicacion con la misma forma de gota que usan Google
+// Maps y Waze (en vez del emoji 📍, que se ve distinto segun el celular)
+// -- pedido explicitamente por Vic con un ejemplo de referencia.
+function IconoUbicacion({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path
+        d="M12 2C7.58 2 4 5.58 4 10c0 5.25 6.72 11.19 7.01 11.44a1.5 1.5 0 0 0 1.98 0C13.28 21.19 20 15.25 20 10c0-4.42-3.58-8-8-8Z"
+        fill="#ea4335"
+      />
+      <circle cx="12" cy="10" r="3.2" fill="#fff" />
+    </svg>
+  );
+}
+
 let siguienteId = 1;
 
 // Para que no se vea tan rapido (como si fuera un robot contestando al
@@ -192,6 +216,14 @@ export function PublicChatDemo({
   const [primerMensajeEnviado, setPrimerMensajeEnviado] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [mostrarOpciones, setMostrarOpciones] = useState(false);
+  // En cuanto se agenda una cita a domicilio en esta conversacion, aqui
+  // se guarda el id + token para poder mandar la ubicacion -- habilita
+  // el icono de pin junto al microfono (antes de eso no hay a que cita
+  // pegarle la ubicacion, asi que el icono no se muestra).
+  const [ubicacionDatos, setUbicacionDatos] = useState<UbicacionDatos | null>(null);
+  const [mostrarModalUbicacion, setMostrarModalUbicacion] = useState(false);
+  const [estadoUbicacion, setEstadoUbicacion] = useState<"inicio" | "cargando" | "listo" | "error">("inicio");
+  const [errorUbicacion, setErrorUbicacion] = useState("");
   // Llamada de voz: mientras esta activa, no se escribe ni se ve nada
   // en pantalla -- el paciente habla, se le manda al bot por detras
   // igual que un mensaje normal, y la respuesta se lee en voz alta.
@@ -239,6 +271,55 @@ export function PublicChatDemo({
     }
   );
 
+  // Usa el mismo endpoint que ya existe para el link de /ubicacion/[id]
+  // que se manda por WhatsApp (ver UbicacionButton.tsx) -- aqui nada mas
+  // se dispara desde el icono de pin dentro del chat en vez de un link
+  // aparte.
+  function mandarUbicacionActual() {
+    if (!ubicacionDatos) return;
+    if (!("geolocation" in navigator)) {
+      setEstadoUbicacion("error");
+      setErrorUbicacion("Tu celular no permite compartir ubicación desde aquí. Intenta desde Chrome o Safari.");
+      return;
+    }
+    setEstadoUbicacion("cargando");
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const res = await fetch(`/api/appointments/${ubicacionDatos.appointmentId}/ubicacion`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              token: ubicacionDatos.token,
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+            }),
+          });
+          if (!res.ok) {
+            setEstadoUbicacion("error");
+            setErrorUbicacion("No se pudo guardar. Intenta de nuevo.");
+            return;
+          }
+          setEstadoUbicacion("listo");
+        } catch {
+          setEstadoUbicacion("error");
+          setErrorUbicacion("No se pudo guardar. Intenta de nuevo.");
+        }
+      },
+      () => {
+        setEstadoUbicacion("error");
+        setErrorUbicacion("No se pudo obtener tu ubicación. Revisa que le hayas dado permiso a tu navegador.");
+      },
+      { enableHighAccuracy: true, timeout: 15_000 }
+    );
+  }
+
+  function abrirModalUbicacion() {
+    setEstadoUbicacion("inicio");
+    setErrorUbicacion("");
+    setMostrarModalUbicacion(true);
+  }
+
   async function enviarMensaje() {
     const esPrimero = !primerMensajeEnviado;
     const mensaje = (esPrimero ? mensajeInicial : input.trim());
@@ -269,6 +350,7 @@ export function PublicChatDemo({
         return;
       }
       setEstado(data.nuevoEstado);
+      if (data.ubicacion) setUbicacionDatos(data.ubicacion as UbicacionDatos);
 
       // El saludo de bienvenida llega como varios mensajes (texto y/o
       // audio, en el orden que Master armo) -- se mandan uno por uno,
@@ -341,6 +423,7 @@ export function PublicChatDemo({
 
       setEstado(data.nuevoEstado);
       estadoRef.current = data.nuevoEstado;
+      if (data.ubicacion) setUbicacionDatos(data.ubicacion as UbicacionDatos);
 
       const serieBienvenida = data.mensajesBienvenida as MensajeBienvenidaUI[] | undefined;
       const textoRespuesta =
@@ -595,6 +678,72 @@ export function PublicChatDemo({
         <div ref={finDeMensajesRef} />
       </div>
 
+      {mostrarModalUbicacion && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4 sm:pb-0"
+          onClick={() => setMostrarModalUbicacion(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {estadoUbicacion === "listo" ? (
+              <div className="text-center space-y-2 py-2">
+                <div className="mx-auto w-14 h-14 rounded-full bg-emerald-500 flex items-center justify-center text-2xl text-white shadow-md">
+                  ✓
+                </div>
+                <p className="text-sm font-bold text-emerald-700">¡Ubicación enviada!</p>
+                <p className="text-xs text-gray-500">Ya sabemos exactamente dónde llegar. Nos vemos pronto 🙌</p>
+                <button
+                  onClick={() => setMostrarModalUbicacion(false)}
+                  className="mt-2 text-xs text-gray-500 underline"
+                >
+                  Cerrar
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2">
+                  <IconoUbicacion className="w-6 h-6 shrink-0" />
+                  <p className="text-sm font-semibold text-gray-800">Mandar ubicación actual</p>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Si se encuentra en su domicilio ahorita, dele clic a &quot;Enviar&quot; para registrar su ubicación
+                  en la agenda de DrNatury.
+                </p>
+                {estadoUbicacion === "error" && (
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                    {errorUbicacion}
+                  </p>
+                )}
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    onClick={() => setMostrarModalUbicacion(false)}
+                    className="text-xs px-3 py-2 rounded-full text-gray-500 hover:bg-gray-100"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={mandarUbicacionActual}
+                    disabled={estadoUbicacion === "cargando"}
+                    className="text-xs font-semibold px-4 py-2 rounded-full bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60 flex items-center gap-1.5"
+                  >
+                    {estadoUbicacion === "cargando" ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        Obteniendo ubicación…
+                      </>
+                    ) : (
+                      "Enviar"
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="shrink-0 flex items-center gap-2 px-3 py-3 border-t border-gray-100 bg-white">
         <input
           value={primerMensajeEnviado ? input : mensajeInicial}
@@ -607,6 +756,15 @@ export function PublicChatDemo({
           style={{ color: "#fff", WebkitTextFillColor: "#fff", colorScheme: "dark" }}
           className="flex-1 rounded-full border border-gray-700 bg-[#2a3942] caret-white placeholder-gray-400 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
+        {ubicacionDatos && (
+          <button
+            onClick={abrirModalUbicacion}
+            title="Mandar mi ubicación actual"
+            className="rounded-full w-10 h-10 flex items-center justify-center shrink-0 shadow-sm bg-gray-100 hover:bg-gray-200"
+          >
+            <IconoUbicacion className="w-5 h-5" />
+          </button>
+        )}
         {dictadoSoportado && (
           <button
             onClick={() => (escuchando ? detenerDictado() : iniciarDictado())}
