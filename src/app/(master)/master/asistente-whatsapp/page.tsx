@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { AsistenteChatDemo } from "./AsistenteChatDemo";
 import { AnunciosManager } from "./AnunciosManager";
 import { BienvenidaManager } from "./BienvenidaManager";
+import { CorreccionesManager } from "./CorreccionesManager";
 import { ChatPerfilEditor } from "./ChatPerfilEditor";
 
 export default async function AsistenteWhatsappPage() {
@@ -45,6 +46,7 @@ export default async function AsistenteWhatsappPage() {
       />
       <BienvenidaManager />
       <AnunciosManager />
+      <CorreccionesManager />
       <AsistenteChatDemo />
     </div>
   );
