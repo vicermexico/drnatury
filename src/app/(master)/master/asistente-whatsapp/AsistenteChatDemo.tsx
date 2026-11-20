@@ -50,11 +50,20 @@ export function AsistenteChatDemo() {
   // al anuncio -- asi Master ve desde el primer momento exactamente lo
   // mismo que veria un paciente, sin tener que escribirlo el mismo.
   useEffect(() => {
-    enviarMensaje(MENSAJE_INICIAL_ANUNCIO);
+    enviarMensaje(MENSAJE_INICIAL_ANUNCIO, ESTADO_INICIAL);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function enviarMensaje(mensajeForzado?: string) {
+  // El estado que se manda al bot normalmente es el que ya trae el
+  // componente (la conversacion de siempre) -- pero al reiniciar o al
+  // mandar el mensaje inicial automatico, no se puede confiar en leer
+  // "estado" aqui, porque setEstado(ESTADO_INICIAL) todavia no se
+  // habia terminado de aplicar cuando se llama a esta funcion (setState
+  // es asincrono), y se estaria mandando sin querer el estado de la
+  // conversacion VIEJA -- por eso el bot no reconocia el mensaje
+  // inicial despues de reiniciar. Por eso se puede forzar el estado de
+  // arranque explicitamente en vez de leerlo del closure.
+  async function enviarMensaje(mensajeForzado?: string, estadoForzado?: EstadoAgendado) {
     const mensaje = mensajeForzado ?? input.trim();
     if (!mensaje || enviando) return;
     if (!mensajeForzado) setInput("");
@@ -67,7 +76,7 @@ export function AsistenteChatDemo() {
       const res = await fetch("/api/master/bot-demo/responder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mensaje, estado }),
+        body: JSON.stringify({ mensaje, estado: estadoForzado ?? estado }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data) {
@@ -116,8 +125,11 @@ export function AsistenteChatDemo() {
     setEstado(ESTADO_INICIAL);
     setCorrigiendoId(null);
     // Igual que al abrir el chat por primera vez, al reiniciar se
-    // vuelve a mandar solo el mensaje inicial del anuncio.
-    setTimeout(() => enviarMensaje(MENSAJE_INICIAL_ANUNCIO), 0);
+    // vuelve a mandar solo el mensaje inicial del anuncio -- se le
+    // pasa el estado de arranque de una vez (ver nota en enviarMensaje)
+    // para no mandarlo con el estado de la conversacion que se acaba
+    // de borrar.
+    enviarMensaje(MENSAJE_INICIAL_ANUNCIO, ESTADO_INICIAL);
   }
 
   function abrirCorreccion(m: MensajeUI) {
