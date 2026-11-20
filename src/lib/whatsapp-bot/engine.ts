@@ -329,6 +329,42 @@ function siguientePreguntaLugar(modalidad: "CONSULTORIO" | "DOMICILIO"): string 
     : "¿En qué municipio sería (García, Santa Catarina, San Pedro, Escobedo, Carmen, Monterrey, San Nicolás o Apodaca)?";
 }
 
+// Si el mensaje ya dice claramente "consultorio" o "a domicilio" (y no
+// los dos a la vez, que seria ambiguo), se puede saber la modalidad
+// sin tener que preguntarla. Esto es lo que faltaba para que, cuando
+// alguien pide su cita mencionando "a mi domicilio" desde el primer
+// mensaje, el bot no se la vuelva a preguntar mas adelante -- antes
+// esto solo se checaba DENTRO de la pregunta de modalidad (paso
+// "modalidad"), nunca en el mensaje que arranca el flujo.
+function detectarModalidadExplicita(normalizado: string): "CONSULTORIO" | "DOMICILIO" | null {
+  const esDomicilio = normalizado.includes("domicilio");
+  const esConsultorio = normalizado.includes("consultorio");
+  if (esDomicilio && !esConsultorio) return "DOMICILIO";
+  if (esConsultorio && !esDomicilio) return "CONSULTORIO";
+  return null;
+}
+
+// Arranca el flujo de agendar cita. Si el mensaje que lo disparo ya
+// menciona la modalidad (consultorio o domicilio), nos saltamos esa
+// pregunta -- y de una vez el lugar tambien, si ya lo dijeron junto
+// (ej. "consultorio san blas") -- en vez de preguntar algo que ya
+// contestaron.
+function iniciarFlujoAgendado(normalizado: string): ResultadoRespuesta {
+  const modalidad = detectarModalidadExplicita(normalizado);
+  if (!modalidad) {
+    return { respuesta: "¿Sería en consultorio o a domicilio?", nuevoEstado: { fase: "agendando", paso: "modalidad" } };
+  }
+  if (modalidad === "CONSULTORIO") {
+    const esSanBlas = normalizado.includes("san blas");
+    const esMitras = normalizado.includes("mitras");
+    if (esSanBlas || esMitras) {
+      const lugar = esSanBlas ? "San Blas" : "Mitras";
+      return { respuesta: "¿Cuántas personas serían?", nuevoEstado: { fase: "agendando", paso: "personas", modalidad, lugar } };
+    }
+  }
+  return { respuesta: siguientePreguntaLugar(modalidad), nuevoEstado: { fase: "agendando", paso: "lugar", modalidad } };
+}
+
 // Para repetir la pregunta del paso en el que ya se estaba, despues de
 // contestar una duda de informacion general (precio, duracion,
 // tratamiento) a la mitad del flujo de agendar -- sin esto, el mensaje
@@ -498,10 +534,7 @@ export async function generarRespuesta(args: {
     // pidiendo informacion (ej. el mensaje de los anuncios), no cuando
     // ya saben que quieren agendar.
     if (esIntencionAgendar(normalizado)) {
-      return {
-        respuesta: "¿Sería en consultorio o a domicilio?",
-        nuevoEstado: { fase: "agendando", paso: "modalidad" },
-      };
+      return iniciarFlujoAgendado(normalizado);
     }
     const codigo = detectarCodigoAnuncio(mensaje);
     const serieBienvenida: BienvenidaItem[] =
@@ -853,10 +886,7 @@ async function calcularRespuestaBase(
 
   // 8) Cualquier intencion de agendar arranca el flujo de la cita.
   if (esIntencionAgendar(normalizado)) {
-    return {
-      respuesta: "¿Sería en consultorio o a domicilio?",
-      nuevoEstado: { fase: "agendando", paso: "modalidad" },
-    };
+    return iniciarFlujoAgendado(normalizado);
   }
 
   // 9) Menciona un dolor o molestia: respuesta tranquila + cierre directo.
