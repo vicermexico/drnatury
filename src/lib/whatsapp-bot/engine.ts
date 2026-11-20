@@ -105,6 +105,32 @@ export const TRATAMIENTO_TEXT = `Nosotros damos tratamientos 100% naturales, son
 // si o que no sin haber visto nada todavia.
 export const PRONOSTICO_TEXT = `Claro que sí le podemos ayudar, pero no nos gusta adelantarnos a decirle algo sin haber visto primero de qué se trata -- para eso es el escaneo, para ver bien de dónde viene.`;
 
+// Una ubicacion que Master guardo parado en el lugar desde el panel
+// (ver /master/asistente-whatsapp/ubicaciones) -- el pin de GPS exacto
+// de ese consultorio, no una direccion escrita a mano.
+export interface Ubicacion {
+  nombre: string; // tal cual lo escribio Master (ej. "San Blas")
+  nombreNormalizado: string; // ya normalizado, para comparar contra el mensaje
+  lat: number;
+  lng: number;
+}
+
+// Si preguntan por la ubicacion mencionando un lugar en especifico que
+// Master ya guardo (ej. "mandame la ubicacion de San Blas"), se manda
+// solo esa -- si mencionan varias (ej. "...de San Blas y de Mitras"),
+// se mandan esas; si no especifican ninguna (ej. "mandame la
+// ubicacion", a secas), se mandan todas las que haya guardadas.
+function respuestaUbicacion(normalizado: string, ubicaciones: Ubicacion[]): string {
+  if (ubicaciones.length === 0) {
+    return "Ahorita no tengo guardada esa ubicación, en un momento se la paso.";
+  }
+  const mencionadas = ubicaciones.filter((u) => normalizado.includes(u.nombreNormalizado));
+  const aMandar = mencionadas.length > 0 ? mencionadas : ubicaciones;
+  return aMandar
+    .map((u) => `📍 ${u.nombre}: https://www.google.com/maps/search/?api=1&query=${u.lat},${u.lng}`)
+    .join("\n\n");
+}
+
 // Quita acentos, mayusculas, signos y espacios repetidos para poder
 // comparar texto de forma tolerante (igual que el resto de los parsers
 // de la app).
@@ -200,6 +226,7 @@ const AFIRMATIVO_KEYWORDS = ["si", "claro", "va", "sale", "dale", "esta bien", "
 const ACK_KEYWORDS = ["ok", "okay", "oka", "vale", "gracias", "entendido", "perfecto", "excelente", "genial", "bien"];
 const BENDICION_KEYWORDS = ["dios le bendiga", "dios lo bendiga", "dios te bendiga", "bendiciones", "que dios la bendiga", "que dios lo bendiga", "que este bien"];
 const SINTOMA_KEYWORDS = ["duele", "dolor", "molestia", "me siento", "siento", "adormecid", "hormigueo", "me canso", "cansancio", "mareo"];
+const UBICACION_KEYWORDS = ["ubicacion", "direccion", "donde queda", "donde quedan", "donde estan", "donde esta", "como llego", "mapa", "localizacion"];
 
 const PARTES_CUERPO: { palabra: string; frase: string }[] = [
   { palabra: "espalda", frase: "su espalda" },
@@ -676,6 +703,9 @@ export async function generarRespuesta(args: {
   correcciones: Correccion[];
   anuncios?: Anuncio[];
   bienvenida?: BienvenidaItem[];
+  // Ubicaciones (pines de GPS) que Master ya guardo desde el panel --
+  // ver /master/asistente-whatsapp/ubicaciones.
+  ubicaciones?: Ubicacion[];
   // true cuando quien contesta es un paciente de verdad (chat publico
   // /demo-whatsapp) -- ahi el bot NUNCA debe sonar como que no sabe que
   // contestar, ni mencionar nada interno (botones de "ensenar", avisos
@@ -684,7 +714,7 @@ export async function generarRespuesta(args: {
   // esos avisos son justo para que Master sepa que hay que entrenarlo.
   canalPublico?: boolean;
 }): Promise<ResultadoRespuesta> {
-  const { mensaje, estado, correcciones, anuncios = [], bienvenida = [], canalPublico = false } = args;
+  const { mensaje, estado, correcciones, anuncios = [], bienvenida = [], ubicaciones = [], canalPublico = false } = args;
   const normalizado = normalizar(mensaje);
 
   // 1) Primer mensaje de la conversacion.
@@ -740,7 +770,7 @@ export async function generarRespuesta(args: {
   // asi lo que Master ensena solo cambia las PALABRAS de la
   // respuesta, nunca congela la conversacion a medias esperando el
   // siguiente mensaje.
-  const resultadoBase = await calcularRespuestaBase(mensaje, normalizado, estado, canalPublico);
+  const resultadoBase = await calcularRespuestaBase(mensaje, normalizado, estado, canalPublico, ubicaciones);
 
   // 2) Si ya le ensenaste exactamente que contestar ante este mensaje,
   // se usa ese texto -- pero el paso/estado que ya se calculo arriba
@@ -893,7 +923,8 @@ async function calcularRespuestaBase(
   mensaje: string,
   normalizado: string,
   estado: EstadoAgendado,
-  canalPublico: boolean
+  canalPublico: boolean,
+  ubicaciones: Ubicacion[]
 ): Promise<ResultadoRespuesta> {
   // 3) Si estamos a la mitad de agendar una cita, seguimos la pregunta
   // que sigue en ese flujo -- pero si a la mitad preguntan algo de
@@ -902,6 +933,9 @@ async function calcularRespuestaBase(
   if (estado.fase === "agendando" && estado.paso) {
     if (contieneAlguna(normalizado, TRATAMIENTO_KEYWORDS)) {
       return { respuesta: `${TRATAMIENTO_TEXT}\n\n${preguntaActualDelPaso(estado)}`, nuevoEstado: estado };
+    }
+    if (contieneAlguna(normalizado, UBICACION_KEYWORDS)) {
+      return { respuesta: `${respuestaUbicacion(normalizado, ubicaciones)}\n\n${preguntaActualDelPaso(estado)}`, nuevoEstado: estado };
     }
     if (contieneAlguna(normalizado, DURACION_KEYWORDS) || contieneAlguna(normalizado, PRECIO_KEYWORDS)) {
       return { respuesta: `${PRECIO_DURACION_TEXT}\n\n${preguntaActualDelPaso(estado)}`, nuevoEstado: estado };
@@ -1136,6 +1170,14 @@ async function calcularRespuestaBase(
       respuesta: "¿Sería en consultorio o a domicilio?",
       nuevoEstado: { fase: "agendando", paso: "modalidad" },
     };
+  }
+
+  // Preguntan por la ubicacion/direccion de alguno de los consultorios
+  // (ej. "mandame la ubicacion de San Blas y de Mitras") -- se manda
+  // la direccion de texto mas el link de Google Maps de cada uno que
+  // pidieron.
+  if (contieneAlguna(normalizado, UBICACION_KEYWORDS)) {
+    return { respuesta: respuestaUbicacion(normalizado, ubicaciones), nuevoEstado: { ...estado, fase: "conversando" } };
   }
 
   // 7) Preguntas de precio / duracion (ya contestadas por el texto de bienvenida,

@@ -31,6 +31,12 @@ const SECCIONES = [
     descripcion: "Para que el bot sepa reconocer tus anuncios",
   },
   {
+    href: "/master/asistente-whatsapp/ubicaciones",
+    icono: "📍",
+    titulo: "Ubicaciones",
+    descripcion: "Guarda el pin de cada consultorio parado ahí para que el bot lo mande",
+  },
+  {
     href: "/master/asistente-whatsapp/correcciones",
     icono: "🎓",
     titulo: "Correcciones que le has enseñado",

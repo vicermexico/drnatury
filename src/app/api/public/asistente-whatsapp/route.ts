@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { generarRespuesta, ESTADO_INICIAL, type EstadoAgendado, type Correccion, type Anuncio } from "@/lib/whatsapp-bot/engine";
+import { generarRespuesta, ESTADO_INICIAL, type EstadoAgendado, type Correccion, type Anuncio, type Ubicacion } from "@/lib/whatsapp-bot/engine";
 import { obtenerSerieBienvenida } from "@/lib/whatsapp-bot/bienvenida";
 import { crearCitaRapida } from "@/lib/appointments/quickBook";
 import { generateConfirmToken } from "@/lib/appointments/tokens";
@@ -74,7 +74,17 @@ export async function POST(request: NextRequest) {
   const anuncios: Anuncio[] = (anunciosRaw ?? []).map((a) => ({ textoNormalizado: a.texto_normalizado as string }));
   const bienvenida = await obtenerSerieBienvenida(admin);
 
-  const resultado = await generarRespuesta({ mensaje, estado, correcciones, anuncios, bienvenida, canalPublico: true });
+  const { data: ubicacionesRaw } = await admin
+    .from("whatsapp_bot_ubicaciones")
+    .select("nombre, nombre_normalizado, lat, lng");
+  const ubicaciones: Ubicacion[] = (ubicacionesRaw ?? []).map((u) => ({
+    nombre: u.nombre as string,
+    nombreNormalizado: u.nombre_normalizado as string,
+    lat: u.lat as number,
+    lng: u.lng as number,
+  }));
+
+  const resultado = await generarRespuesta({ mensaje, estado, correcciones, anuncios, bienvenida, ubicaciones, canalPublico: true });
 
   if (conversacionId) {
     try {
