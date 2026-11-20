@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useDictado } from "@/hooks/useDictado";
+import { MENSAJE_INICIAL_ANUNCIO } from "@/lib/whatsapp-bot/mensajes";
 
 type EstadoAgendado = {
   fase: "inicio" | "conversando" | "agendando";
@@ -107,11 +108,6 @@ function hablar(texto: string, opts?: { alTerminar?: () => void }) {
 }
 
 const ESTADO_INICIAL: EstadoAgendado = { fase: "inicio" };
-
-// Mensaje pre-llenado del anuncio -- fijo, no se puede editar ni
-// borrar, solo mandar, para que la persona vea exactamente lo mismo
-// que le llegaria a Vic al hacerle clic a su anuncio de verdad.
-const MENSAJE_INICIAL_ANUNCIO = "B3 - ¡Hola! ¿Podrían darme más información?";
 
 // Cuando entran por el boton "Agenda tu cita" de la pagina de inicio
 // (/chat?origen=inicio), en vez del mensaje de anuncio se manda este
@@ -234,6 +230,10 @@ export function PublicChatDemo({
       if (modoLlamadaRef.current) {
         manejarTextoDeLlamada(texto);
       } else {
+        // Si todavia no habia mandado nada (el cuadro trae el mensaje
+        // fijo del anuncio), hablar reemplaza ese mensaje fijo por lo
+        // que dijo, igual que si lo hubiera escrito el mismo.
+        setPrimerMensajeEnviado(true);
         setInput((prev) => (prev ? `${prev} ${texto}` : texto));
       }
     }
@@ -307,6 +307,13 @@ export function PublicChatDemo({
     const esPrimero = !primerMensajeEnviado;
     if (esPrimero) setPrimerMensajeEnviado(true);
 
+    // Aunque mientras se esta en la llamada no se ve nada en pantalla
+    // (la tapa la pantalla de llamada), si se va guardando en el
+    // historial normal del chat -- asi al colgar y regresar a la
+    // vista de texto, la persona ve toda la conversacion que tuvo por
+    // voz, incluyendo en donde se quedo.
+    setMensajes((prev) => [...prev, { id: siguienteId++, rol: "paciente", texto }]);
+
     setFaseLlamada("pensando");
     hablar(elegirFrasePensando());
 
@@ -325,8 +332,10 @@ export function PublicChatDemo({
       if (!modoLlamadaRef.current) return;
 
       if (!res.ok || !data) {
+        const textoError = "Perdón, hubo un error, ¿puedes repetir?";
+        setMensajes((prev) => [...prev, { id: siguienteId++, rol: "bot", texto: textoError }]);
         setFaseLlamada("hablando");
-        hablar("Perdón, hubo un error, ¿puedes repetir?", { alTerminar: reanudarEscuchaLlamada });
+        hablar(textoError, { alTerminar: reanudarEscuchaLlamada });
         return;
       }
 
@@ -342,12 +351,15 @@ export function PublicChatDemo({
               .join(". ")
           : data.respuesta;
 
+      setMensajes((prev) => [...prev, { id: siguienteId++, rol: "bot", texto: textoRespuesta, agendado: data.agendado }]);
       setFaseLlamada("hablando");
       hablar(textoRespuesta, { alTerminar: reanudarEscuchaLlamada });
     } catch {
       if (!modoLlamadaRef.current) return;
+      const textoError = "Perdón, hubo un error, ¿puedes repetir?";
+      setMensajes((prev) => [...prev, { id: siguienteId++, rol: "bot", texto: textoError }]);
       setFaseLlamada("hablando");
-      hablar("Perdón, hubo un error, ¿puedes repetir?", { alTerminar: reanudarEscuchaLlamada });
+      hablar(textoError, { alTerminar: reanudarEscuchaLlamada });
     }
   }
 
@@ -361,6 +373,7 @@ export function PublicChatDemo({
     setModoLlamada(true);
     modoLlamadaRef.current = true;
     setFaseLlamada("hablando");
+    setMensajes((prev) => [...prev, { id: siguienteId++, rol: "bot", texto: SALUDO_LLAMADA }]);
     hablar(SALUDO_LLAMADA, {
       alTerminar: () => {
         if (!modoLlamadaRef.current) return;
@@ -594,7 +607,7 @@ export function PublicChatDemo({
           style={{ color: "#fff", WebkitTextFillColor: "#fff", colorScheme: "dark" }}
           className="flex-1 rounded-full border border-gray-700 bg-[#2a3942] caret-white placeholder-gray-400 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
-        {primerMensajeEnviado && dictadoSoportado && (
+        {dictadoSoportado && (
           <button
             onClick={() => (escuchando ? detenerDictado() : iniciarDictado())}
             disabled={enviando}

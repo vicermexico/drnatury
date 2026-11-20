@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { MENSAJE_INICIAL_ANUNCIO } from "@/lib/whatsapp-bot/mensajes";
 
 type EstadoAgendado = {
   fase: "inicio" | "conversando" | "agendando";
@@ -44,10 +45,19 @@ export function AsistenteChatDemo() {
     finDeMensajesRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [mensajes, enviando]);
 
-  async function enviarMensaje() {
-    const mensaje = input.trim();
+  // Al abrir el chat de entrenamiento, se manda solo el mismo mensaje
+  // inicial que le llegaria al bot de un paciente real que le dio clic
+  // al anuncio -- asi Master ve desde el primer momento exactamente lo
+  // mismo que veria un paciente, sin tener que escribirlo el mismo.
+  useEffect(() => {
+    enviarMensaje(MENSAJE_INICIAL_ANUNCIO);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function enviarMensaje(mensajeForzado?: string) {
+    const mensaje = mensajeForzado ?? input.trim();
     if (!mensaje || enviando) return;
-    setInput("");
+    if (!mensajeForzado) setInput("");
     setEnviando(true);
 
     const idPaciente = siguienteId++;
@@ -105,6 +115,9 @@ export function AsistenteChatDemo() {
     setMensajes([]);
     setEstado(ESTADO_INICIAL);
     setCorrigiendoId(null);
+    // Igual que al abrir el chat por primera vez, al reiniciar se
+    // vuelve a mandar solo el mensaje inicial del anuncio.
+    setTimeout(() => enviarMensaje(MENSAJE_INICIAL_ANUNCIO), 0);
   }
 
   function abrirCorreccion(m: MensajeUI) {
@@ -263,7 +276,7 @@ export function AsistenteChatDemo() {
           className="flex-1 rounded-full border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
         />
         <button
-          onClick={enviarMensaje}
+          onClick={() => enviarMensaje()}
           disabled={enviando || !input.trim()}
           className="rounded-full bg-emerald-600 text-white w-10 h-10 flex items-center justify-center hover:bg-emerald-700 disabled:opacity-50"
         >

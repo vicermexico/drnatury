@@ -116,7 +116,11 @@ export function LandingPage({ config, services, fondos = [], personajes = [] }: 
           </Link>
         </div>
 
-        {/* Barra fija arriba a la derecha, con el login real (celular + contraseña) */}
+        {/* Barra fija arriba a la derecha, con el login real (celular + contraseña).
+            Se ve igual que siempre -- lo unico que cambia es que el campo de
+            celular ya no se autoenfoca solo (ver PhoneLoginForm), para que
+            no se abra el teclado del celular sin que la persona le haya
+            dado clic a nada todavia. */}
         <div
           className={`fixed inset-x-3 top-3 z-30 transition-opacity duration-1000 sm:inset-x-auto sm:right-5 sm:top-5 sm:w-80 ${
             barraVisible ? "opacity-100" : "pointer-events-none opacity-0"
