@@ -234,6 +234,23 @@ function esIntencionAgendar(normalizado: string): boolean {
   return tieneAlgunaPalabraParecida(normalizado, AGENDAR_PALABRAS_ACCION);
 }
 
+// Ademas de las frases que ya cuenta esIntencionAgendar (cita, agendar,
+// me interesa, etc.), si de plano ya dice derecho la modalidad y/o el
+// lugar JUNTO CON algo de dia/turno/hora (ej. "consultorio de San
+// Blas por la tarde 5pm porfavor", sin decir "quiero cita" ni nada
+// parecido) tambien es clarisimo que quiere agendar -- es muy comun
+// que contesten asi derecho despues de leer el mensaje de bienvenida,
+// sin repetir la palabra "cita". Pero mencionar el lugar SOLO, sin
+// nada de dia/turno/hora (ej. "¿dónde queda San Blas?", o de plano
+// algo sin relacion, "voy a pasar a San Blas por otra cosa"), no basta
+// -- ahi si puede ser una pregunta o mencion casual, no un intento de
+// agendar.
+function pareceIntencionAgendar(mensaje: string, normalizado: string): boolean {
+  if (esIntencionAgendar(normalizado)) return true;
+  if (!detectarModalidadYLugar(normalizado)) return false;
+  return interpretarFecha(normalizado) !== null || interpretarTurno(normalizado) !== null || extraerHoraExplicita(mensaje) !== null;
+}
+
 function detectarParteCuerpo(normalizado: string): string {
   const match = PARTES_CUERPO.find((p) => normalizado.includes(p.palabra));
   return match ? match.frase : "eso";
@@ -596,7 +613,7 @@ export async function generarRespuesta(args: {
     // domicilio -- el saludo de bienvenida es para cuando entran
     // pidiendo informacion (ej. el mensaje de los anuncios), no cuando
     // ya saben que quieren agendar.
-    if (esIntencionAgendar(normalizado)) {
+    if (pareceIntencionAgendar(mensaje, normalizado)) {
       return iniciarFlujoAgendado(normalizado, mensaje);
     }
     const codigo = detectarCodigoAnuncio(mensaje);
@@ -988,7 +1005,7 @@ async function calcularRespuestaBase(
   }
 
   // 8) Cualquier intencion de agendar arranca el flujo de la cita.
-  if (esIntencionAgendar(normalizado)) {
+  if (pareceIntencionAgendar(mensaje, normalizado)) {
     return iniciarFlujoAgendado(normalizado, mensaje);
   }
 
