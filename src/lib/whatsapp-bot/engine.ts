@@ -105,14 +105,29 @@ export const TRATAMIENTO_TEXT = `Nosotros damos tratamientos 100% naturales, son
 // si o que no sin haber visto nada todavia.
 export const PRONOSTICO_TEXT = `Claro que sí le podemos ayudar, pero no nos gusta adelantarnos a decirle algo sin haber visto primero de qué se trata -- para eso es el escaneo, para ver bien de dónde viene.`;
 
-// Una ubicacion que Master guardo parado en el lugar desde el panel
-// (ver /master/asistente-whatsapp/ubicaciones) -- el pin de GPS exacto
-// de ese consultorio, no una direccion escrita a mano.
+// Una ubicacion que Master guardo desde el panel (ver
+// /master/asistente-whatsapp/ubicaciones) -- esta pantalla es
+// independiente de donde la plataforma administra las sucursales
+// (branches), asi que la direccion/GPS que el bot manda es la que
+// Master escribio AQUI, no la de otra pantalla. Puede traer la
+// direccion de texto, el GPS exacto (parado fisicamente en el lugar),
+// o los dos -- si trae los dos, el link usa el GPS (mas exacto).
 export interface Ubicacion {
   nombre: string; // tal cual lo escribio Master (ej. "San Blas")
   nombreNormalizado: string; // ya normalizado, para comparar contra el mensaje
-  lat: number;
-  lng: number;
+  direccion?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+}
+
+function enlaceMapaDeUbicacion(u: Ubicacion): string | null {
+  if (u.lat != null && u.lng != null) {
+    return `https://www.google.com/maps/search/?api=1&query=${u.lat},${u.lng}`;
+  }
+  if (u.direccion) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(u.direccion)}`;
+  }
+  return null;
 }
 
 // Si preguntan por la ubicacion mencionando un lugar en especifico que
@@ -127,7 +142,11 @@ function respuestaUbicacion(normalizado: string, ubicaciones: Ubicacion[]): stri
   const mencionadas = ubicaciones.filter((u) => normalizado.includes(u.nombreNormalizado));
   const aMandar = mencionadas.length > 0 ? mencionadas : ubicaciones;
   return aMandar
-    .map((u) => `📍 ${u.nombre}: https://www.google.com/maps/search/?api=1&query=${u.lat},${u.lng}`)
+    .map((u) => {
+      const link = enlaceMapaDeUbicacion(u);
+      const direccion = u.direccion ? `${u.direccion}\n` : "";
+      return `📍 ${u.nombre}: ${direccion}${link ?? ""}`.trim();
+    })
     .join("\n\n");
 }
 

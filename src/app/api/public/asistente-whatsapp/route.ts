@@ -76,12 +76,13 @@ export async function POST(request: NextRequest) {
 
   const { data: ubicacionesRaw } = await admin
     .from("whatsapp_bot_ubicaciones")
-    .select("nombre, nombre_normalizado, lat, lng");
+    .select("nombre, nombre_normalizado, direccion, lat, lng");
   const ubicaciones: Ubicacion[] = (ubicacionesRaw ?? []).map((u) => ({
     nombre: u.nombre as string,
     nombreNormalizado: u.nombre_normalizado as string,
-    lat: u.lat as number,
-    lng: u.lng as number,
+    direccion: u.direccion as string | null,
+    lat: u.lat as number | null,
+    lng: u.lng as number | null,
   }));
 
   const resultado = await generarRespuesta({ mensaje, estado, correcciones, anuncios, bienvenida, ubicaciones, canalPublico: true });
