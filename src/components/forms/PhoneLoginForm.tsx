@@ -123,7 +123,7 @@ export function PhoneLoginForm({ compacto = false }: { compacto?: boolean }) {
                 type="tel"
                 inputMode="numeric"
                 autoComplete="tel"
-                autoFocus
+                autoFocus={!compacto}
                 value={phone}
                 onChange={(e) => handlePhoneChange(e.target.value)}
                 placeholder={`${selectedCountry.maxDigits} dígitos`}
@@ -162,7 +162,7 @@ export function PhoneLoginForm({ compacto = false }: { compacto?: boolean }) {
             <input
               type="password"
               autoComplete="current-password"
-              autoFocus
+              autoFocus={!compacto}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={{ color: "black" }}
