@@ -4,6 +4,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { generarRespuesta, ESTADO_INICIAL, type EstadoAgendado, type Correccion, type Anuncio } from "@/lib/whatsapp-bot/engine";
 import { obtenerSerieBienvenida } from "@/lib/whatsapp-bot/bienvenida";
 import { crearCitaRapida } from "@/lib/appointments/quickBook";
+import { generateConfirmToken } from "@/lib/appointments/tokens";
 
 // Version PUBLICA (sin login) del "cerebro" del bot -- para la pagina
 // de demo que Vic manda por link a quien quiera (/demo-whatsapp).
@@ -101,6 +102,12 @@ export async function POST(request: NextRequest) {
   // y que confirmo), igual se le manda el resumen y el boton de WhatsApp
   // como siempre, y el error queda en los logs para revisarlo.
   const agendado = resultado.agendado;
+  // Cuando la cita recien agendada es a domicilio, se manda tambien un
+  // token (igual al que ya se usa para el link de /ubicacion/[id] que
+  // se manda por WhatsApp) para que el chat pueda mostrar el boton de
+  // "mandar mi ubicacion actual" sin tener que exponer el id real de
+  // la cita sin protegerlo.
+  let ubicacion: { appointmentId: string; token: string } | undefined;
   if (agendado?.fechaISO && agendado?.hora24) {
     try {
       const telefonoDigits = agendado.celular.replace(/\D/g, "") || null;
@@ -115,22 +122,30 @@ export async function POST(request: NextRequest) {
         costoTotal: agendado.costoTotal,
         notas: `Agendado por chat web: ${agendado.nombre}`,
       });
-      if (!resultadoCita.ok) {
+      if (!resultadoCita.ok || !resultadoCita.appointmentId) {
         console.error("No se pudo registrar la cita del chat publico en la plataforma:", resultadoCita.error, agendado);
-      } else if (conversacionId) {
-        await admin
-          .from("chat_leads")
-          .update({ cerrada_con_cita: true, appointment_id: resultadoCita.appointmentId })
-          .eq("id", conversacionId);
-        // Ya se cerro con cita -- no hace falta que Master la revise, asi
-        // que se borra el texto guardado (solo se quedan las que NO
-        // cerraron, ver tabla chat_messages).
-        await admin.from("chat_messages").delete().eq("lead_id", conversacionId);
+      } else {
+        if (agendado.modalidadCodigo === "DOMICILIO") {
+          ubicacion = {
+            appointmentId: resultadoCita.appointmentId,
+            token: generateConfirmToken(resultadoCita.appointmentId),
+          };
+        }
+        if (conversacionId) {
+          await admin
+            .from("chat_leads")
+            .update({ cerrada_con_cita: true, appointment_id: resultadoCita.appointmentId })
+            .eq("id", conversacionId);
+          // Ya se cerro con cita -- no hace falta que Master la revise, asi
+          // que se borra el texto guardado (solo se quedan las que NO
+          // cerraron, ver tabla chat_messages).
+          await admin.from("chat_messages").delete().eq("lead_id", conversacionId);
+        }
       }
     } catch (err) {
       console.error("Error registrando la cita del chat publico en la plataforma:", err);
     }
   }
 
-  return NextResponse.json(resultado);
+  return NextResponse.json({ ...resultado, ubicacion });
 }
