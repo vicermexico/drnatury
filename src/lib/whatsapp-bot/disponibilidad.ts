@@ -122,6 +122,19 @@ export async function obtenerHorariosDisponibles(
 // nada, regresa null.
 const DIAS_SEMANA = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
 
+// Si junto al nombre del dia dicen "la proxima semana" (o equivalente),
+// no es el [dia] mas cercano que caiga en los proximos 7 dias -- es ese
+// mismo dia pero de la semana siguiente. Ej. hoy viernes 20, "el sabado"
+// solo = manana (21); "la proxima semana el sabado" = el sabado de la
+// semana que sigue (28), una semana despues del mas cercano.
+const PROXIMA_SEMANA_KEYWORDS = [
+  "proxima semana",
+  "semana que viene",
+  "semana que entra",
+  "siguiente semana",
+  "otra semana",
+];
+
 export function interpretarFecha(textoNormalizado: string, ahoraCST: Date = new Date()): string | null {
   const hoyStr = ahoraCST.toLocaleDateString("en-CA", { timeZone: "America/Monterrey" });
   if (textoNormalizado.includes("hoy")) return hoyStr;
@@ -162,6 +175,7 @@ export function interpretarFecha(textoNormalizado: string, ahoraCST: Date = new 
     const hoyDow = hoyDate.getUTCDay();
     let delta = (objetivo - hoyDow + 7) % 7;
     if (delta === 0) delta = 7; // si dice "el jueves" y hoy es jueves, se asume el proximo
+    if (PROXIMA_SEMANA_KEYWORDS.some((k) => textoNormalizado.includes(k))) delta += 7;
     const resultado = new Date(Date.UTC(y, m - 1, d + delta, 12));
     return resultado.toISOString().slice(0, 10);
   }

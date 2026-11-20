@@ -401,17 +401,31 @@ function detectarModalidadYLugar(normalizado: string): { modalidad: "CONSULTORIO
 
 // Arranca el flujo de agendar cita. Si el mensaje que lo disparo ya
 // deja claro la modalidad (y a veces el lugar), nos saltamos esas
-// preguntas en vez de preguntar algo que ya contestaron.
-function iniciarFlujoAgendado(normalizado: string): ResultadoRespuesta {
+// preguntas en vez de preguntar algo que ya contestaron. Igual, si ya
+// menciona para que dia (ej. "para la proxima semana el sabado"), se
+// guarda ese texto en "dia" -- no se pregunta "¿para que dia?" mas
+// adelante (ver el paso "personas" en calcularRespuestaBase, que ya
+// reusa ese texto guardado en vez de volver a preguntarlo).
+function iniciarFlujoAgendado(normalizado: string, mensaje: string): ResultadoRespuesta {
   const detectado = detectarModalidadYLugar(normalizado);
+  const dia = interpretarFecha(normalizado) ? mensaje.trim() : undefined;
   if (!detectado) {
-    return { respuesta: "¿Sería en consultorio o a domicilio?", nuevoEstado: { fase: "agendando", paso: "modalidad" } };
+    return {
+      respuesta: "¿Sería en consultorio o a domicilio?",
+      nuevoEstado: { fase: "agendando", paso: "modalidad", ...(dia ? { dia } : {}) },
+    };
   }
   const { modalidad, lugar } = detectado;
   if (lugar) {
-    return { respuesta: "¿Cuántas personas serían?", nuevoEstado: { fase: "agendando", paso: "personas", modalidad, lugar } };
+    return {
+      respuesta: "¿Cuántas personas serían?",
+      nuevoEstado: { fase: "agendando", paso: "personas", modalidad, lugar, ...(dia ? { dia } : {}) },
+    };
   }
-  return { respuesta: siguientePreguntaLugar(modalidad), nuevoEstado: { fase: "agendando", paso: "lugar", modalidad } };
+  return {
+    respuesta: siguientePreguntaLugar(modalidad),
+    nuevoEstado: { fase: "agendando", paso: "lugar", modalidad, ...(dia ? { dia } : {}) },
+  };
 }
 
 // Para repetir la pregunta del paso en el que ya se estaba, despues de
@@ -583,7 +597,7 @@ export async function generarRespuesta(args: {
     // pidiendo informacion (ej. el mensaje de los anuncios), no cuando
     // ya saben que quieren agendar.
     if (esIntencionAgendar(normalizado)) {
-      return iniciarFlujoAgendado(normalizado);
+      return iniciarFlujoAgendado(normalizado, mensaje);
     }
     const codigo = detectarCodigoAnuncio(mensaje);
     const serieBienvenida: BienvenidaItem[] =
@@ -661,6 +675,41 @@ async function manejarDia(estado: EstadoAgendado, textoDia: string, normalizadoD
       hora: undefined,
     };
     return { respuesta: `Tengo disponible hoy: ${muestrearHorarios(horarios).join(", ")}. ¿Cuál le queda mejor?`, nuevoEstado };
+  }
+
+  // Si el mismo mensaje del dia ya deja claro el turno tambien (ej. "el
+  // sabado por la tarde"), no hace falta volver a preguntarlo -- se
+  // buscan de una vez los horarios para ese turno.
+  if (fechaStr) {
+    const turnoDetectado = interpretarTurno(normalizadoDia);
+    if (turnoDetectado) {
+      const horarios = await obtenerHorariosDisponibles(fechaStr, estado.modalidad ?? "CONSULTORIO", turnoDetectado);
+      if (horarios.length === 0) {
+        const nuevoEstado: EstadoAgendado = {
+          ...estado,
+          paso: "dia",
+          dia: textoDia.trim(),
+          fechaResuelta: undefined,
+          turnoResuelto: undefined,
+          opcionesHorario: undefined,
+          hora: undefined,
+        };
+        return {
+          respuesta: "Mmm, no tengo horario libre ese día en ese horario. ¿Para qué otro día le gustaría agendar?",
+          nuevoEstado,
+        };
+      }
+      const nuevoEstado: EstadoAgendado = {
+        ...estado,
+        paso: "hora",
+        dia: textoDia.trim(),
+        fechaResuelta: fechaStr,
+        turnoResuelto: turnoDetectado,
+        opcionesHorario: horarios,
+        hora: undefined,
+      };
+      return { respuesta: `Tengo disponible: ${muestrearHorarios(horarios).join(", ")}. ¿Cuál le queda mejor?`, nuevoEstado };
+    }
   }
 
   const nuevoEstado: EstadoAgendado = {
@@ -940,7 +989,7 @@ async function calcularRespuestaBase(
 
   // 8) Cualquier intencion de agendar arranca el flujo de la cita.
   if (esIntencionAgendar(normalizado)) {
-    return iniciarFlujoAgendado(normalizado);
+    return iniciarFlujoAgendado(normalizado, mensaje);
   }
 
   // 9) Menciona un dolor o molestia: respuesta tranquila + cierre directo.
