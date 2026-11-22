@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useDictado } from "@/hooks/useDictado";
+import { useNotaDeVoz } from "@/hooks/useNotaDeVoz";
 import { MENSAJE_INICIAL_ANUNCIO } from "@/lib/whatsapp-bot/mensajes";
 
 type EstadoAgendado = {
@@ -301,6 +302,21 @@ export function PublicChatDemo({
     }
   );
 
+  // Nota de voz real: se graba y se manda el audio (se escucha la voz,
+  // como en WhatsApp), pero por dentro se va transcribiendo al mismo
+  // tiempo para que el bot sepa que contestar -- ver useNotaDeVoz.
+  const {
+    soportado: notaDeVozSoportada,
+    grabando: grabandoNota,
+    transcripcionParcial,
+    nivelAudio,
+    iniciar: iniciarNotaDeVoz,
+    detenerYMandar: detenerYMandarNotaDeVoz,
+    cancelar: cancelarNotaDeVoz,
+  } = useNotaDeVoz(({ blobUrl, texto }) => {
+    void enviarNotaDeVoz(blobUrl, texto);
+  });
+
   // En cuanto haya un id+token de verdad (ya se agendo la cita a
   // domicilio), manda sola la ubicacion que se habia quedado
   // esperando -- asi no importa en que momento el paciente le haya
@@ -407,6 +423,65 @@ export function PublicChatDemo({
       // audio, en el orden que Master armo) -- se mandan uno por uno,
       // con una pequena pausa entre cada uno, como llegarian de verdad
       // por WhatsApp.
+      const serieBienvenida = data.mensajesBienvenida as MensajeBienvenidaUI[] | undefined;
+      if (serieBienvenida && serieBienvenida.length > 0) {
+        for (const item of serieBienvenida) {
+          setMensajes((prev) => [
+            ...prev,
+            item.tipo === "audio"
+              ? { id: siguienteId++, rol: "bot", texto: "", audioUrl: item.contenido }
+              : { id: siguienteId++, rol: "bot", texto: item.contenido },
+          ]);
+          await esperar(700);
+        }
+      } else {
+        setMensajes((prev) => [
+          ...prev,
+          { id: siguienteId++, rol: "bot", texto: data.respuesta, audioUrl: data.audioUrl, agendado: data.agendado },
+        ]);
+      }
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  // Manda una nota de voz real: en la burbuja del chat solo se ve/oye
+  // el audio grabado (igual que en WhatsApp), pero lo que de verdad se
+  // le manda al bot para que conteste es el texto que ya se transcribio
+  // por dentro mientras se grababa (ver useNotaDeVoz). Si por alguna
+  // razon no se pudo transcribir nada (ej. un navegador que no soporta
+  // el reconocimiento de voz), se manda un aviso generico para que el
+  // bot no se quede sin nada que leer.
+  async function enviarNotaDeVoz(blobUrl: string, texto: string) {
+    const esPrimero = !primerMensajeEnviado;
+    const mensaje = texto || "Mandé una nota de voz, pero no sé si se entendió bien.";
+    if (esPrimero) setPrimerMensajeEnviado(true);
+    setEnviando(true);
+
+    setMensajes((prev) => [...prev, { id: siguienteId++, rol: "paciente", texto: "", audioUrl: blobUrl }]);
+    const inicio = Date.now();
+
+    try {
+      const res = await fetch("/api/public/asistente-whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mensaje, estado, conversacionId, origen }),
+      });
+      const data = await res.json().catch(() => null);
+
+      const demoraRestante = RESPUESTA_DEMORA_MIN_MS - (Date.now() - inicio);
+      if (demoraRestante > 0) await esperar(demoraRestante);
+
+      if (!res.ok || !data) {
+        setMensajes((prev) => [
+          ...prev,
+          { id: siguienteId++, rol: "bot", texto: "⚠️ Hubo un error, intenta de nuevo." },
+        ]);
+        return;
+      }
+      setEstado(data.nuevoEstado);
+      if (data.ubicacion) setUbicacionDatos(data.ubicacion as UbicacionDatos);
+
       const serieBienvenida = data.mensajesBienvenida as MensajeBienvenidaUI[] | undefined;
       if (serieBienvenida && serieBienvenida.length > 0) {
         for (const item of serieBienvenida) {
@@ -825,62 +900,128 @@ export function PublicChatDemo({
             ))}
           </div>
         )}
-        <div className="flex items-end gap-2 px-3 py-3">
-          {!cuadroAmpliado && (
+        {grabandoNota ? (
+          // Mientras se graba la nota de voz, se esconde todo el
+          // cuadro de escribir y en su lugar se ve una linea que se
+          // mueve con el volumen de la voz (se "distorsiona" mientras
+          // se habla) y, debajo, lo que se va entendiendo en vivo (no
+          // hasta que termina de hablar).
+          <div className="flex items-center gap-2 px-3 py-3">
             <button
-              onClick={() => setMostrarEmojis((v) => !v)}
-              title="Emojis"
-              className="rounded-full w-10 h-10 flex items-center justify-center shrink-0 shadow-sm bg-gray-100 hover:bg-gray-200 text-lg"
+              onClick={cancelarNotaDeVoz}
+              title="Cancelar"
+              className="rounded-full w-10 h-10 flex items-center justify-center shrink-0 shadow-sm bg-gray-100 text-gray-600 hover:bg-gray-200"
             >
-              😊
+              🗑️
             </button>
-          )}
-          <textarea
-            ref={textareaRef}
-            value={primerMensajeEnviado ? input : mensajeInicial}
-            onChange={(e) => primerMensajeEnviado && setInput(e.target.value)}
-            readOnly={!primerMensajeEnviado}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                enviarMensaje();
-              }
-            }}
-            onFocus={() => setMostrarEmojis(false)}
-            placeholder="Mensaje"
-            rows={1}
-            style={{ color: "#fff", WebkitTextFillColor: "#fff", colorScheme: "dark" }}
-            className="flex-1 min-w-0 resize-none rounded-2xl border border-gray-700 bg-[#2a3942] caret-white placeholder-gray-400 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 max-h-[120px] overflow-y-auto"
-          />
-          {!cuadroAmpliado && (
+            <div className="flex-1 min-w-0 rounded-2xl border border-gray-700 bg-[#2a3942] px-4 py-2">
+              <div className="flex items-center justify-center gap-[3px] h-6">
+                {Array.from({ length: 24 }).map((_, i) => {
+                  const base = 0.25 + 0.5 * Math.abs(Math.sin(i * 1.3));
+                  const altura = Math.max(15, Math.min(100, (base + nivelAudio) * 55));
+                  return (
+                    <span
+                      key={i}
+                      className="w-[3px] rounded-full bg-emerald-400 transition-all duration-100"
+                      style={{ height: `${altura}%` }}
+                    />
+                  );
+                })}
+              </div>
+              {transcripcionParcial && (
+                <p className="text-[11px] text-gray-300 mt-1 truncate">{transcripcionParcial}</p>
+              )}
+            </div>
             <button
-              onClick={abrirModalUbicacion}
-              title="Mandar mi ubicación actual"
-              className="rounded-full w-10 h-10 flex items-center justify-center shrink-0 shadow-sm bg-gray-100 hover:bg-gray-200"
+              onClick={detenerYMandarNotaDeVoz}
+              title="Mandar nota de voz"
+              className="rounded-full bg-emerald-600 text-white w-10 h-10 flex items-center justify-center hover:bg-emerald-700 shrink-0 shadow-sm"
             >
-              <IconoUbicacion className="w-5 h-5" />
+              ➤
             </button>
-          )}
-          {!cuadroAmpliado && dictadoSoportado && (
-            <button
-              onClick={() => (escuchando ? detenerDictado() : iniciarDictado())}
-              disabled={enviando}
-              title={escuchando ? "Detener" : "Hablar en vez de escribir"}
-              className={`rounded-full w-10 h-10 flex items-center justify-center shrink-0 shadow-sm disabled:opacity-50 ${
-                escuchando ? "bg-red-500 text-white animate-pulse" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              <IconoMicrofono className="w-5 h-5" />
-            </button>
-          )}
-          <button
-            onClick={enviarMensaje}
-            disabled={enviando || (primerMensajeEnviado && !input.trim())}
-            className="rounded-full bg-emerald-600 text-white w-10 h-10 flex items-center justify-center hover:bg-emerald-700 disabled:opacity-50 shrink-0 shadow-sm"
-          >
-            ➤
-          </button>
-        </div>
+          </div>
+        ) : (
+          <div className="flex items-end gap-2 px-3 py-3">
+            {!cuadroAmpliado && (
+              <button
+                onClick={() => setMostrarEmojis((v) => !v)}
+                title="Emojis"
+                className="rounded-full w-10 h-10 flex items-center justify-center shrink-0 shadow-sm bg-gray-100 hover:bg-gray-200 text-lg"
+              >
+                😊
+              </button>
+            )}
+            <div className="flex-1 min-w-0 relative">
+              <textarea
+                ref={textareaRef}
+                value={primerMensajeEnviado ? input : mensajeInicial}
+                onChange={(e) => primerMensajeEnviado && setInput(e.target.value)}
+                readOnly={!primerMensajeEnviado}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    enviarMensaje();
+                  }
+                }}
+                onFocus={() => setMostrarEmojis(false)}
+                placeholder="Mensaje"
+                rows={1}
+                style={{ color: "#fff", WebkitTextFillColor: "#fff", colorScheme: "dark" }}
+                className={`w-full resize-none rounded-2xl border border-gray-700 bg-[#2a3942] caret-white placeholder-gray-400 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 max-h-[120px] overflow-y-auto ${
+                  dictadoSoportado ? "pr-10" : ""
+                }`}
+              />
+              {/* El boton de "dictar por voz" (convierte lo que dices en
+                  texto escrito aqui mismo) vive adentro del cuadro,
+                  pegado a la derecha -- solo aparece mientras el cuadro
+                  esta vacio, igual que en apps de mensajes normales. */}
+              {dictadoSoportado && !cuadroAmpliado && (
+                <button
+                  onClick={() => (escuchando ? detenerDictado() : iniciarDictado())}
+                  disabled={enviando}
+                  title={escuchando ? "Detener" : "Dictar por voz (se escribe aquí)"}
+                  className={`absolute right-2 bottom-1.5 w-7 h-7 flex items-center justify-center rounded-full disabled:opacity-50 ${
+                    escuchando ? "text-red-400 animate-pulse" : "text-gray-400 hover:text-gray-200"
+                  }`}
+                >
+                  <IconoMicrofono className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            {!cuadroAmpliado && (
+              <button
+                onClick={abrirModalUbicacion}
+                title="Mandar mi ubicación actual"
+                className="rounded-full w-10 h-10 flex items-center justify-center shrink-0 shadow-sm bg-gray-100 hover:bg-gray-200"
+              >
+                <IconoUbicacion className="w-5 h-5" />
+              </button>
+            )}
+            {!cuadroAmpliado && notaDeVozSoportada && (
+              // Nota de voz real (se manda el audio, como en WhatsApp) --
+              // solo tiene sentido ofrecerla cuando no hay nada escrito
+              // todavia, igual que en WhatsApp (si ya escribiste, el
+              // boton redondo se vuelve "enviar").
+              <button
+                onClick={iniciarNotaDeVoz}
+                disabled={enviando}
+                title="Mandar nota de voz"
+                className="rounded-full bg-emerald-600 text-white w-10 h-10 flex items-center justify-center hover:bg-emerald-700 disabled:opacity-50 shrink-0 shadow-sm"
+              >
+                🎙️
+              </button>
+            )}
+            {(cuadroAmpliado || !notaDeVozSoportada) && (
+              <button
+                onClick={enviarMensaje}
+                disabled={enviando || (primerMensajeEnviado && !input.trim())}
+                className="rounded-full bg-emerald-600 text-white w-10 h-10 flex items-center justify-center hover:bg-emerald-700 disabled:opacity-50 shrink-0 shadow-sm"
+              >
+                ➤
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
