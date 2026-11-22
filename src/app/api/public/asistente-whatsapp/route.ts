@@ -5,6 +5,7 @@ import { generarRespuesta, ESTADO_INICIAL, type EstadoAgendado, type Correccion,
 import { obtenerSerieBienvenida } from "@/lib/whatsapp-bot/bienvenida";
 import { crearCitaRapida } from "@/lib/appointments/quickBook";
 import { generateConfirmToken } from "@/lib/appointments/tokens";
+import { notificarApoyoConCliente } from "@/lib/push/send";
 
 // Version PUBLICA (sin login) del "cerebro" del bot -- para la pagina
 // de demo que Vic manda por link a quien quiera (/demo-whatsapp).
@@ -87,6 +88,14 @@ export async function POST(request: NextRequest) {
   }));
 
   const resultado = await generarRespuesta({ mensaje, estado, correcciones, anuncios, bienvenida, ubicaciones, canalPublico: true });
+
+  // Si el bot de plano no supo que contestar (ver nota
+  // "no_entendido_publico" en engine.ts), se avisa a Master por push
+  // para que pueda entrar a apoyar -- no se espera a que termine
+  // (best-effort) para no retrasar la respuesta al paciente.
+  if (resultado.nota === "no_entendido_publico" && conversacionId) {
+    void notificarApoyoConCliente(conversacionId, mensaje);
+  }
 
   if (conversacionId) {
     try {
