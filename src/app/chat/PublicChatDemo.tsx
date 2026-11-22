@@ -199,6 +199,14 @@ let siguienteId = 1;
 // suma nada extra.
 const RESPUESTA_DEMORA_MIN_MS = 1500;
 
+// Emojis rapidos junto al cuadro de mensaje, para que el paciente no
+// tenga que salir al teclado de su celular a buscarlos.
+const EMOJIS_RAPIDOS = [
+  "😀", "😁", "😂", "🙂", "😊", "😍",
+  "👍", "🙏", "👏", "❤️", "🙌", "😢",
+  "😮", "🤔", "😅", "🎉", "📍", "📅",
+];
+
 interface PublicChatDemoProps {
   perfilNombre?: string;
   perfilFoto?: string | null;
@@ -216,6 +224,14 @@ export function PublicChatDemo({
   const [primerMensajeEnviado, setPrimerMensajeEnviado] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [mostrarOpciones, setMostrarOpciones] = useState(false);
+  // Al escribir un mensaje, el cuadro de texto se amplia (se esconden
+  // los demas iconos -- ubicacion, microfono, emoji) para que tenga
+  // mas espacio; en cuanto el cuadro vuelve a quedar vacio, los iconos
+  // regresan. "textareaRef" es para que el cuadro crezca de alto solo
+  // conforme el mensaje tiene mas lineas (hasta un tope, luego hace
+  // scroll adentro en vez de seguir creciendo).
+  const [mostrarEmojis, setMostrarEmojis] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   // El icono de pin esta SIEMPRE disponible, desde que se abre el chat
   // (el paciente puede mandar su ubicacion en cualquier momento, no
   // solo despues de agendar). En cuanto se agenda una cita a domicilio
@@ -256,6 +272,15 @@ export function PublicChatDemo({
   useEffect(() => {
     finDeMensajesRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [mensajes, enviando]);
+
+  // El cuadro de texto crece de alto solo conforme el mensaje tiene mas
+  // lineas (hasta un tope de 120px, despues hace scroll adentro).
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, [input]);
 
   // Dictado por voz: cuando la persona termina de hablar, el texto que
   // dijo se escribe en el campo de abajo (no se manda solo, para que
@@ -502,6 +527,18 @@ export function PublicChatDemo({
     detenerDictado();
     window.speechSynthesis?.cancel();
   }
+
+  function insertarEmoji(emoji: string) {
+    if (!primerMensajeEnviado) return;
+    setInput((prev) => prev + emoji);
+    setMostrarEmojis(false);
+  }
+
+  // Mientras el paciente esta escribiendo (el cuadro no esta vacio), se
+  // esconden los demas iconos (ubicacion, microfono, emoji) para que el
+  // cuadro de texto tenga todo el espacio -- en cuanto vuelve a quedar
+  // vacio, los iconos regresan.
+  const cuadroAmpliado = primerMensajeEnviado && input.trim().length > 0;
 
   return (
     <div className="relative bg-white overflow-hidden flex flex-col flex-1 min-h-0">
@@ -774,44 +811,76 @@ export function PublicChatDemo({
         </div>
       )}
 
-      <div className="shrink-0 flex items-center gap-2 px-3 py-3 border-t border-gray-100 bg-white">
-        <input
-          value={primerMensajeEnviado ? input : mensajeInicial}
-          onChange={(e) => primerMensajeEnviado && setInput(e.target.value)}
-          readOnly={!primerMensajeEnviado}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") enviarMensaje();
-          }}
-          placeholder="Mensaje"
-          style={{ color: "#fff", WebkitTextFillColor: "#fff", colorScheme: "dark" }}
-          className="flex-1 min-w-0 rounded-full border border-gray-700 bg-[#2a3942] caret-white placeholder-gray-400 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-        />
-        <button
-          onClick={abrirModalUbicacion}
-          title="Mandar mi ubicación actual"
-          className="rounded-full w-10 h-10 flex items-center justify-center shrink-0 shadow-sm bg-gray-100 hover:bg-gray-200"
-        >
-          <IconoUbicacion className="w-5 h-5" />
-        </button>
-        {dictadoSoportado && (
-          <button
-            onClick={() => (escuchando ? detenerDictado() : iniciarDictado())}
-            disabled={enviando}
-            title={escuchando ? "Detener" : "Hablar en vez de escribir"}
-            className={`rounded-full w-10 h-10 flex items-center justify-center shrink-0 shadow-sm disabled:opacity-50 ${
-              escuchando ? "bg-red-500 text-white animate-pulse" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            <IconoMicrofono className="w-5 h-5" />
-          </button>
+      <div className="shrink-0 relative border-t border-gray-100 bg-white">
+        {mostrarEmojis && !cuadroAmpliado && (
+          <div className="absolute bottom-full left-2 mb-2 grid grid-cols-6 gap-1 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg z-10">
+            {EMOJIS_RAPIDOS.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => insertarEmoji(emoji)}
+                className="text-xl w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
         )}
-        <button
-          onClick={enviarMensaje}
-          disabled={enviando || (primerMensajeEnviado && !input.trim())}
-          className="rounded-full bg-emerald-600 text-white w-10 h-10 flex items-center justify-center hover:bg-emerald-700 disabled:opacity-50 shrink-0 shadow-sm"
-        >
-          ➤
-        </button>
+        <div className="flex items-end gap-2 px-3 py-3">
+          {!cuadroAmpliado && (
+            <button
+              onClick={() => setMostrarEmojis((v) => !v)}
+              title="Emojis"
+              className="rounded-full w-10 h-10 flex items-center justify-center shrink-0 shadow-sm bg-gray-100 hover:bg-gray-200 text-lg"
+            >
+              😊
+            </button>
+          )}
+          <textarea
+            ref={textareaRef}
+            value={primerMensajeEnviado ? input : mensajeInicial}
+            onChange={(e) => primerMensajeEnviado && setInput(e.target.value)}
+            readOnly={!primerMensajeEnviado}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                enviarMensaje();
+              }
+            }}
+            onFocus={() => setMostrarEmojis(false)}
+            placeholder="Mensaje"
+            rows={1}
+            style={{ color: "#fff", WebkitTextFillColor: "#fff", colorScheme: "dark" }}
+            className="flex-1 min-w-0 resize-none rounded-2xl border border-gray-700 bg-[#2a3942] caret-white placeholder-gray-400 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 max-h-[120px] overflow-y-auto"
+          />
+          {!cuadroAmpliado && (
+            <button
+              onClick={abrirModalUbicacion}
+              title="Mandar mi ubicación actual"
+              className="rounded-full w-10 h-10 flex items-center justify-center shrink-0 shadow-sm bg-gray-100 hover:bg-gray-200"
+            >
+              <IconoUbicacion className="w-5 h-5" />
+            </button>
+          )}
+          {!cuadroAmpliado && dictadoSoportado && (
+            <button
+              onClick={() => (escuchando ? detenerDictado() : iniciarDictado())}
+              disabled={enviando}
+              title={escuchando ? "Detener" : "Hablar en vez de escribir"}
+              className={`rounded-full w-10 h-10 flex items-center justify-center shrink-0 shadow-sm disabled:opacity-50 ${
+                escuchando ? "bg-red-500 text-white animate-pulse" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              <IconoMicrofono className="w-5 h-5" />
+            </button>
+          )}
+          <button
+            onClick={enviarMensaje}
+            disabled={enviando || (primerMensajeEnviado && !input.trim())}
+            className="rounded-full bg-emerald-600 text-white w-10 h-10 flex items-center justify-center hover:bg-emerald-700 disabled:opacity-50 shrink-0 shadow-sm"
+          >
+            ➤
+          </button>
+        </div>
       </div>
     </div>
   );
