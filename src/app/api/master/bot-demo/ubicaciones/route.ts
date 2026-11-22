@@ -17,7 +17,7 @@ export async function GET() {
   const admin = createAdminClient();
   const { data, error: dbErr } = await admin
     .from("whatsapp_bot_ubicaciones")
-    .select("id, nombre, direccion, lat, lng, updated_at")
+    .select("id, nombre, direccion, lat, lng, audio_url, updated_at")
     .order("nombre");
 
   if (dbErr) return NextResponse.json({ error: "DB_ERROR", message: dbErr.message }, { status: 500 });
@@ -39,12 +39,19 @@ export async function POST(request: NextRequest) {
   const { error } = await guardRole("MASTER");
   if (error) return error;
 
-  const body = await request.json().catch(() => ({})) as { nombre?: string; direccion?: string; lat?: number; lng?: number };
+  const body = await request.json().catch(() => ({})) as {
+    nombre?: string;
+    direccion?: string;
+    lat?: number;
+    lng?: number;
+    audio_url?: string;
+  };
   const nombre = (body.nombre ?? "").trim();
   const direccion = (body.direccion ?? "").trim();
   const lat = typeof body.lat === "number" ? body.lat : null;
   const lng = typeof body.lng === "number" ? body.lng : null;
-  if (!nombre || (!direccion && (lat === null || lng === null))) {
+  const audioUrl = (body.audio_url ?? "").trim();
+  if (!nombre || (!direccion && (lat === null || lng === null) && !audioUrl)) {
     return NextResponse.json(
       { error: "MISSING_FIELDS", message: "Falta el nombre, y la dirección o la ubicación por GPS" },
       { status: 400 }
@@ -55,7 +62,7 @@ export async function POST(request: NextRequest) {
   const nombreNormalizado = normalizar(nombre);
   const { data: existente } = await admin
     .from("whatsapp_bot_ubicaciones")
-    .select("direccion, lat, lng")
+    .select("direccion, lat, lng, audio_url")
     .eq("nombre_normalizado", nombreNormalizado)
     .maybeSingle();
 
@@ -68,6 +75,7 @@ export async function POST(request: NextRequest) {
         direccion: direccion || existente?.direccion || null,
         lat: lat ?? existente?.lat ?? null,
         lng: lng ?? existente?.lng ?? null,
+        audio_url: audioUrl || existente?.audio_url || null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "nombre_normalizado" }
