@@ -40,6 +40,12 @@ export interface EstadoAgendado {
   nombre?: string;
   celular?: string; // numero de WhatsApp para el recordatorio -- en WhatsApp real ya se sabe solo, pero en el chat web hay que pedirlo
   esperaConfirmacionAgendar?: boolean;
+  // Cuando pidieron que los orienten para llegar pero hay mas de un
+  // lugar con audio grabado y no dijeron cual (ej. "oriénteme" a
+  // secas) -- se le pregunto cual de los lugares es, y aqui se guarda
+  // que se esta esperando esa respuesta para mandar el audio correcto
+  // en cuanto la conteste (ver esOrientacion/respuestaOrientacion).
+  orientacionPendiente?: boolean;
 }
 
 export interface Correccion {
@@ -118,6 +124,10 @@ export interface Ubicacion {
   direccion?: string | null;
   lat?: number | null;
   lng?: number | null;
+  // Audio de orientacion (ej. "para llegar aqui, de tal calle se
+  // mete...") que Master grabo con el microfono desde el panel -- ver
+  // respuestaOrientacion. Puede no existir todavia para ese lugar.
+  audioUrl?: string | null;
 }
 
 function enlaceMapaDeUbicacion(u: Ubicacion): string | null {
@@ -148,6 +158,53 @@ function respuestaUbicacion(normalizado: string, ubicaciones: Ubicacion[]): stri
       return `📍 ${u.nombre}: ${direccion}${link ?? ""}`.trim();
     })
     .join("\n\n");
+}
+
+// Cuando ya tienen la direccion pero piden que los orienten para
+// llegar (ej. "me puede orientar donde estan", "por donde mero es",
+// "no encuentro el lugar") -- esto es distinto de pedir la
+// ubicacion/direccion a secas (ver UBICACION_KEYWORDS): aqui se manda
+// el audio que Master grabo explicando por donde meterse, si ya existe
+// uno para ese lugar.
+const ORIENTACION_KEYWORDS = [
+  "me puede orientar", "me pueden orientar", "orientarme", "me oriente",
+  "orientacion para llegar", "orientacion de como llegar",
+  "por donde es", "por donde mero es", "por donde queda", "por donde se llega", "por donde le entro",
+  "como le hago para llegar", "como le hago para llegar ahi", "como llegar",
+  "no encuentro", "no doy con", "me perdi", "estoy perdido", "estoy perdida",
+];
+
+function esOrientacion(normalizado: string): boolean {
+  return contieneAlguna(normalizado, ORIENTACION_KEYWORDS);
+}
+
+// Decide que contestar cuando piden orientacion para llegar:
+// - Si mencionan un lugar en especifico que ya tiene audio, se manda ese.
+// - Si solo hay un lugar con audio guardado (sin importar si lo
+//   mencionaron), se manda ese, no hay ambiguedad posible.
+// - Si hay mas de uno con audio y no dijeron cual, se pregunta cual es
+//   (pendiente=true, ver orientacionPendiente) en vez de adivinar.
+// - Si todavia no hay ningun audio grabado, se avisa y se manda la
+//   direccion de texto como respaldo (mejor que dejarlo sin nada).
+function respuestaOrientacion(
+  normalizado: string,
+  ubicaciones: Ubicacion[]
+): { texto: string; audioUrl?: string; pendiente?: boolean } {
+  const conAudio = ubicaciones.filter((u) => !!u.audioUrl);
+  if (conAudio.length === 0) {
+    return {
+      texto: `Ahorita no tengo grabado el audio de orientación, en un momento se lo paso.\n\n${respuestaUbicacion(normalizado, ubicaciones)}`,
+    };
+  }
+  const mencionada = conAudio.find((u) => normalizado.includes(u.nombreNormalizado));
+  if (mencionada) {
+    return { texto: `🎤 Así está para llegar a ${mencionada.nombre}:`, audioUrl: mencionada.audioUrl ?? undefined };
+  }
+  if (conAudio.length === 1) {
+    return { texto: "🎤 Así está para llegar:", audioUrl: conAudio[0].audioUrl ?? undefined };
+  }
+  const nombres = conAudio.map((u) => u.nombre).join(" o ");
+  return { texto: `¿Me confirma si es para ${nombres}, para mandarle el audio correcto?`, pendiente: true };
 }
 
 // Quita acentos, mayusculas, signos y espacios repetidos para poder
@@ -1009,6 +1066,25 @@ async function calcularRespuestaBase(
   canalPublico: boolean,
   ubicaciones: Ubicacion[]
 ): Promise<ResultadoRespuesta> {
+  // Si en el mensaje anterior se le pregunto cual lugar es (porque hay
+  // mas de un audio de orientacion guardado y no habia dicho cual),
+  // esto corre ANTES que cualquier otra cosa -- sin importar en que
+  // fase/paso este el resto de la conversacion -- para no perder esa
+  // pregunta pendiente.
+  if (estado.orientacionPendiente) {
+    const conAudio = ubicaciones.filter((u) => !!u.audioUrl);
+    const mencionada = conAudio.find((u) => normalizado.includes(u.nombreNormalizado));
+    if (mencionada) {
+      return {
+        respuesta: `🎤 Así está para llegar a ${mencionada.nombre}:`,
+        nuevoEstado: { ...estado, orientacionPendiente: false },
+        audioUrl: mencionada.audioUrl ?? undefined,
+      };
+    }
+    const nombres = conAudio.map((u) => u.nombre).join(" o ");
+    return { respuesta: `Perdón, ¿me confirma si es para ${nombres}?`, nuevoEstado: estado };
+  }
+
   // 3) Si estamos a la mitad de agendar una cita, seguimos la pregunta
   // que sigue en ese flujo -- pero si a la mitad preguntan algo de
   // informacion general (tratamiento, precio, duracion), se contesta
@@ -1025,6 +1101,14 @@ async function calcularRespuestaBase(
     }
     if (contieneAlguna(normalizado, TRATAMIENTO_KEYWORDS)) {
       return { respuesta: `${TRATAMIENTO_TEXT}\n\n${preguntaActualDelPaso(estado)}`, nuevoEstado: estado };
+    }
+    if (esOrientacion(normalizado)) {
+      const r = respuestaOrientacion(normalizado, ubicaciones);
+      return {
+        respuesta: r.pendiente ? r.texto : `${r.texto}\n\n${preguntaActualDelPaso(estado)}`,
+        nuevoEstado: r.pendiente ? { ...estado, orientacionPendiente: true } : estado,
+        audioUrl: r.audioUrl,
+      };
     }
     if (contieneAlguna(normalizado, UBICACION_KEYWORDS)) {
       return { respuesta: `${respuestaUbicacion(normalizado, ubicaciones)}\n\n${preguntaActualDelPaso(estado)}`, nuevoEstado: estado };
@@ -1269,6 +1353,19 @@ async function calcularRespuestaBase(
     return {
       respuesta: "¿Sería en consultorio o a domicilio?",
       nuevoEstado: { fase: "agendando", paso: "modalidad" },
+    };
+  }
+
+  // Ya tienen la direccion pero piden que los orienten para llegar --
+  // se manda el audio que Master grabo para ese lugar (ver
+  // ORIENTACION_KEYWORDS/respuestaOrientacion arriba). Corre antes que
+  // la pregunta generica de ubicacion/direccion de abajo.
+  if (esOrientacion(normalizado)) {
+    const r = respuestaOrientacion(normalizado, ubicaciones);
+    return {
+      respuesta: r.texto,
+      nuevoEstado: { ...estado, fase: "conversando", orientacionPendiente: !!r.pendiente },
+      audioUrl: r.audioUrl,
     };
   }
 

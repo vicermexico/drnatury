@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 interface UbicacionUI {
   id: string;
@@ -7,6 +8,7 @@ interface UbicacionUI {
   direccion: string | null;
   lat: number | null;
   lng: number | null;
+  audio_url: string | null;
   updated_at: string;
 }
 
@@ -29,6 +31,15 @@ export function UbicacionesManager() {
   const [guardandoGpsDe, setGuardandoGpsDe] = useState<string | null>(null);
   const [errorGuardando, setErrorGuardando] = useState<{ nombre: string; mensaje: string } | null>(null);
   const [borrandoId, setBorrandoId] = useState<string | null>(null);
+  // Grabacion del audio de orientacion: se graba directo con el
+  // microfono del celular (no se sube un archivo ya existente), igual
+  // que una nota de voz de WhatsApp -- "grabandoNombre" es el nombre
+  // del lugar que se esta grabando en este momento (null si no hay
+  // ninguna grabacion activa).
+  const [grabandoNombre, setGrabandoNombre] = useState<string | null>(null);
+  const [subiendoAudioDe, setSubiendoAudioDe] = useState<string | null>(null);
+  const grabadoraRef = useRef<MediaRecorder | null>(null);
+  const trozosRef = useRef<Blob[]>([]);
 
   async function cargar() {
     setCargando(true);
@@ -111,6 +122,75 @@ export function UbicacionesManager() {
     );
   }
 
+  async function subirAudioDe(nombre: string, blob: Blob) {
+    setSubiendoAudioDe(nombre);
+    try {
+      const extension = blob.type.includes("mp4") ? "m4a" : "webm";
+      const res = await fetch("/api/master/bot-demo/ubicaciones/audio-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: `${nombre}.${extension}` }),
+      });
+      const data = (await res.json()) as { path?: string; token?: string; publicUrl?: string; message?: string };
+      if (!res.ok || !data.path || !data.token || !data.publicUrl) {
+        throw new Error(data.message || "No se pudo iniciar la subida");
+      }
+
+      const supabase = createClient();
+      const { error: uploadErr } = await supabase.storage
+        .from("whatsapp-bot-bienvenida")
+        .uploadToSignedUrl(data.path, data.token, blob, { contentType: blob.type });
+      if (uploadErr) throw new Error(uploadErr.message);
+
+      const res2 = await fetch("/api/master/bot-demo/ubicaciones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre, audio_url: data.publicUrl }),
+      });
+      if (!res2.ok) throw new Error("No se pudo guardar");
+      await cargar();
+    } catch {
+      setErrorGuardando({ nombre, mensaje: "No se pudo guardar el audio, intenta de nuevo." });
+    } finally {
+      setSubiendoAudioDe(null);
+    }
+  }
+
+  async function grabarAudioDe(nombre: string) {
+    if (grabandoNombre || subiendoAudioDe) return;
+    if (!("mediaDevices" in navigator) || !navigator.mediaDevices?.getUserMedia) {
+      setErrorGuardando({ nombre, mensaje: "Tu celular no permite grabar audio desde aquí. Intenta desde Chrome o Safari." });
+      return;
+    }
+    setErrorGuardando(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "audio/webm";
+      const grabadora = new MediaRecorder(stream, { mimeType: mime });
+      trozosRef.current = [];
+      grabadora.ondataavailable = (e) => {
+        if (e.data.size > 0) trozosRef.current.push(e.data);
+      };
+      grabadora.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(trozosRef.current, { type: mime });
+        trozosRef.current = [];
+        void subirAudioDe(nombre, blob);
+      };
+      grabadoraRef.current = grabadora;
+      grabadora.start();
+      setGrabandoNombre(nombre);
+    } catch {
+      setErrorGuardando({ nombre, mensaje: "No se pudo acceder al micrófono. Revisa que le hayas dado permiso a tu navegador." });
+    }
+  }
+
+  function detenerGrabacion() {
+    grabadoraRef.current?.stop();
+    grabadoraRef.current = null;
+    setGrabandoNombre(null);
+  }
+
   async function borrar(id: string) {
     setBorrandoId(id);
     try {
@@ -133,6 +213,8 @@ export function UbicacionesManager() {
         Escribe la dirección de cada lugar (no hace falta estar ahí). Si además quieres un pin más
         exacto, puedes pararte físicamente en el consultorio y guardar el GPS real de tu celular. El bot
         manda esta información cuando alguien pide &quot;la ubicación&quot; o &quot;la dirección&quot;.
+        También puedes grabar un audio de orientación por lugar (ej. explicando por dónde meterse) --
+        el bot lo manda cuando piden que los orienten para llegar.
       </p>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-2">
@@ -203,6 +285,37 @@ export function UbicacionesManager() {
                     ? "Actualizar GPS parado aquí"
                     : "📍 Agregar GPS parado aquí (opcional)"}
               </button>
+
+              <div className="pt-1 border-t border-gray-100 space-y-1.5">
+                <p className="text-[11px] text-gray-500">
+                  🎤 Audio de orientación (el bot lo manda cuando pidan que los orienten para llegar)
+                </p>
+                {u.audio_url && (
+                  <audio controls preload="none" className="w-full h-9">
+                    <source src={u.audio_url} />
+                  </audio>
+                )}
+                {grabandoNombre === u.nombre ? (
+                  <button
+                    onClick={detenerGrabacion}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 animate-pulse"
+                  >
+                    ⏹️ Detener grabación
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => grabarAudioDe(u.nombre)}
+                    disabled={subiendoAudioDe === u.nombre || grabandoNombre !== null}
+                    className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {subiendoAudioDe === u.nombre
+                      ? "Subiendo audio..."
+                      : u.audio_url
+                        ? "🎤 Regrabar audio de orientación"
+                        : "🎤 Grabar audio de orientación"}
+                  </button>
+                )}
+              </div>
               {errorGuardando && errorGuardando.nombre === u.nombre && (
                 <p className="text-xs text-red-600">{errorGuardando.mensaje}</p>
               )}
