@@ -334,7 +334,47 @@ const AFIRMATIVO_KEYWORDS = ["si", "claro", "va", "sale", "dale", "esta bien", "
 const ACK_KEYWORDS = ["ok", "okay", "oka", "vale", "gracias", "entendido", "perfecto", "excelente", "genial", "bien"];
 const BENDICION_KEYWORDS = ["dios le bendiga", "dios lo bendiga", "dios te bendiga", "bendiciones", "que dios la bendiga", "que dios lo bendiga", "que este bien"];
 const SINTOMA_KEYWORDS = ["duele", "dolor", "molestia", "me siento", "siento", "adormecid", "hormigueo", "me canso", "cansancio", "mareo"];
-const UBICACION_KEYWORDS = ["ubicacion", "direccion", "donde queda", "donde quedan", "donde estan", "donde esta", "como llego", "mapa", "localizacion"];
+const UBICACION_KEYWORDS = [
+  "ubicacion",
+  "ubicados",
+  "ubicada",
+  "ubican",
+  "direccion",
+  "donde queda",
+  "donde quedan",
+  "donde estan",
+  "donde esta",
+  "donde estas",
+  "donde andan",
+  "donde se encuentran",
+  "donde se encuentra",
+  "donde se ubican",
+  "donde los encuentro",
+  "donde las encuentro",
+  "donde puedo encontrarlos",
+  "donde puedo encontrarlas",
+  "en donde estan",
+  "en donde esta",
+  "en donde se encuentran",
+  "en donde se encuentra",
+  "en donde queda",
+  "en donde quedan",
+  "a donde voy",
+  "hacia donde",
+  "por donde",
+  "que calle",
+  "en que calle",
+  "en que colonia",
+  "que colonia",
+  "como llego",
+  "como le hago para llegar",
+  "como llegar",
+  "mapa",
+  "google maps",
+  "pin de ubicacion",
+  "coordenadas",
+  "localizacion",
+];
 
 // Frases tipo "deje lo reviso", "lo checo y despues le aviso", "deje
 // lo hablo con mis hijos y le digo", "despues le digo" -- la persona
