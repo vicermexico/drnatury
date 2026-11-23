@@ -982,7 +982,7 @@ export function PublicChatDemo({
         <div className="shrink-0 flex items-center gap-2 border-t border-amber-200 bg-amber-50 px-4 py-2">
           <span className="text-base">🔔</span>
           <p className="flex-1 min-w-0 text-xs text-amber-800">
-            ¿Le avisamos por aquí si se le va el chat, para que no pierda su lugar?
+            ¿Si se sale, le gustaría que le avisáramos para que pueda continuar?
           </p>
           <button
             onClick={activarNotificaciones}
