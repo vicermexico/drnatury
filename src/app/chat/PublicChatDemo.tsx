@@ -173,6 +173,35 @@ function nuevoIdConversacion(): string {
 // paciente le da clic y el mismo manda el mensaje ya escrito).
 const VIC_WHATSAPP_NUMERO = "528117105018";
 
+// Link que SIEMPRE se agrega al final de lo que se comparte por
+// WhatsApp (texto, audio o video) -- asi quien lo reciba sabe de donde
+// viene y puede entrar directo a la pagina.
+const DRNATURY_LINK = "https://www.drnatury.com";
+
+// Abre WhatsApp (sin numero fijo, para que elijan a quien mandarlo)
+// con el contenido del mensaje ya escrito, mas el link de la pagina al
+// final -- lo usa el boton de "Compartir" de cada mensaje del bot.
+function compartirPorWhatsapp(contenido: string) {
+  const mensaje = `${contenido}\n\n${DRNATURY_LINK}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, "_blank", "noopener,noreferrer");
+}
+
+// Boton pequeno y discreto de "Compartir" -- se repite en cada mensaje
+// del bot (texto, audio o video).
+function BotonCompartir({ contenido, claro }: { contenido: string; claro?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={() => compartirPorWhatsapp(contenido)}
+      className={`mt-1 inline-flex items-center gap-1 text-[11px] font-medium ${
+        claro ? "text-white/80 hover:text-white" : "text-emerald-700 hover:text-emerald-900"
+      }`}
+    >
+      ↗️ Compartir
+    </button>
+  );
+}
+
 function construirMensajeWhatsapp(a: ResumenAgendado): string {
   return (
     `Hola, ya agendé mi cita con el asistente de DrNatury:\n\n` +
@@ -866,8 +895,13 @@ export function PublicChatDemo({
             // El video de bienvenida se ve grande, del ancho de todo
             // el chat -- no como una cajita chica igual que el audio o
             // el texto (asi lo pidio Vic).
-            <div key={m.id} className="-mx-4 overflow-hidden">
-              <VideoTransparente src={m.videoUrl} />
+            <div key={m.id}>
+              <div className="-mx-4 overflow-hidden">
+                <VideoTransparente src={m.videoUrl} />
+              </div>
+              {m.rol === "bot" && (
+                <BotonCompartir contenido={`🎬 Mira este video:\n${m.videoUrl}`} />
+              )}
             </div>
           ) : (
           <div key={m.id} className={`flex ${m.rol === "bot" ? "justify-start" : "justify-end"}`}>
@@ -886,6 +920,18 @@ export function PublicChatDemo({
                 </audio>
               )}
               {m.texto}
+              {m.rol === "bot" && !m.agendado && (m.texto || m.audioUrl) && (
+                <div>
+                  <BotonCompartir
+                    claro={false}
+                    contenido={
+                      m.audioUrl
+                        ? `🎤 Escucha este audio:\n${m.audioUrl}${m.texto ? `\n\n${m.texto}` : ""}`
+                        : m.texto
+                    }
+                  />
+                </div>
+              )}
               {m.agendado && (
                 // Se resalta bien este bloque (fondo y borde propios) y el
                 // boton lleva una flechita que rebota y un brillo detras

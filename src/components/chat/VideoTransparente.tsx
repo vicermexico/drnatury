@@ -2,9 +2,18 @@
 import { useEffect, useRef, useState } from "react";
 
 // Reproduce un video con fondo transparente (el fondo verde ya se le
-// quito al subirlo, ver RecorteVerdeVideo.tsx) -- un <video> normal NO
-// muestra la transparencia aunque el archivo la tenga, asi que aqui se
-// dibuja cuadro por cuadro en un <canvas>, que si la respeta.
+// quito al subirlo, ver RecorteVerdeVideo.tsx).
+//
+// El video NO trae la transparencia nativa del formato (eso no es
+// confiable en todos los celulares, sobre todo iPhone -- se ve negro
+// feo en vez de transparente). En vez de eso, el archivo viene grabado
+// al DOBLE de ancho: la mitad izquierda trae los colores normales, la
+// mitad derecha trae una "mascara" en blanco y negro que dice que tan
+// transparente es cada pixel (blanco = se ve, negro = transparente).
+// Aqui se dibuja cada cuadro en un canvas oculto para leerlo, se
+// separan las dos mitades, y se vuelven a juntar en el canvas visible
+// usando la mascara como transparencia real -- eso si lo soporta
+// cualquier navegador, sobre cualquier fondo (ver quitarVerdeConMascara).
 //
 // No arranca solo: primero se ve un cuadro gris con un boton de play
 // (igual que el audio de bienvenida) y, hasta que le dan clic, aparece
@@ -17,6 +26,7 @@ interface Props {
 
 export function VideoTransparente({ src, className }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const lecturaRef = useRef<HTMLCanvasElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [iniciado, setIniciado] = useState(false);
   const [terminado, setTerminado] = useState(false);
@@ -24,20 +34,53 @@ export function VideoTransparente({ src, className }: Props) {
   useEffect(() => {
     if (!iniciado) return;
     const video = videoRef.current;
+    const lectura = lecturaRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas) return;
+    if (!video || !lectura || !canvas) return;
+    const ctxLectura = lectura.getContext("2d", { willReadFrequently: true });
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctxLectura || !ctx) return;
     let activo = true;
 
     function dibujarCuadro() {
       if (!activo || !video || video.paused || video.ended) return;
-      if (canvas!.width !== video.videoWidth && video.videoWidth > 0) {
-        canvas!.width = video.videoWidth;
-        canvas!.height = video.videoHeight;
+      const anchoTotal = video.videoWidth;
+      const alto = video.videoHeight;
+      const anchoMitad = Math.floor(anchoTotal / 2);
+      if (anchoMitad <= 0 || alto <= 0) {
+        siguienteCuadro();
+        return;
       }
-      ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
-      ctx!.drawImage(video, 0, 0, canvas!.width, canvas!.height);
+      if (lectura!.width !== anchoTotal) {
+        lectura!.width = anchoTotal;
+        lectura!.height = alto;
+      }
+      if (canvas!.width !== anchoMitad) {
+        canvas!.width = anchoMitad;
+        canvas!.height = alto;
+      }
+      ctxLectura!.drawImage(video, 0, 0);
+      const cuadro = ctxLectura!.getImageData(0, 0, anchoTotal, alto);
+      const salida = new Uint8ClampedArray(anchoMitad * alto * 4);
+      for (let y = 0; y < alto; y++) {
+        const filaOrigen = y * anchoTotal * 4;
+        const filaSalida = y * anchoMitad * 4;
+        for (let x = 0; x < anchoMitad; x++) {
+          const iColor = filaOrigen + x * 4;
+          const iMascara = filaOrigen + (anchoMitad + x) * 4;
+          const iSalida = filaSalida + x * 4;
+          salida[iSalida] = cuadro.data[iColor];
+          salida[iSalida + 1] = cuadro.data[iColor + 1];
+          salida[iSalida + 2] = cuadro.data[iColor + 2];
+          salida[iSalida + 3] = cuadro.data[iMascara]; // canal rojo de la mascara = que tan visible es
+        }
+      }
+      ctx!.putImageData(new ImageData(salida, anchoMitad, alto), 0, 0);
+      siguienteCuadro();
+    }
+
+    function siguienteCuadro() {
+      if (!video) return;
       if ("requestVideoFrameCallback" in video) {
         video.requestVideoFrameCallback(dibujarCuadro);
       } else {
@@ -72,6 +115,7 @@ export function VideoTransparente({ src, className }: Props) {
   return (
     <div className={`relative w-full ${className ?? ""}`}>
       <video ref={videoRef} src={src} playsInline className="hidden" onEnded={() => setTerminado(true)} />
+      <canvas ref={lecturaRef} className="hidden" />
       <canvas ref={canvasRef} className="w-full h-auto block" />
       {terminado && (
         <button

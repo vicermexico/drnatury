@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { quitarVerdeCuadro } from "@/lib/landing/quitar-verde";
+import { quitarVerdeCuadro, quitarVerdeConMascara } from "@/lib/landing/quitar-verde";
 import { VideoTransparente } from "@/components/chat/VideoTransparente";
 
 // Sube un video con fondo verde, le quita el verde cuadro por cuadro EN
@@ -12,6 +12,19 @@ import { VideoTransparente } from "@/components/chat/VideoTransparente";
 // A diferencia de la foto (que se procesa al instante), el video se
 // "reproduce" una vez por dentro mientras se va grabando el resultado
 // ya sin verde -- por eso tarda mas o menos lo mismo que dura el video.
+//
+// IMPORTANTE sobre la transparencia: los videos NO pueden traer
+// transparencia de verdad de forma confiable (varia segun el
+// navegador/celular -- en varios, sobre todo iPhone, se ve negro feo
+// en vez de transparente). Por eso aqui se graba el video al DOBLE de
+// ancho: la mitad izquierda trae los colores normales, la mitad
+// derecha trae una "mascara" en blanco y negro que dice que tan
+// transparente es cada pixel (ver quitarVerdeConMascara). Quien
+// reproduce el video (VideoTransparente.tsx) vuelve a juntar las dos
+// mitades con un canvas, que si soporta transparencia de verdad en
+// cualquier fondo. Al final, antes de guardarlo, se convierte a mp4
+// (con la libreria ffmpeg.wasm, 100% en el navegador) para que se
+// reproduzca bien en cualquier celular, incluyendo iPhone.
 const LADO_MAXIMO = 1280;
 
 // HTMLVideoElement.captureStream no es parte del estandar (solo Chrome
@@ -42,6 +55,7 @@ export function RecorteVerdeVideo({ onGuardado }: Props) {
   const [progreso, setProgreso] = useState(0);
   const [resultadoUrl, setResultadoUrl] = useState<string | null>(null);
   const [resultadoBlob, setResultadoBlob] = useState<Blob | null>(null);
+  const [convirtiendo, setConvirtiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const videoCalibRef = useRef<HTMLVideoElement>(null);
@@ -113,9 +127,14 @@ export function RecorteVerdeVideo({ onGuardado }: Props) {
     setProgreso(0);
     trozosRef.current = [];
 
+    // El lienzo de grabacion mide el DOBLE de ancho: izquierda = color,
+    // derecha = mascara de transparencia (ver nota arriba y
+    // quitarVerdeConMascara).
     const escala = Math.min(1, LADO_MAXIMO / Math.max(videoOrigen.videoWidth, videoOrigen.videoHeight));
-    canvas.width = Math.max(1, Math.round(videoOrigen.videoWidth * escala));
-    canvas.height = Math.max(1, Math.round(videoOrigen.videoHeight * escala));
+    const anchoMitad = Math.max(1, Math.round(videoOrigen.videoWidth * escala));
+    const altoCuadro = Math.max(1, Math.round(videoOrigen.videoHeight * escala));
+    canvas.width = anchoMitad * 2;
+    canvas.height = altoCuadro;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx || !canvas.captureStream) {
       setError("Tu navegador no puede procesar video aquí. Prueba desde una computadora con Chrome.");
@@ -123,16 +142,23 @@ export function RecorteVerdeVideo({ onGuardado }: Props) {
       return;
     }
 
+    // Lienzo aparte (oculto) nada mas para leer el cuadro original a
+    // su tamano final, antes de armar la version con mascara.
+    const lienzoLectura = document.createElement("canvas");
+    lienzoLectura.width = anchoMitad;
+    lienzoLectura.height = altoCuadro;
+    const ctxLectura = lienzoLectura.getContext("2d", { willReadFrequently: true });
+
     videoProc.src = archivoUrl;
     videoProc.muted = false;
     videoProc.volume = 0; // no se oye mientras se procesa, pero el audio si se grava
 
     function dibujarCuadro() {
-      if (!videoProc || videoProc.paused || videoProc.ended) return;
-      ctx!.drawImage(videoProc, 0, 0, canvas!.width, canvas!.height);
-      const cuadro = ctx!.getImageData(0, 0, canvas!.width, canvas!.height);
-      const sinVerde = quitarVerdeCuadro(new Uint8ClampedArray(cuadro.data), fuerza);
-      ctx!.putImageData(new ImageData(new Uint8ClampedArray(sinVerde), canvas!.width, canvas!.height), 0, 0);
+      if (!videoProc || !ctxLectura || videoProc.paused || videoProc.ended) return;
+      ctxLectura.drawImage(videoProc, 0, 0, anchoMitad, altoCuadro);
+      const cuadro = ctxLectura.getImageData(0, 0, anchoMitad, altoCuadro);
+      const conMascara = quitarVerdeConMascara(new Uint8ClampedArray(cuadro.data), anchoMitad, altoCuadro, fuerza);
+      ctx!.putImageData(new ImageData(new Uint8ClampedArray(conMascara.datos), canvas!.width, canvas!.height), 0, 0);
       if (videoProc.duration > 0) setProgreso(Math.min(99, Math.round((videoProc.currentTime / videoProc.duration) * 100)));
       if (videoProc.requestVideoFrameCallback) {
         videoProc.requestVideoFrameCallback(dibujarCuadro);
@@ -157,10 +183,7 @@ export function RecorteVerdeVideo({ onGuardado }: Props) {
     grabadora.onstop = () => {
       const blob = new Blob(trozosRef.current, { type: "video/webm" });
       trozosRef.current = [];
-      setResultadoBlob(blob);
-      setResultadoUrl(URL.createObjectURL(blob));
-      setProgreso(100);
-      setEstado("listo");
+      void convertirAMp4(blob);
     };
 
     videoProc.onplay = () => dibujarCuadro();
@@ -176,12 +199,51 @@ export function RecorteVerdeVideo({ onGuardado }: Props) {
     }
   }
 
+  // Convierte el video grabado (webm) a mp4 -- el formato que se
+  // guarda al final sea el que sea, siempre tiene que verse bien en
+  // CUALQUIER celular (incluyendo iPhone, que no reproduce webm). Se
+  // hace 100% en el navegador con ffmpeg.wasm (gratis, sin servicio de
+  // paga) -- tarda un poco mas, pero solo pasa una vez por video.
+  async function convertirAMp4(blobWebm: Blob) {
+    setConvirtiendo(true);
+    try {
+      const { FFmpeg } = await import("@ffmpeg/ffmpeg");
+      const { fetchFile, toBlobURL } = await import("@ffmpeg/util");
+      const ffmpeg = new FFmpeg();
+      const base = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd";
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, "text/javascript"),
+        wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, "application/wasm"),
+      });
+      await ffmpeg.writeFile("entrada.webm", await fetchFile(blobWebm));
+      await ffmpeg.exec([
+        "-i", "entrada.webm",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-pix_fmt", "yuv420p",
+        "-c:a", "aac",
+        "salida.mp4",
+      ]);
+      const datos = await ffmpeg.readFile("salida.mp4");
+      const bytes = typeof datos === "string" ? new TextEncoder().encode(datos) : new Uint8Array(datos);
+      const blobMp4 = new Blob([bytes], { type: "video/mp4" });
+      setResultadoBlob(blobMp4);
+      setResultadoUrl(URL.createObjectURL(blobMp4));
+      setProgreso(100);
+      setEstado("listo");
+    } catch (err) {
+      console.error("Error convirtiendo el video a mp4:", err);
+      setError("No se pudo convertir el video para que se viera bien en todos los celulares. Intenta de nuevo.");
+      setEstado("calibrando");
+    } finally {
+      setConvirtiendo(false);
+    }
+  }
+
   async function guardar() {
     if (!resultadoBlob) return;
     setError(null);
     setEstado("guardando");
     try {
-      const file = new File([resultadoBlob], "bienvenida-video.webm", { type: "video/webm" });
+      const file = new File([resultadoBlob], "bienvenida-video.mp4", { type: "video/mp4" });
       const res = await fetch("/api/master/bot-demo/bienvenida/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -195,7 +257,7 @@ export function RecorteVerdeVideo({ onGuardado }: Props) {
       const supabase = createClient();
       const { error: uploadErr } = await supabase.storage
         .from("whatsapp-bot-bienvenida")
-        .uploadToSignedUrl(data.path, data.token, file, { contentType: "video/webm" });
+        .uploadToSignedUrl(data.path, data.token, file, { contentType: "video/mp4" });
       if (uploadErr) throw new Error(uploadErr.message);
 
       const res2 = await fetch("/api/master/bot-demo/bienvenida", {
@@ -293,9 +355,13 @@ export function RecorteVerdeVideo({ onGuardado }: Props) {
 
       {estado === "procesando" && (
         <div className="space-y-2">
-          <p className="text-sm text-gray-600">Procesando video, no cierres esta pantalla... {progreso}%</p>
+          <p className="text-sm text-gray-600">
+            {convirtiendo
+              ? "Convirtiendo el video para que se vea bien en cualquier celular, no cierres esta pantalla..."
+              : `Procesando video, no cierres esta pantalla... ${progreso}%`}
+          </p>
           <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
-            <div className="h-full bg-blue-600 transition-all" style={{ width: `${progreso}%` }} />
+            <div className="h-full bg-blue-600 transition-all" style={{ width: convirtiendo ? "100%" : `${progreso}%` }} />
           </div>
         </div>
       )}

@@ -78,3 +78,55 @@ export function quitarVerde(
 export function quitarVerdeCuadro(datos: Uint8ClampedArray, fuerza = 50): Uint8ClampedArray {
   return quitarVerdePixeles(datos, fuerza);
 }
+
+export interface CuadroConMascara {
+  // Un cuadro del doble de ancho que el original: la mitad izquierda
+  // trae los colores normales (sin tocar), la mitad derecha trae una
+  // "mascara" en blanco y negro (blanco = se ve completo, negro =
+  // transparente del todo) -- ver nota mas abajo.
+  datos: Uint8ClampedArray;
+  anchoMitad: number;
+  alto: number;
+}
+
+// Version para VIDEO que si se puede usar en cualquier fondo (pagina
+// de inicio, chat, lo que sea) -- a diferencia de quitarVerdeCuadro,
+// que marca partes del video como "transparentes" de verdad, aqui NO
+// se usa la transparencia nativa del video, porque no es confiable en
+// todos los celulares (sobre todo iPhone) -- en vez de eso, se guarda
+// la info de "que tan transparente es cada pixel" como una imagen en
+// blanco y negro AL LADO del video normal, dentro del mismo archivo.
+// Al reproducirlo (ver VideoTransparente.tsx) se vuelven a juntar con
+// un canvas, que si soporta transparencia de verdad en cualquier
+// navegador -- asi el video se puede poner encima de cualquier fondo.
+export function quitarVerdeConMascara(
+  datos: Uint8ClampedArray,
+  ancho: number,
+  alto: number,
+  fuerza = 50
+): CuadroConMascara {
+  const procesado = quitarVerdePixeles(datos, fuerza);
+  const anchoTotal = ancho * 2;
+  const salida = new Uint8ClampedArray(anchoTotal * alto * 4);
+
+  for (let y = 0; y < alto; y++) {
+    for (let x = 0; x < ancho; x++) {
+      const iOrigen = (y * ancho + x) * 4;
+      const r = procesado[iOrigen], g = procesado[iOrigen + 1], b = procesado[iOrigen + 2], a = procesado[iOrigen + 3];
+
+      const iColor = (y * anchoTotal + x) * 4;
+      salida[iColor] = r;
+      salida[iColor + 1] = g;
+      salida[iColor + 2] = b;
+      salida[iColor + 3] = 255;
+
+      const iMascara = (y * anchoTotal + ancho + x) * 4;
+      salida[iMascara] = a;
+      salida[iMascara + 1] = a;
+      salida[iMascara + 2] = a;
+      salida[iMascara + 3] = 255;
+    }
+  }
+
+  return { datos: salida, anchoMitad: ancho, alto };
+}
