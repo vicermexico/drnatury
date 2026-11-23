@@ -50,6 +50,16 @@ export interface EstadoAgendado {
   // conversacion -- para no contestar literal lo mismo cada vez que lo
   // vuelva a mencionar (ver respuestaSintoma).
   vecesSintoma?: number;
+  // Ya se le pidio su celular justo despues de su primer mensaje (ver
+  // CELULAR_TEMPRANO_TEXT) -- asi, si se sale a medio chat sin terminar
+  // de agendar, de todos modos se le puede volver a contactar. No se
+  // confunde con "celular" (el que se usa para el recordatorio de la
+  // cita, al final del flujo de agendar) -- si ya se tiene este, no se
+  // vuelve a pedir ahi.
+  celularPedidoTemprano?: boolean;
+  // Cuantas veces se le ha insistido con el celular sin que lo de --
+  // solo se insiste una vez mas, para no ser pesados.
+  celularTempranoIntentos?: number;
 }
 
 export interface Correccion {
@@ -434,6 +444,42 @@ const RESPUESTAS_SINTOMA: ((parte: string) => string)[] = [
 function respuestaSintoma(parte: string, veces: number): string {
   const variante = RESPUESTAS_SINTOMA[veces % RESPUESTAS_SINTOMA.length];
   return variante(parte);
+}
+
+// Se le pide el celular justo despues de su primer mensaje (ver
+// conPeticionDeCelularInicial) -- asi, si la persona se sale a medio
+// chat sin terminar de agendar, de todos modos se le puede contactar
+// despues. No se le vuelve a pedir si de plano no lo da (se insiste
+// una sola vez, ver generarRespuesta).
+const CELULAR_TEMPRANO_TEXT =
+  "Por cierto, ¿me podría compartir su número de WhatsApp? Es para poder contactarlo si se corta la conversación.";
+
+// Intenta leer un numero de celular mexicano (10 digitos) de un
+// mensaje, con o sin espacios/guiones/parentesis, y con o sin el 52 de
+// pais adelante.
+function extraerCelular(mensaje: string): string | null {
+  const soloDigitos = mensaje.replace(/\D/g, "");
+  if (soloDigitos.length === 12 && soloDigitos.startsWith("52")) return soloDigitos.slice(2);
+  if (soloDigitos.length === 10) return soloDigitos;
+  return null;
+}
+
+// Agrega la peticion del celular al final de la respuesta del PRIMER
+// mensaje de la conversacion (una sola vez) -- se usa en cada posible
+// respuesta de ese primer mensaje (ver fase "inicio" en
+// generarRespuesta). No se agrega en el aviso interno de "mensaje no
+// coincide con ningun anuncio" (eso es solo para que Master lo revise
+// el mismo, no es un saludo real a un paciente).
+function conPeticionDeCelularInicial(resultado: ResultadoRespuesta): ResultadoRespuesta {
+  if (resultado.nota === "mensaje_no_de_anuncio") return resultado;
+  return {
+    ...resultado,
+    respuesta: `${resultado.respuesta}\n\n${CELULAR_TEMPRANO_TEXT}`,
+    nuevoEstado: { ...resultado.nuevoEstado, celularPedidoTemprano: true },
+    mensajesBienvenida: resultado.mensajesBienvenida
+      ? [...resultado.mensajesBienvenida, { tipo: "texto", contenido: CELULAR_TEMPRANO_TEXT }]
+      : undefined,
+  };
 }
 
 // Intenta leer un codigo de anuncio al inicio del primer mensaje, ej.
@@ -872,10 +918,10 @@ export async function generarRespuesta(args: {
     // pidan la cita, no se le hace de lado la urgencia para saltar
     // derecho a preguntar consultorio/domicilio.
     if (esUrgencia(normalizado)) {
-      return {
+      return conPeticionDeCelularInicial({
         respuesta: `${URGENCIA_TEXT} ¿Para cuándo le gustaría agendar su cita?`,
         nuevoEstado: { fase: "agendando", paso: "modalidad" },
-      };
+      });
     }
     // Igual si mencionan un dolor o molestia (no urgente) desde este
     // primer mensaje -- se reconoce primero lo que dijo antes de
@@ -883,16 +929,16 @@ export async function generarRespuesta(args: {
     // mas abajo, para cuando esto pasa a mitad de la conversacion).
     if (contieneAlguna(normalizado, SINTOMA_KEYWORDS)) {
       const parte = detectarParteCuerpo(normalizado);
-      return {
+      return conPeticionDeCelularInicial({
         respuesta: `${respuestaSintoma(parte, 0)} ¿Sería en consultorio o a domicilio?`,
         nuevoEstado: { fase: "agendando", paso: "modalidad", vecesSintoma: 1 },
-      };
+      });
     }
     // Si de plano dice que lo va a pensar/checar y despues avisa, no
     // se le insiste con preguntas de agendar desde este primer
     // mensaje (ver esDejarParaDespues arriba).
     if (esDejarParaDespues(normalizado)) {
-      return { respuesta: DEJAR_PARA_DESPUES_TEXT, nuevoEstado: { fase: "conversando" } };
+      return conPeticionDeCelularInicial({ respuesta: DEJAR_PARA_DESPUES_TEXT, nuevoEstado: { fase: "conversando" } });
     }
     // Si el primer mensaje YA es una intencion clara de agendar (ej.
     // el mensaje fijo "Quisiera agendar mi cita" del boton "Agenda tu
@@ -902,7 +948,7 @@ export async function generarRespuesta(args: {
     // pidiendo informacion (ej. el mensaje de los anuncios), no cuando
     // ya saben que quieren agendar.
     if (pareceIntencionAgendar(mensaje, normalizado)) {
-      return iniciarFlujoAgendado(normalizado, mensaje);
+      return conPeticionDeCelularInicial(await iniciarFlujoAgendado(normalizado, mensaje));
     }
     const codigo = detectarCodigoAnuncio(mensaje);
     const serieBienvenida: BienvenidaItem[] =
@@ -912,7 +958,7 @@ export async function generarRespuesta(args: {
             { tipo: "audio", contenido: WELCOME_AUDIO_URL },
             { tipo: "texto", contenido: WELCOME_TEXT },
           ];
-    return {
+    return conPeticionDeCelularInicial({
       // Se deja tambien en "respuesta" (solo el texto, unido) por si algo
       // mas adelante necesita leerlo de un jalon -- lo que de verdad
       // manda el chat es "mensajesBienvenida", uno por uno.
@@ -923,7 +969,23 @@ export async function generarRespuesta(args: {
       nuevoEstado: { fase: "conversando" },
       nota: codigo ? `Código de anuncio detectado: ${codigo}` : undefined,
       mensajesBienvenida: serieBienvenida,
-    };
+    });
+  }
+
+  // 1.5) Si ya se le pidio el celular desde el primer mensaje (ver
+  // conPeticionDeCelularInicial) y todavia no lo tenemos, se revisa si
+  // este mensaje YA es el numero -- si si, se guarda (el resto de las
+  // reglas de abajo ya la toman en cuenta, ej. para no volver a
+  // pedirla al final del flujo de agendar) y se le agradece antes de
+  // seguir con lo que sea que toque contestar normalmente.
+  let estadoConCelular = estado;
+  let agradecerCelular = false;
+  if (estado.celularPedidoTemprano && !estado.celular) {
+    const celularDetectado = extraerCelular(mensaje);
+    if (celularDetectado) {
+      estadoConCelular = { ...estado, celular: celularDetectado };
+      agradecerCelular = true;
+    }
   }
 
   // El resto de las reglas (incluyendo el flujo de agendado) siempre
@@ -931,7 +993,24 @@ export async function generarRespuesta(args: {
   // asi lo que Master ensena solo cambia las PALABRAS de la
   // respuesta, nunca congela la conversacion a medias esperando el
   // siguiente mensaje.
-  const resultadoBase = await calcularRespuestaBase(mensaje, normalizado, estado, canalPublico, ubicaciones);
+  let resultadoBase = await calcularRespuestaBase(mensaje, normalizado, estadoConCelular, canalPublico, ubicaciones);
+
+  if (agradecerCelular) {
+    resultadoBase = { ...resultadoBase, respuesta: `Gracias, ya quedó registrado.\n\n${resultadoBase.respuesta}` };
+  } else if (estado.celularPedidoTemprano && !estado.celular) {
+    // No contesto con su celular (pregunto o dijo otra cosa) -- se le
+    // insiste UNA sola vez mas, pegado a la respuesta normal de lo que
+    // sea que haya dicho. Si ya se le insistio antes, ya no se vuelve
+    // a mencionar, para no ser pesados.
+    const intentos = estado.celularTempranoIntentos ?? 0;
+    if (intentos < 1) {
+      resultadoBase = {
+        ...resultadoBase,
+        respuesta: `${resultadoBase.respuesta}\n\n${CELULAR_TEMPRANO_TEXT}`,
+        nuevoEstado: { ...resultadoBase.nuevoEstado, celularTempranoIntentos: intentos + 1 },
+      };
+    }
+  }
 
   // 2) Si ya le ensenaste exactamente que contestar ante este mensaje,
   // se usa ese texto -- pero el paso/estado que ya se calculo arriba
@@ -1332,7 +1411,20 @@ async function calcularRespuestaBase(
         return { respuesta: "¿A qué nombre le agendo la cita?", nuevoEstado };
       }
       case "nombre": {
-        const nuevoEstado: EstadoAgendado = { ...estado, paso: "celular", nombre: mensaje.trim() };
+        const nombre = mensaje.trim();
+        // Si ya se tiene su celular (se lo pidio desde el principio de
+        // la conversacion, ver CELULAR_TEMPRANO_TEXT), no hace falta
+        // volver a pedirlo aqui -- se usa ese mismo y se cierra la cita
+        // de una vez.
+        if (estado.celular) {
+          const resumen = construirResumenAgendado(estado, nombre, estado.celular);
+          return {
+            respuesta: `${resumen.texto}\n\n${REQUISITOS_TEXT}`,
+            nuevoEstado: { fase: "conversando" },
+            agendado: resumen.datos,
+          };
+        }
+        const nuevoEstado: EstadoAgendado = { ...estado, paso: "celular", nombre };
         return { respuesta: "¿A qué número de WhatsApp le mandamos el recordatorio de su cita?", nuevoEstado };
       }
       case "celular": {
