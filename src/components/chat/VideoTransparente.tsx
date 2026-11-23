@@ -59,23 +59,32 @@ export function VideoTransparente({ src, className }: Props) {
         canvas!.width = anchoMitad;
         canvas!.height = alto;
       }
-      ctxLectura!.drawImage(video, 0, 0);
-      const cuadro = ctxLectura!.getImageData(0, 0, anchoTotal, alto);
-      const salida = new Uint8ClampedArray(anchoMitad * alto * 4);
-      for (let y = 0; y < alto; y++) {
-        const filaOrigen = y * anchoTotal * 4;
-        const filaSalida = y * anchoMitad * 4;
-        for (let x = 0; x < anchoMitad; x++) {
-          const iColor = filaOrigen + x * 4;
-          const iMascara = filaOrigen + (anchoMitad + x) * 4;
-          const iSalida = filaSalida + x * 4;
-          salida[iSalida] = cuadro.data[iColor];
-          salida[iSalida + 1] = cuadro.data[iColor + 1];
-          salida[iSalida + 2] = cuadro.data[iColor + 2];
-          salida[iSalida + 3] = cuadro.data[iMascara]; // canal rojo de la mascara = que tan visible es
+      try {
+        ctxLectura!.drawImage(video, 0, 0);
+        const cuadro = ctxLectura!.getImageData(0, 0, anchoTotal, alto);
+        const salida = new Uint8ClampedArray(anchoMitad * alto * 4);
+        for (let y = 0; y < alto; y++) {
+          const filaOrigen = y * anchoTotal * 4;
+          const filaSalida = y * anchoMitad * 4;
+          for (let x = 0; x < anchoMitad; x++) {
+            const iColor = filaOrigen + x * 4;
+            const iMascara = filaOrigen + (anchoMitad + x) * 4;
+            const iSalida = filaSalida + x * 4;
+            salida[iSalida] = cuadro.data[iColor];
+            salida[iSalida + 1] = cuadro.data[iColor + 1];
+            salida[iSalida + 2] = cuadro.data[iColor + 2];
+            salida[iSalida + 3] = cuadro.data[iMascara]; // canal rojo de la mascara = que tan visible es
+          }
         }
+        ctx!.putImageData(new ImageData(salida, anchoMitad, alto), 0, 0);
+      } catch (err) {
+        // Si por algun motivo el navegador bloquea leer el video (ej.
+        // CORS), se avisa en la consola en vez de quedarse "pegado" sin
+        // decir nada -- el audio sigue sonando igual (eso no pasa por
+        // aqui), solo no se verá el video.
+        console.error("No se pudo dibujar el cuadro del video:", err);
+        return;
       }
-      ctx!.putImageData(new ImageData(salida, anchoMitad, alto), 0, 0);
       siguienteCuadro();
     }
 
@@ -117,7 +126,21 @@ export function VideoTransparente({ src, className }: Props) {
 
   return (
     <div className={`relative w-full ${className ?? ""}`}>
-      <video ref={videoRef} src={src} playsInline className="hidden" onEnded={() => setTerminado(true)} />
+      <video
+        ref={videoRef}
+        src={src}
+        playsInline
+        // Sin esto, el navegador bloquea por seguridad (CORS) que se
+        // pueda "leer" el video para dibujarlo cuadro por cuadro en el
+        // canvas, porque viene de otro dominio (el storage de
+        // Supabase) -- se sigue escuchando el audio normal (eso no
+        // pasa por el canvas), pero el dibujo se cae en silencio y no
+        // se ve nada. El storage de Supabase ya manda los permisos de
+        // CORS necesarios, solo faltaba pedirlo aqui.
+        crossOrigin="anonymous"
+        className="hidden"
+        onEnded={() => setTerminado(true)}
+      />
       <canvas ref={lecturaRef} className="hidden" />
       <canvas ref={canvasRef} className="w-full h-auto block" />
       {terminado && (
