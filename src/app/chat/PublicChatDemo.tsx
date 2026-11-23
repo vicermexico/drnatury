@@ -34,6 +34,10 @@ interface MensajeUI {
   audioUrl?: string;
   videoUrl?: string;
   agendado?: ResumenAgendado;
+  // true solo en los mensajes de la serie de bienvenida (el saludo de
+  // entrada) -- el boton de "Compartir" solo sale ahi, no en cada
+  // mensaje del bot (pedido explicito de Vic).
+  esBienvenida?: boolean;
 }
 
 // Datos para mandar la ubicacion actual de la cita a domicilio que se
@@ -55,15 +59,6 @@ type FaseLlamada = "inactivo" | "escuchando" | "pensando" | "hablando";
 // saluda primero, como si de verdad contestara una llamada, y hasta
 // que termina de decirlo se pone a escuchar al paciente.
 const SALUDO_LLAMADA = "Hola, ¿quieres agendar una cita?";
-
-// Para que la llamada de voz no se sienta tan robot, mientras el bot
-// "piensa" la respuesta (la misma pausa de 1 a 2 segundos de siempre)
-// dice una de estas muletillas en vez de quedarse callado -- cambia
-// cual le toca cada vez, para que no suene repetido.
-const FRASES_PENSANDO = ["Mmm", "Ehh", "Pues"];
-function elegirFrasePensando(): string {
-  return FRASES_PENSANDO[Math.floor(Math.random() * FRASES_PENSANDO.length)];
-}
 
 // Busca una voz en español que suene a mujer entre las que ya trae el
 // navegador (sin ningun servicio de pago) -- si no encuentra ninguna
@@ -594,10 +589,10 @@ export function PublicChatDemo({
           setMensajes((prev) => [
             ...prev,
             item.tipo === "audio"
-              ? { id: siguienteId++, rol: "bot", texto: "", audioUrl: item.contenido }
+              ? { id: siguienteId++, rol: "bot", texto: "", audioUrl: item.contenido, esBienvenida: true }
               : item.tipo === "video"
-              ? { id: siguienteId++, rol: "bot", texto: "", videoUrl: item.contenido }
-              : { id: siguienteId++, rol: "bot", texto: item.contenido },
+              ? { id: siguienteId++, rol: "bot", texto: "", videoUrl: item.contenido, esBienvenida: true }
+              : { id: siguienteId++, rol: "bot", texto: item.contenido, esBienvenida: true },
           ]);
           await esperar(700);
         }
@@ -655,10 +650,10 @@ export function PublicChatDemo({
           setMensajes((prev) => [
             ...prev,
             item.tipo === "audio"
-              ? { id: siguienteId++, rol: "bot", texto: "", audioUrl: item.contenido }
+              ? { id: siguienteId++, rol: "bot", texto: "", audioUrl: item.contenido, esBienvenida: true }
               : item.tipo === "video"
-              ? { id: siguienteId++, rol: "bot", texto: "", videoUrl: item.contenido }
-              : { id: siguienteId++, rol: "bot", texto: item.contenido },
+              ? { id: siguienteId++, rol: "bot", texto: "", videoUrl: item.contenido, esBienvenida: true }
+              : { id: siguienteId++, rol: "bot", texto: item.contenido, esBienvenida: true },
           ]);
           await esperar(700);
         }
@@ -691,8 +686,12 @@ export function PublicChatDemo({
     // voz, incluyendo en donde se quedo.
     setMensajes((prev) => [...prev, { id: siguienteId++, rol: "paciente", texto }]);
 
+    // Antes aqui decia una muletilla ("Mmm", "Ehh"...) en voz alta
+    // mientras pensaba la respuesta, pero esas palabras sueltas no se
+    // escuchan bien con la voz sintetizada del navegador -- ahora
+    // nomas se queda en silencio ese segundo (igual se ve el estado de
+    // "pensando" en la pantalla de la llamada).
     setFaseLlamada("pensando");
-    hablar(elegirFrasePensando());
 
     const inicio = Date.now();
     try {
@@ -721,15 +720,18 @@ export function PublicChatDemo({
       if (data.ubicacion) setUbicacionDatos(data.ubicacion as UbicacionDatos);
 
       const serieBienvenida = data.mensajesBienvenida as MensajeBienvenidaUI[] | undefined;
-      const textoRespuesta =
-        serieBienvenida && serieBienvenida.length > 0
-          ? serieBienvenida
-              .filter((item) => item.tipo === "texto")
-              .map((item) => item.contenido)
-              .join(". ")
-          : data.respuesta;
+      const esBienvenida = !!serieBienvenida && serieBienvenida.length > 0;
+      const textoRespuesta = esBienvenida
+        ? serieBienvenida!
+            .filter((item) => item.tipo === "texto")
+            .map((item) => item.contenido)
+            .join(". ")
+        : data.respuesta;
 
-      setMensajes((prev) => [...prev, { id: siguienteId++, rol: "bot", texto: textoRespuesta, agendado: data.agendado }]);
+      setMensajes((prev) => [
+        ...prev,
+        { id: siguienteId++, rol: "bot", texto: textoRespuesta, agendado: data.agendado, esBienvenida },
+      ]);
       setFaseLlamada("hablando");
       hablar(textoRespuesta, { alTerminar: reanudarEscuchaLlamada });
     } catch {
@@ -942,7 +944,7 @@ export function PublicChatDemo({
               <div className="overflow-hidden">
                 <VideoTransparente src={m.videoUrl} flotante />
               </div>
-              {m.rol === "bot" && (
+              {m.rol === "bot" && m.esBienvenida && (
                 <BotonCompartir contenido={`🎬 Mira este video:\n${m.videoUrl}`} />
               )}
             </div>
@@ -963,7 +965,7 @@ export function PublicChatDemo({
                 </audio>
               )}
               {m.texto}
-              {m.rol === "bot" && !m.agendado && (m.texto || m.audioUrl) && (
+              {m.rol === "bot" && m.esBienvenida && !m.agendado && (m.texto || m.audioUrl) && (
                 <div>
                   {m.audioUrl ? (
                     <BotonCompartir audioUrl={m.audioUrl} texto={m.texto} />
