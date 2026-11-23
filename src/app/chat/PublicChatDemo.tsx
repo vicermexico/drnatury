@@ -700,11 +700,12 @@ export function PublicChatDemo({
     setMostrarEmojis(false);
   }
 
-  // Mientras el paciente esta escribiendo (el cuadro no esta vacio), se
-  // esconden los demas iconos (ubicacion, microfono, emoji) para que el
-  // cuadro de texto tenga todo el espacio -- en cuanto vuelve a quedar
-  // vacio, los iconos regresan.
-  const cuadroAmpliado = primerMensajeEnviado && input.trim().length > 0;
+  // Mientras el cuadro tiene texto para mandar, se esconden los demas
+  // iconos (ubicacion, microfono, emoji) para que se vea el boton de
+  // enviar -- esto incluye el mensaje inicial que ya viene escrito
+  // (antes de que el paciente mande su primer mensaje), que si no se
+  // quedaba con el icono de nota de voz en vez del de enviar.
+  const cuadroAmpliado = (primerMensajeEnviado ? input : mensajeInicial).trim().length > 0;
 
   return (
     <div className="relative bg-white overflow-hidden flex flex-col flex-1 min-h-0">
