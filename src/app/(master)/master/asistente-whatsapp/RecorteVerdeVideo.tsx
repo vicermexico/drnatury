@@ -25,7 +25,12 @@ import { VideoTransparente } from "@/components/chat/VideoTransparente";
 // cualquier fondo. Al final, antes de guardarlo, se convierte a mp4
 // (con la libreria ffmpeg.wasm, 100% en el navegador) para que se
 // reproduzca bien en cualquier celular, incluyendo iPhone.
-const LADO_MAXIMO = 1280;
+// Nota sobre el tamano: como el cuadro se graba al DOBLE de ancho
+// (color + mascara, ver arriba), convertirlo a mp4 tarda bastante mas
+// de lo que uno esperaria para un video de este tamano -- por eso aqui
+// se usa un tamano mas chico que en un video normal (igual se ve bien
+// en el chat, que no es tan ancho).
+const LADO_MAXIMO = 640;
 
 // HTMLVideoElement.captureStream no es parte del estandar (solo Chrome
 // lo trae, los demas navegadores todavia no) -- por eso no esta en los
@@ -258,7 +263,13 @@ export function RecorteVerdeVideo({ onGuardado }: Props) {
             // anchoMitad/altoCuadro, donde ya se redondea, pero esto es un
             // segundo seguro).
             "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
-            "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-pix_fmt", "yuv420p",
+            // "ultrafast" en vez de "fast" -- convertir en el navegador
+            // (sin la ayuda de la tarjeta de video de verdad) ya es
+            // lento de por si, y el cuadro es del doble de ancho (ver
+            // nota de LADO_MAXIMO) -- este preset es bastante mas
+            // rapido, a cambio de un archivo un poco mas pesado (no es
+            // problema aqui, el video ya es chico).
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-pix_fmt", "yuv420p",
             "-c:a", "aac",
             "salida.mp4",
           ]);
@@ -270,14 +281,18 @@ export function RecorteVerdeVideo({ onGuardado }: Props) {
           setProgreso(100);
           setEstado("listo");
         })(),
-        120
+        // Convertir el video en el navegador (sin tarjeta de video de
+        // verdad) es lento de por si -- un video de nada mas 10
+        // segundos puede tardar varios minutos. 8 minutos de limite
+        // (antes eran 2, que resulto ser muy poco).
+        480
       );
     } catch (err) {
       console.error("Error convirtiendo el video a mp4:", err);
       const agotado = err instanceof Error && err.message === "tiempo_agotado";
       setError(
         agotado
-          ? "Se tardó demasiado convirtiendo el video (puede ser el internet o que el celular se quedó sin memoria) -- intenta otra vez desde una computadora, ahí suele ir más rápido y seguro."
+          ? "Se tardó más de 8 minutos convirtiendo el video -- eso ya es demasiado. Intenta con un video más corto, o revisa tu internet."
           : "No se pudo convertir el video para que se viera bien en todos los celulares. Intenta de nuevo, de preferencia desde una computadora."
       );
       setEstado("calibrando");
@@ -405,7 +420,7 @@ export function RecorteVerdeVideo({ onGuardado }: Props) {
         <div className="space-y-2">
           <p className="text-sm text-gray-600">
             {convirtiendo
-              ? "Convirtiendo el video para que se vea bien en cualquier celular, no cierres esta pantalla..."
+              ? "Convirtiendo el video para que se vea bien en cualquier celular -- esto puede tardar varios minutos, no cierres esta pantalla..."
               : `Procesando video, no cierres esta pantalla... ${progreso}%`}
           </p>
           <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
