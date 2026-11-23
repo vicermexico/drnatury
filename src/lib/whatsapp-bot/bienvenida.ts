@@ -9,13 +9,16 @@ import type { BienvenidaItem } from "./engine";
 export async function obtenerSerieBienvenida(admin: SupabaseClient): Promise<BienvenidaItem[]> {
   const { data } = await admin
     .from("whatsapp_bot_bienvenida")
-    .select("tipo, texto, audio_url")
+    .select("tipo, texto, audio_url, video_url")
     .order("orden", { ascending: true });
 
   return (data ?? [])
     .map((fila): BienvenidaItem | null => {
       if (fila.tipo === "audio" && fila.audio_url) {
         return { tipo: "audio", contenido: fila.audio_url as string };
+      }
+      if (fila.tipo === "video" && fila.video_url) {
+        return { tipo: "video", contenido: fila.video_url as string };
       }
       if (fila.tipo === "texto" && fila.texto) {
         return { tipo: "texto", contenido: fila.texto as string };

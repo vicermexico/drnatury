@@ -1,13 +1,16 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { RecorteVerdeVideo } from "./RecorteVerdeVideo";
+import { VideoTransparente } from "@/components/chat/VideoTransparente";
 
 interface MensajeBienvenidaUI {
   id: string;
   orden: number;
-  tipo: "texto" | "audio";
+  tipo: "texto" | "audio" | "video";
   texto: string | null;
   audio_url: string | null;
+  video_url: string | null;
 }
 
 export function BienvenidaManager() {
@@ -25,6 +28,7 @@ export function BienvenidaManager() {
   const [borrandoId, setBorrandoId] = useState<string | null>(null);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [textoEditado, setTextoEditado] = useState("");
+  const [mostrarVideo, setMostrarVideo] = useState(false);
   const inputArchivoRef = useRef<HTMLInputElement>(null);
 
   async function cargar() {
@@ -190,6 +194,10 @@ export function BienvenidaManager() {
                         <source src={m.audio_url ?? ""} />
                       </audio>
                     </div>
+                  ) : m.tipo === "video" ? (
+                    <div className="max-w-[240px] overflow-hidden rounded-lg">
+                      {m.video_url && <VideoTransparente src={m.video_url} />}
+                    </div>
                   ) : editandoId === m.id ? (
                     <div className="space-y-1.5">
                       <textarea
@@ -276,7 +284,22 @@ export function BienvenidaManager() {
             >
               {subiendoAudio ? "Subiendo audio..." : "🎤 + Agregar audio"}
             </button>
+            <button
+              onClick={() => setMostrarVideo((v) => !v)}
+              className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+            >
+              🎬 + Agregar video (fondo verde)
+            </button>
           </div>
+
+          {mostrarVideo && (
+            <RecorteVerdeVideo
+              onGuardado={() => {
+                setMostrarVideo(false);
+                cargar();
+              }}
+            />
+          )}
 
           <div className="space-y-2">
             <textarea

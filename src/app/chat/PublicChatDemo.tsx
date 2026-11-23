@@ -4,6 +4,7 @@ import { useDictado } from "@/hooks/useDictado";
 import { useNotaDeVoz } from "@/hooks/useNotaDeVoz";
 import { MENSAJE_INICIAL_ANUNCIO } from "@/lib/whatsapp-bot/mensajes";
 import { requestNotificationPermission } from "@/lib/firebase";
+import { VideoTransparente } from "@/components/chat/VideoTransparente";
 
 type EstadoAgendado = {
   fase: "inicio" | "conversando" | "agendando";
@@ -22,7 +23,7 @@ interface ResumenAgendado {
 }
 
 interface MensajeBienvenidaUI {
-  tipo: "texto" | "audio";
+  tipo: "texto" | "audio" | "video";
   contenido: string;
 }
 
@@ -31,6 +32,7 @@ interface MensajeUI {
   rol: "paciente" | "bot";
   texto: string;
   audioUrl?: string;
+  videoUrl?: string;
   agendado?: ResumenAgendado;
 }
 
@@ -521,6 +523,8 @@ export function PublicChatDemo({
             ...prev,
             item.tipo === "audio"
               ? { id: siguienteId++, rol: "bot", texto: "", audioUrl: item.contenido }
+              : item.tipo === "video"
+              ? { id: siguienteId++, rol: "bot", texto: "", videoUrl: item.contenido }
               : { id: siguienteId++, rol: "bot", texto: item.contenido },
           ]);
           await esperar(700);
@@ -580,6 +584,8 @@ export function PublicChatDemo({
             ...prev,
             item.tipo === "audio"
               ? { id: siguienteId++, rol: "bot", texto: "", audioUrl: item.contenido }
+              : item.tipo === "video"
+              ? { id: siguienteId++, rol: "bot", texto: "", videoUrl: item.contenido }
               : { id: siguienteId++, rol: "bot", texto: item.contenido },
           ]);
           await esperar(700);
@@ -855,7 +861,15 @@ export function PublicChatDemo({
             Da clic en el botón de abajo para mandar el mensaje y empezar la conversación.
           </p>
         )}
-        {mensajes.map((m) => (
+        {mensajes.map((m) =>
+          m.videoUrl ? (
+            // El video de bienvenida se ve grande, del ancho de todo
+            // el chat -- no como una cajita chica igual que el audio o
+            // el texto (asi lo pidio Vic).
+            <div key={m.id} className="-mx-4 overflow-hidden">
+              <VideoTransparente src={m.videoUrl} />
+            </div>
+          ) : (
           <div key={m.id} className={`flex ${m.rol === "bot" ? "justify-start" : "justify-end"}`}>
             <div
               className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap shadow-sm ${
@@ -904,7 +918,8 @@ export function PublicChatDemo({
               )}
             </div>
           </div>
-        ))}
+          )
+        )}
         <div ref={finDeMensajesRef} />
       </div>
 

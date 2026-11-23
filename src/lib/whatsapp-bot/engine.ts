@@ -781,11 +781,12 @@ export interface ResumenAgendado {
 }
 
 // Un mensaje de la serie de bienvenida que Master arma desde el panel
-// (/master/asistente-whatsapp) -- puede ser un audio grabado por Master
-// o un texto, en el orden que el mismo decida.
+// (/master/asistente-whatsapp) -- puede ser un audio grabado por Master,
+// un texto, o un video (con el fondo verde ya quitado en el navegador,
+// ver RecorteVerdeVideo.tsx), en el orden que el mismo decida.
 export interface BienvenidaItem {
-  tipo: "texto" | "audio";
-  contenido: string; // el texto en si, o la URL del audio
+  tipo: "texto" | "audio" | "video";
+  contenido: string; // el texto en si, o la URL del audio/video
 }
 
 export interface ResultadoRespuesta {
