@@ -232,10 +232,23 @@ export function RecorteVerdeVideo({ onGuardado }: Props) {
           const { FFmpeg } = await import("@ffmpeg/ffmpeg");
           const { fetchFile, toBlobURL } = await import("@ffmpeg/util");
           const ffmpeg = new FFmpeg();
-          const base = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd";
+          // Los archivos de ffmpeg (pesan como 30MB) se sirven DESDE
+          // NUESTRA propia pagina (carpeta public/ffmpeg-core), no desde
+          // un CDN externo (unpkg) -- varios CDNs externos se bloquean o
+          // fallan segun el internet/antivirus de cada quien, y eso era
+          // justo lo que se estaba quedando trabado. Sirviendolo nosotros
+          // mismos, no depende de que un servicio externo este disponible.
+          const base = "/ffmpeg-core";
           await ffmpeg.load({
             coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, "text/javascript"),
             wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, "application/wasm"),
+            // La libreria tambien necesita su propio "worker" (un
+            // archivito aparte que corre en segundo plano) -- si no se
+            // le dice bien de donde sacarlo, a veces Next.js no lo
+            // empaqueta bien y se queda esperando para siempre sin
+            // avisar ningun error (justo lo que se estaba viendo).
+            // Por eso tambien se sirve uno mismo, ya armado completo.
+            classWorkerURL: await toBlobURL(`${base}/worker.js`, "text/javascript"),
           });
           await ffmpeg.writeFile("entrada.webm", await fetchFile(blobWebm));
           await ffmpeg.exec([
