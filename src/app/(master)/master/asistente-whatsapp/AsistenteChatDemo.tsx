@@ -203,7 +203,7 @@ export function AsistenteChatDemo() {
         )}
         {mensajes.map((m) =>
           m.videoUrl ? (
-            <div key={m.id} className="-mx-4 overflow-hidden">
+            <div key={m.id} className="overflow-hidden">
               <VideoTransparente src={m.videoUrl} />
             </div>
           ) : (
