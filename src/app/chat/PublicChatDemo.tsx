@@ -186,16 +186,15 @@ function compartirPorWhatsapp(contenido: string) {
   window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, "_blank", "noopener,noreferrer");
 }
 
-// Boton pequeno y discreto de "Compartir" -- se repite en cada mensaje
-// del bot (texto, audio o video).
-function BotonCompartir({ contenido, claro }: { contenido: string; claro?: boolean }) {
+// Boton de "Compartir" -- se repite en cada mensaje del bot (texto,
+// audio o video). Mas grande y visible (pedido explicito de Vic),
+// estilo pill verde parecido al boton de WhatsApp de la app.
+function BotonCompartir({ contenido }: { contenido: string }) {
   return (
     <button
       type="button"
       onClick={() => compartirPorWhatsapp(contenido)}
-      className={`mt-1 inline-flex items-center gap-1 text-[11px] font-medium ${
-        claro ? "text-white/80 hover:text-white" : "text-emerald-700 hover:text-emerald-900"
-      }`}
+      className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3.5 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
     >
       ↗️ Compartir
     </button>
@@ -923,7 +922,6 @@ export function PublicChatDemo({
               {m.rol === "bot" && !m.agendado && (m.texto || m.audioUrl) && (
                 <div>
                   <BotonCompartir
-                    claro={false}
                     contenido={
                       m.audioUrl
                         ? `🎤 Escucha este audio:\n${m.audioUrl}${m.texto ? `\n\n${m.texto}` : ""}`

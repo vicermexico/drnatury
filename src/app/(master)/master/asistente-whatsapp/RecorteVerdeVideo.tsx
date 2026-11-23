@@ -130,9 +130,16 @@ export function RecorteVerdeVideo({ onGuardado }: Props) {
     // El lienzo de grabacion mide el DOBLE de ancho: izquierda = color,
     // derecha = mascara de transparencia (ver nota arriba y
     // quitarVerdeConMascara).
+    // IMPORTANTE: ancho y alto tienen que quedar PARES -- el paso de
+    // convertir a mp4 (mas abajo) usa un codec de video (h264) que
+    // exige medidas pares, si no, falla (o en algunos casos arma un
+    // video corrupto en vez de avisar el error). Por eso se redondea
+    // hacia abajo al numero par mas cercano.
     const escala = Math.min(1, LADO_MAXIMO / Math.max(videoOrigen.videoWidth, videoOrigen.videoHeight));
-    const anchoMitad = Math.max(1, Math.round(videoOrigen.videoWidth * escala));
-    const altoCuadro = Math.max(1, Math.round(videoOrigen.videoHeight * escala));
+    const anchoCrudo = Math.max(2, Math.round(videoOrigen.videoWidth * escala));
+    const altoCrudo = Math.max(2, Math.round(videoOrigen.videoHeight * escala));
+    const anchoMitad = anchoCrudo % 2 === 0 ? anchoCrudo : anchoCrudo - 1;
+    const altoCuadro = altoCrudo % 2 === 0 ? altoCrudo : altoCrudo - 1;
     canvas.width = anchoMitad * 2;
     canvas.height = altoCuadro;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -218,6 +225,11 @@ export function RecorteVerdeVideo({ onGuardado }: Props) {
       await ffmpeg.writeFile("entrada.webm", await fetchFile(blobWebm));
       await ffmpeg.exec([
         "-i", "entrada.webm",
+        // "trunc(iw/2)*2:trunc(ih/2)*2" fuerza medidas pares por si
+        // acaso -- h264 no acepta medidas impares (ver nota arriba de
+        // anchoMitad/altoCuadro, donde ya se redondea, pero esto es un
+        // segundo seguro).
+        "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
         "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-pix_fmt", "yuv420p",
         "-c:a", "aac",
         "salida.mp4",
