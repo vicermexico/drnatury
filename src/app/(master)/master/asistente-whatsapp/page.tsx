@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ActivarNotificacionesApoyo } from "@/components/layout/master/ActivarNotificacionesApoyo";
 
 // Pagina principal del Asistente de WhatsApp -- antes tenia todo junto
 // en una sola pagina (perfil, bienvenida, anuncios, correcciones y el
@@ -65,6 +66,8 @@ export default function AsistenteWhatsappPage() {
           Todavía NO está conectado a tu WhatsApp real, es solo de prueba.
         </p>
       </div>
+
+      <ActivarNotificacionesApoyo />
 
       <div className="space-y-2">
         {SECCIONES.map((s) => (

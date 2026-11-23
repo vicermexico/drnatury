@@ -1452,6 +1452,10 @@ async function calcularRespuestaBase(
     return {
       respuesta: "¡Con gusto le ayudo! 😊 ¿Le gustaría agendar su cita, o tiene alguna otra duda sobre nuestros servicios (precio, duración, tratamientos)?",
       nuevoEstado: { ...estado, fase: "conversando" },
+      // Marca que el bot de verdad no supo que contestar (a un
+      // paciente real) -- el endpoint publico usa esto para avisarle a
+      // Master por push ("Apoyo con Cliente", ver notificarApoyoConCliente).
+      nota: "no_entendido_publico",
     };
   }
   return {
