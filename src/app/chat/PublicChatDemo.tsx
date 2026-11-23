@@ -896,7 +896,7 @@ export function PublicChatDemo({
             // el texto (asi lo pidio Vic).
             <div key={m.id}>
               <div className="overflow-hidden">
-                <VideoTransparente src={m.videoUrl} />
+                <VideoTransparente src={m.videoUrl} flotante />
               </div>
               {m.rol === "bot" && (
                 <BotonCompartir contenido={`🎬 Mira este video:\n${m.videoUrl}`} />

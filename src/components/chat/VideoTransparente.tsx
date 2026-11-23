@@ -19,17 +19,30 @@ import { useEffect, useRef, useState } from "react";
 // (igual que el audio de bienvenida) y, hasta que le dan clic, aparece
 // el video de verdad reproduciendose YA CON SONIDO -- asi se evita el
 // problema de que los celulares bloquean el audio automatico.
+//
+// Con flotante=true (el chat real y el chat de prueba del Master), el
+// video -- mientras se esta reproduciendo -- se ve GRANDE encima de
+// toda la pantalla (de abajo hasta arriba), pero sin bloquear que la
+// persona siga escribiendo su mensaje o moviendo la pantalla del chat:
+// como el fondo del video es transparente y el recuadro no "atrapa"
+// los clics (pointer-events: none), todo sigue funcionando normal
+// detras. Al terminar el video vuelve a verse chico, con un boton para
+// repetirlo. En las pantallas de edicion (donde se recorta o revisa el
+// video antes de subirlo) no se usa flotante -- ahi se ve en su tamaño
+// normal, dentro del lugar donde esta puesto.
 interface Props {
   src: string;
   className?: string;
+  flotante?: boolean;
 }
 
-export function VideoTransparente({ src, className }: Props) {
+export function VideoTransparente({ src, className, flotante = false }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const lecturaRef = useRef<HTMLCanvasElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [iniciado, setIniciado] = useState(false);
   const [terminado, setTerminado] = useState(false);
+  const [cicloId, setCicloId] = useState(0);
 
   useEffect(() => {
     if (!iniciado) return;
@@ -105,27 +118,44 @@ export function VideoTransparente({ src, className }: Props) {
       activo = false;
       video.removeEventListener("play", dibujarCuadro);
     };
-  }, [src, iniciado]);
+    // cicloId cambia cada vez que se vuelve a dar play despues de haber
+    // terminado, para que este efecto se vuelva a conectar al video
+    // (que es un elemento nuevo del DOM en ese momento).
+  }, [src, iniciado, cicloId]);
 
-  if (!iniciado) {
-    // Antes de reproducirse, se ve chico y a la izquierda, igual que
-    // el reproductor de audio -- no ocupa toda la pantalla (eso es
-    // solo cuando ya esta reproduciendo el video de verdad, ver abajo).
+  function reproducir() {
+    setTerminado(false);
+    setCicloId((c) => c + 1);
+    setIniciado(true);
+  }
+
+  if (!iniciado || terminado) {
+    // Antes de reproducirse (o despues de haber terminado), se ve
+    // chico y a la izquierda, igual que el reproductor de audio -- no
+    // ocupa toda la pantalla.
     return (
       <div className={className}>
         <button
-          onClick={() => setIniciado(true)}
+          onClick={reproducir}
           className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-gray-600 hover:bg-gray-200"
         >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white text-xs">▶️</span>
-          <span className="text-sm font-medium">Ver video</span>
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white text-xs">
+            {terminado ? "🔁" : "▶️"}
+          </span>
+          <span className="text-sm font-medium">{terminado ? "Volver a verlo" : "Ver video"}</span>
         </button>
       </div>
     );
   }
 
   return (
-    <div className={`relative w-full ${className ?? ""}`}>
+    <div
+      className={
+        flotante
+          ? "fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+          : `relative w-full ${className ?? ""}`
+      }
+    >
       <video
         ref={videoRef}
         src={src}
@@ -142,21 +172,10 @@ export function VideoTransparente({ src, className }: Props) {
         onEnded={() => setTerminado(true)}
       />
       <canvas ref={lecturaRef} className="hidden" />
-      <canvas ref={canvasRef} className="w-full h-auto block" />
-      {terminado && (
-        <button
-          onClick={() => {
-            const video = videoRef.current;
-            if (!video) return;
-            video.currentTime = 0;
-            setTerminado(false);
-            video.play().catch(() => {});
-          }}
-          className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-black/60 px-3 py-1.5 text-xs text-white hover:bg-black/75"
-        >
-          🔁 Volver a verlo
-        </button>
-      )}
+      <canvas
+        ref={canvasRef}
+        className={flotante ? "h-full max-h-screen w-auto max-w-full object-contain" : "w-full h-auto block"}
+      />
     </div>
   );
 }

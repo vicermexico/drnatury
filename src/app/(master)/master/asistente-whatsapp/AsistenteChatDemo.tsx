@@ -204,7 +204,7 @@ export function AsistenteChatDemo() {
         {mensajes.map((m) =>
           m.videoUrl ? (
             <div key={m.id} className="overflow-hidden">
-              <VideoTransparente src={m.videoUrl} />
+              <VideoTransparente src={m.videoUrl} flotante />
             </div>
           ) : (
           <div key={m.id} className={`flex ${m.rol === "bot" ? "justify-end" : "justify-start"}`}>
