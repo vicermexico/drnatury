@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { MENSAJE_INICIAL_ANUNCIO } from "@/lib/whatsapp-bot/mensajes";
+import { VideoTransparente } from "@/components/chat/VideoTransparente";
 
 type EstadoAgendado = {
   fase: "inicio" | "conversando" | "agendando";
@@ -8,7 +9,7 @@ type EstadoAgendado = {
 };
 
 interface MensajeBienvenidaUI {
-  tipo: "texto" | "audio";
+  tipo: "texto" | "audio" | "video";
   contenido: string;
 }
 
@@ -18,6 +19,7 @@ interface MensajeUI {
   texto: string;
   nota?: string;
   audioUrl?: string;
+  videoUrl?: string;
   mensajePacienteQueLaOrigino?: string; // para poder "ensenar" esta respuesta de bot
   esBienvenida?: boolean; // viene de la serie de bienvenida -- no se "ensena" esto
 }
@@ -98,6 +100,8 @@ export function AsistenteChatDemo() {
             ...prev,
             item.tipo === "audio"
               ? { id: siguienteId++, rol: "bot", texto: "", audioUrl: item.contenido, esBienvenida: true }
+              : item.tipo === "video"
+              ? { id: siguienteId++, rol: "bot", texto: "", videoUrl: item.contenido, esBienvenida: true }
               : { id: siguienteId++, rol: "bot", texto: item.contenido, esBienvenida: true },
           ]);
           await esperar(700);
@@ -197,7 +201,12 @@ export function AsistenteChatDemo() {
             Escribe algo abajo como si fueras un paciente (por ejemplo lo que pondría al dar clic a tu anuncio) para empezar.
           </p>
         )}
-        {mensajes.map((m) => (
+        {mensajes.map((m) =>
+          m.videoUrl ? (
+            <div key={m.id} className="-mx-4 overflow-hidden">
+              <VideoTransparente src={m.videoUrl} />
+            </div>
+          ) : (
           <div key={m.id} className={`flex ${m.rol === "bot" ? "justify-end" : "justify-start"}`}>
             <div className="max-w-[80%]">
               <div
@@ -276,7 +285,8 @@ export function AsistenteChatDemo() {
               )}
             </div>
           </div>
-        ))}
+          )
+        )}
         {enviando && <p className="text-xs text-gray-400 text-center">El bot está pensando…</p>}
         <div ref={finDeMensajesRef} />
       </div>

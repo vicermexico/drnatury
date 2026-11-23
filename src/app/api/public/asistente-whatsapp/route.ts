@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
           resultado.mensajesBienvenida.map((item) => ({
             lead_id: conversacionId,
             rol: "bot" as const,
-            texto: item.tipo === "audio" ? "[audio de bienvenida]" : item.contenido,
+            texto: item.tipo === "audio" ? "[audio de bienvenida]" : item.tipo === "video" ? "[video de bienvenida]" : item.contenido,
           }))
         );
       } else {

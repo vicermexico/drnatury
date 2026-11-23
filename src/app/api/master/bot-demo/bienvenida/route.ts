@@ -14,7 +14,7 @@ export async function GET() {
   const admin = createAdminClient();
   const { data, error: dbErr } = await admin
     .from("whatsapp_bot_bienvenida")
-    .select("id, orden, tipo, texto, audio_url")
+    .select("id, orden, tipo, texto, audio_url, video_url")
     .order("orden", { ascending: true });
 
   if (dbErr) return NextResponse.json({ error: "DB_ERROR", message: dbErr.message }, { status: 500 });
@@ -31,9 +31,10 @@ export async function POST(request: NextRequest) {
   if (error) return error;
 
   const body = (await request.json().catch(() => ({}))) as {
-    tipo?: "texto" | "audio";
+    tipo?: "texto" | "audio" | "video";
     texto?: string;
     audio_url?: string;
+    video_url?: string;
   };
 
   const admin = createAdminClient();
@@ -80,7 +81,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  return NextResponse.json({ error: "MISSING_FIELDS", message: "Falta el tipo (texto o audio)" }, { status: 400 });
+  if (body.tipo === "video") {
+    const videoUrl = (body.video_url ?? "").trim();
+    if (!videoUrl) {
+      return NextResponse.json({ error: "MISSING_FIELDS", message: "Falta el video" }, { status: 400 });
+    }
+    const { data: maxRow } = await admin
+      .from("whatsapp_bot_bienvenida")
+      .select("orden")
+      .order("orden", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const siguienteOrden = ((maxRow?.orden as number | undefined) ?? 0) + 1;
+
+    const { error: dbErr } = await admin
+      .from("whatsapp_bot_bienvenida")
+      .insert({ orden: siguienteOrden, tipo: "video", video_url: videoUrl });
+
+    if (dbErr) return NextResponse.json({ error: "DB_ERROR", message: dbErr.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  return NextResponse.json({ error: "MISSING_FIELDS", message: "Falta el tipo (texto, audio o video)" }, { status: 400 });
 }
 
 // Editar el texto de un mensaje ya existente (para corregir sin tener
@@ -149,22 +171,22 @@ export async function DELETE(request: NextRequest) {
 
   const { data: fila } = await admin
     .from("whatsapp_bot_bienvenida")
-    .select("tipo, audio_url")
+    .select("tipo, audio_url, video_url")
     .eq("id", id)
     .maybeSingle();
 
   const { error: dbErr } = await admin.from("whatsapp_bot_bienvenida").delete().eq("id", id);
   if (dbErr) return NextResponse.json({ error: "DB_ERROR", message: dbErr.message }, { status: 500 });
 
-  // Si el audio que se borro era uno subido por Master (vive en nuestro
-  // propio storage, no el archivo viejo que ya estaba fijo en el
-  // proyecto), tambien se borra el archivo para no dejar basura.
-  const audioUrl = fila?.audio_url as string | undefined;
+  // Si el audio o video que se borro vive en nuestro propio storage,
+  // tambien se borra el archivo para no dejar basura.
   const marcaStorage = "/storage/v1/object/public/whatsapp-bot-bienvenida/";
-  if (audioUrl && audioUrl.includes(marcaStorage)) {
-    const path = audioUrl.split(marcaStorage)[1];
-    if (path) {
-      await admin.storage.from("whatsapp-bot-bienvenida").remove([path]);
+  for (const url of [fila?.audio_url, fila?.video_url] as (string | undefined)[]) {
+    if (url && url.includes(marcaStorage)) {
+      const path = url.split(marcaStorage)[1];
+      if (path) {
+        await admin.storage.from("whatsapp-bot-bienvenida").remove([path]);
+      }
     }
   }
 
