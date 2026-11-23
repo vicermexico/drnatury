@@ -99,13 +99,16 @@ export function VideoTransparente({ src, className }: Props) {
   }, [src, iniciado]);
 
   if (!iniciado) {
+    // Antes de reproducirse, se ve chico y a la izquierda, igual que
+    // el reproductor de audio -- no ocupa toda la pantalla (eso es
+    // solo cuando ya esta reproduciendo el video de verdad, ver abajo).
     return (
-      <div className={`w-full ${className ?? ""}`}>
+      <div className={className}>
         <button
           onClick={() => setIniciado(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-100 py-6 text-gray-600 hover:bg-gray-200"
+          className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-gray-600 hover:bg-gray-200"
         >
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white">▶️</span>
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white text-xs">▶️</span>
           <span className="text-sm font-medium">Ver video</span>
         </button>
       </div>

@@ -895,7 +895,7 @@ export function PublicChatDemo({
             // el chat -- no como una cajita chica igual que el audio o
             // el texto (asi lo pidio Vic).
             <div key={m.id}>
-              <div className="-mx-4 overflow-hidden">
+              <div className="overflow-hidden">
                 <VideoTransparente src={m.videoUrl} />
               </div>
               {m.rol === "bot" && (

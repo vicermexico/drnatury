@@ -213,37 +213,60 @@ export function RecorteVerdeVideo({ onGuardado }: Props) {
   // paga) -- tarda un poco mas, pero solo pasa una vez por video.
   async function convertirAMp4(blobWebm: Blob) {
     setConvirtiendo(true);
-    try {
-      const { FFmpeg } = await import("@ffmpeg/ffmpeg");
-      const { fetchFile, toBlobURL } = await import("@ffmpeg/util");
-      const ffmpeg = new FFmpeg();
-      const base = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd";
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, "text/javascript"),
-        wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, "application/wasm"),
-      });
-      await ffmpeg.writeFile("entrada.webm", await fetchFile(blobWebm));
-      await ffmpeg.exec([
-        "-i", "entrada.webm",
-        // "trunc(iw/2)*2:trunc(ih/2)*2" fuerza medidas pares por si
-        // acaso -- h264 no acepta medidas impares (ver nota arriba de
-        // anchoMitad/altoCuadro, donde ya se redondea, pero esto es un
-        // segundo seguro).
-        "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
-        "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-pix_fmt", "yuv420p",
-        "-c:a", "aac",
-        "salida.mp4",
+    // Esta conversion pesa bastante (descarga un archivo grande la
+    // primera vez) -- en celulares con internet lento o poca memoria se
+    // puede quedar pegada sin avisar nada. Por eso se le pone un limite
+    // de tiempo: si en 2 minutos no termino, se avisa el error en vez
+    // de dejar la pantalla atorada para siempre.
+    const conLimite = <T,>(promesa: Promise<T>, segundos: number): Promise<T> =>
+      Promise.race([
+        promesa,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error("tiempo_agotado")), segundos * 1000)
+        ),
       ]);
-      const datos = await ffmpeg.readFile("salida.mp4");
-      const bytes = typeof datos === "string" ? new TextEncoder().encode(datos) : new Uint8Array(datos);
-      const blobMp4 = new Blob([bytes], { type: "video/mp4" });
-      setResultadoBlob(blobMp4);
-      setResultadoUrl(URL.createObjectURL(blobMp4));
-      setProgreso(100);
-      setEstado("listo");
+
+    try {
+      await conLimite(
+        (async () => {
+          const { FFmpeg } = await import("@ffmpeg/ffmpeg");
+          const { fetchFile, toBlobURL } = await import("@ffmpeg/util");
+          const ffmpeg = new FFmpeg();
+          const base = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd";
+          await ffmpeg.load({
+            coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, "text/javascript"),
+            wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, "application/wasm"),
+          });
+          await ffmpeg.writeFile("entrada.webm", await fetchFile(blobWebm));
+          await ffmpeg.exec([
+            "-i", "entrada.webm",
+            // "trunc(iw/2)*2:trunc(ih/2)*2" fuerza medidas pares por si
+            // acaso -- h264 no acepta medidas impares (ver nota arriba de
+            // anchoMitad/altoCuadro, donde ya se redondea, pero esto es un
+            // segundo seguro).
+            "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-pix_fmt", "yuv420p",
+            "-c:a", "aac",
+            "salida.mp4",
+          ]);
+          const datos = await ffmpeg.readFile("salida.mp4");
+          const bytes = typeof datos === "string" ? new TextEncoder().encode(datos) : new Uint8Array(datos);
+          const blobMp4 = new Blob([bytes], { type: "video/mp4" });
+          setResultadoBlob(blobMp4);
+          setResultadoUrl(URL.createObjectURL(blobMp4));
+          setProgreso(100);
+          setEstado("listo");
+        })(),
+        120
+      );
     } catch (err) {
       console.error("Error convirtiendo el video a mp4:", err);
-      setError("No se pudo convertir el video para que se viera bien en todos los celulares. Intenta de nuevo.");
+      const agotado = err instanceof Error && err.message === "tiempo_agotado";
+      setError(
+        agotado
+          ? "Se tardó demasiado convirtiendo el video (puede ser el internet o que el celular se quedó sin memoria) -- intenta otra vez desde una computadora, ahí suele ir más rápido y seguro."
+          : "No se pudo convertir el video para que se viera bien en todos los celulares. Intenta de nuevo, de preferencia desde una computadora."
+      );
       setEstado("calibrando");
     } finally {
       setConvirtiendo(false);
