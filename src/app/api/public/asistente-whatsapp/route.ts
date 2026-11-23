@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
     estado?: EstadoAgendado;
     conversacionId?: string;
     origen?: string;
+    codigoAnuncio?: string;
   };
 
   const mensaje = (body.mensaje ?? "").trim();
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
         await admin.from("chat_leads").insert({
           id: conversacionId,
           origen: body.origen === "inicio" ? "inicio" : "anuncio",
+          codigo_anuncio: body.codigoAnuncio?.trim() || null,
         });
       }
       // Se va guardando el texto de cada mensaje del paciente -- solo se
@@ -60,6 +62,16 @@ export async function POST(request: NextRequest) {
       // revisar en donde se "rego" el bot en
       // /master/asistente-whatsapp/revision.
       await admin.from("chat_messages").insert({ lead_id: conversacionId, rol: "paciente", texto: mensaje });
+      // Cada vez que el visitante escribe se "reactiva" la conversacion:
+      // se marca cuando fue el ultimo movimiento (para el CRON de
+      // recordatorio, ver /api/cron/recordatorio-chat) y se limpia
+      // recordatorio_enviado_at para que, si ya se le habia mandado un
+      // recordatorio antes y volvio a escribir, se le pueda volver a
+      // mandar si se vuelve a quedar callado.
+      await admin
+        .from("chat_leads")
+        .update({ updated_at: new Date().toISOString(), recordatorio_enviado_at: null })
+        .eq("id", conversacionId);
     } catch (err) {
       console.error("Error registrando el chat_lead:", err);
     }
@@ -112,6 +124,15 @@ export async function POST(request: NextRequest) {
       }
     } catch (err) {
       console.error("Error registrando la respuesta del bot:", err);
+    }
+
+    // Se guarda el estado completo de la conversacion (nuevoEstado) para
+    // poder "retomarla" exactamente donde quedo si el visitante regresa
+    // por el link de recordatorio (ver /api/public/asistente-whatsapp/retomar).
+    try {
+      await admin.from("chat_leads").update({ estado: resultado.nuevoEstado }).eq("id", conversacionId);
+    } catch (err) {
+      console.error("Error guardando el estado de la conversacion:", err);
     }
   }
 

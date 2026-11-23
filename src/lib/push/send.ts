@@ -14,7 +14,7 @@ export interface PushResult {
 // Esto es distinto: son avisos INTERNOS para el staff (ej. "Apoyo con
 // Cliente" cuando al bot se le complica una conversacion), no mensajes
 // de WhatsApp a pacientes, asi que si pueden traer su texto fijo.
-async function enviarPushDirecto(
+export async function enviarPushDirecto(
   pushToken: string,
   title: string,
   body: string,
@@ -49,34 +49,53 @@ async function enviarPushDirecto(
   }
 }
 
+// Manda un aviso a TODO el staff que tenga el rol MASTER y ya haya
+// activado las notificaciones (ver ActivarNotificacionesApoyo.tsx).
+// Compartido por notificarApoyoConCliente y notificarSeguimientoPendiente.
+async function enviarATodosLosMaestros(tag: string, title: string, body: string, url: string): Promise<void> {
+  const admin = createAdminClient();
+  const { data: maestros } = await admin
+    .from("profiles")
+    .select("push_token")
+    .contains("roles", ["MASTER"])
+    .not("push_token", "is", null);
+
+  const tokens = (maestros ?? []).map((m) => m.push_token as string).filter(Boolean);
+  if (tokens.length === 0) {
+    console.log(`${tag} Nadie tiene notificaciones activadas todavia`);
+    return;
+  }
+
+  await Promise.all(tokens.map((token) => enviarPushDirecto(token, title, body, url)));
+  console.log(`${tag} Enviado a ${tokens.length} dispositivo(s)`);
+}
+
 // Cuando el Asistente de WhatsApp (chat publico, /chat) no supo
 // contestar algo y le dio la respuesta generica de "¡Con gusto le
 // ayudo!..." (ver nota "no_entendido_publico" en engine.ts), se avisa
-// por push a todo el staff que tenga el rol MASTER y ya haya activado
-// las notificaciones (ver ActivarNotificacionesApoyo.tsx) -- el aviso
-// lleva directo a esa conversacion en el panel de revision. No bloquea
-// la respuesta al paciente si falla: es best-effort, nunca se espera
-// a que termine antes de contestarle.
+// por push a Master -- el aviso lleva directo a esa conversacion en el
+// panel de revision. No bloquea la respuesta al paciente si falla: es
+// best-effort, nunca se espera a que termine antes de contestarle.
 export async function notificarApoyoConCliente(conversacionId: string, ultimoMensaje: string): Promise<void> {
   const tag = `[PUSH apoyo-con-cliente -> ${conversacionId}]`;
   try {
-    const admin = createAdminClient();
-    const { data: maestros } = await admin
-      .from("profiles")
-      .select("push_token")
-      .contains("roles", ["MASTER"])
-      .not("push_token", "is", null);
-
-    const tokens = (maestros ?? []).map((m) => m.push_token as string).filter(Boolean);
-    if (tokens.length === 0) {
-      console.log(`${tag} Nadie tiene notificaciones activadas todavia`);
-      return;
-    }
-
     const cuerpo = ultimoMensaje.length > 120 ? `${ultimoMensaje.slice(0, 117)}...` : ultimoMensaje;
-    const url = `/master/asistente-whatsapp/revision/${conversacionId}`;
-    await Promise.all(tokens.map((token) => enviarPushDirecto(token, "Apoyo con Cliente", cuerpo, url)));
-    console.log(`${tag} Enviado a ${tokens.length} dispositivo(s)`);
+    await enviarATodosLosMaestros(tag, "Apoyo con Cliente", cuerpo, `/master/asistente-whatsapp/revision/${conversacionId}`);
+  } catch (err) {
+    console.error(`${tag} Error:`, err instanceof Error ? err.message : err);
+  }
+}
+
+// Cuando un visitante del chat publico se quedo a medias (ver CRON
+// /api/cron/recordatorio-chat) y NO activo su propia notificacion pero
+// si dejo su celular durante la platica, se le avisa a Master para que
+// le mande el link de regreso por WhatsApp a mano (ver boton "Mandar
+// por WhatsApp" en /master/asistente-whatsapp/revision/[id]).
+export async function notificarSeguimientoPendiente(conversacionId: string, ultimaPreguntaBot: string): Promise<void> {
+  const tag = `[PUSH seguimiento-pendiente -> ${conversacionId}]`;
+  try {
+    const cuerpo = `Se quedó a medias: "${ultimaPreguntaBot.length > 100 ? `${ultimaPreguntaBot.slice(0, 97)}...` : ultimaPreguntaBot}"`;
+    await enviarATodosLosMaestros(tag, "Seguimiento pendiente", cuerpo, `/master/asistente-whatsapp/revision/${conversacionId}`);
   } catch (err) {
     console.error(`${tag} Error:`, err instanceof Error ? err.message : err);
   }
