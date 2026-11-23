@@ -46,6 +46,10 @@ export interface EstadoAgendado {
   // que se esta esperando esa respuesta para mandar el audio correcto
   // en cuanto la conteste (ver esOrientacion/respuestaOrientacion).
   orientacionPendiente?: boolean;
+  // Cuantas veces ya se le reconocio un dolor/molestia en esta misma
+  // conversacion -- para no contestar literal lo mismo cada vez que lo
+  // vuelva a mencionar (ver respuestaSintoma).
+  vecesSintoma?: number;
 }
 
 export interface Correccion {
@@ -407,13 +411,29 @@ function detectarParteCuerpo(normalizado: string): string {
   return match ? match.frase : "eso";
 }
 
-// Respuesta cuando la persona menciona un dolor o molestia. Antes decia
-// "debe ser algo sencillo", pero eso suena a que se le resta importancia
-// a lo que sea que haya dicho (incluso algo serio, ej. "tengo mucho
-// sangrado") -- ahora transmite la misma calma sin adelantar un
-// diagnostico, y deja claro que el escaneo es justo para saber que es.
-function respuestaSintoma(parte: string): string {
-  return `Entiendo, a veces este tipo de molestias con ${parte} está ocasionado por algo fácil de remediar. No se preocupe, que vamos a dar con la raíz del problema y la mejor solución, pero primero hay que hacer el escaneo para tener un buen diagnóstico.`;
+// Varias formas de reconocer un dolor o molestia, todas con la misma
+// calma (sin adelantar un diagnostico) y dejando claro que el escaneo
+// es justo para saber que es. Si alguien lo vuelve a mencionar mas
+// adelante en la misma conversacion (ej. lo repite al contestar otra
+// pregunta del flujo de agendar), no se le contesta literal lo mismo
+// otra vez -- se usa la siguiente de la lista (y si ya se usaron
+// todas, se vuelve a empezar desde la primera, ver respuestaSintoma).
+const RESPUESTAS_SINTOMA: ((parte: string) => string)[] = [
+  (parte) =>
+    `Entiendo, a veces este tipo de molestias con ${parte} está ocasionado por algo fácil de remediar. No se preocupe, que vamos a dar con la raíz del problema y la mejor solución, pero primero hay que hacer el escaneo para tener un buen diagnóstico.`,
+  (parte) =>
+    `Claro, como le comento, el dolor en ${parte} puede ser por varios factores, pero no se preocupe, en la cita resolvemos esa inquietud.`,
+  (parte) =>
+    `Sí, claro que sí. Ese tipo de molestias con ${parte} las revisamos bien a detalle en el escaneo, así sabemos exactamente qué es y cómo ayudarle.`,
+  (parte) =>
+    `Entiendo su preocupación. Con el escaneo vamos a identificar bien qué está pasando con ${parte} y de ahí partimos para el tratamiento adecuado.`,
+  (parte) =>
+    `No se preocupe, eso lo checamos con calma en la consulta. El escaneo nos va a decir exactamente qué está originando la molestia con ${parte}.`,
+];
+
+function respuestaSintoma(parte: string, veces: number): string {
+  const variante = RESPUESTAS_SINTOMA[veces % RESPUESTAS_SINTOMA.length];
+  return variante(parte);
 }
 
 // Intenta leer un codigo de anuncio al inicio del primer mensaje, ej.
@@ -864,8 +884,8 @@ export async function generarRespuesta(args: {
     if (contieneAlguna(normalizado, SINTOMA_KEYWORDS)) {
       const parte = detectarParteCuerpo(normalizado);
       return {
-        respuesta: `${respuestaSintoma(parte)} ¿Sería en consultorio o a domicilio?`,
-        nuevoEstado: { fase: "agendando", paso: "modalidad" },
+        respuesta: `${respuestaSintoma(parte, 0)} ¿Sería en consultorio o a domicilio?`,
+        nuevoEstado: { fase: "agendando", paso: "modalidad", vecesSintoma: 1 },
       };
     }
     // Si de plano dice que lo va a pensar/checar y despues avisa, no
@@ -1137,9 +1157,10 @@ async function calcularRespuestaBase(
           // igual que se hace fuera de este flujo (regla 9 de abajo).
           if (contieneAlguna(normalizado, SINTOMA_KEYWORDS)) {
             const parte = detectarParteCuerpo(normalizado);
+            const veces = estado.vecesSintoma ?? 0;
             return {
-              respuesta: `${respuestaSintoma(parte)} ¿Sería en consultorio o a domicilio?`,
-              nuevoEstado: estado,
+              respuesta: `${respuestaSintoma(parte, veces)} ¿Sería en consultorio o a domicilio?`,
+              nuevoEstado: { ...estado, vecesSintoma: veces + 1 },
             };
           }
           // No quedo claro si es consultorio o a domicilio -- por
@@ -1420,9 +1441,10 @@ async function calcularRespuestaBase(
   // 9) Menciona un dolor o molestia: respuesta tranquila + cierre directo.
   if (contieneAlguna(normalizado, SINTOMA_KEYWORDS)) {
     const parte = detectarParteCuerpo(normalizado);
+    const veces = estado.vecesSintoma ?? 0;
     return {
-      respuesta: `${respuestaSintoma(parte)} ¿Para cuándo le gustaría agendar su cita?`,
-      nuevoEstado: { fase: "agendando", paso: "modalidad" },
+      respuesta: `${respuestaSintoma(parte, veces)} ¿Para cuándo le gustaría agendar su cita?`,
+      nuevoEstado: { ...estado, fase: "agendando", paso: "modalidad", vecesSintoma: veces + 1 },
     };
   }
 
