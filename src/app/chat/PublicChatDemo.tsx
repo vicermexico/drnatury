@@ -186,14 +186,52 @@ function compartirPorWhatsapp(contenido: string) {
   window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, "_blank", "noopener,noreferrer");
 }
 
+// Para los mensajes de audio, en vez de nomas mandar el link, se
+// intenta compartir el archivo de verdad -- asi a quien se lo manden
+// le llega como nota de voz de WhatsApp (le dan play ahi mismo, sin
+// tener que abrir nada) y, aparte, el link de la pagina. Esto solo
+// funciona en celulares que soportan compartir archivos (la mayoria
+// de los Android/iPhone modernos); en computadora, o si algo falla, se
+// manda el link como antes.
+async function compartirAudio(audioUrl: string, texto?: string) {
+  const soportaCompartirArchivos =
+    typeof navigator !== "undefined" && "share" in navigator && "canShare" in navigator;
+  if (soportaCompartirArchivos) {
+    try {
+      const respuesta = await fetch(audioUrl);
+      const datos = await respuesta.blob();
+      const archivo = new File([datos], "nota-de-voz-drnatury.ogg", {
+        type: datos.type || "audio/ogg",
+      });
+      if (navigator.canShare({ files: [archivo] })) {
+        await navigator.share({ files: [archivo], text: DRNATURY_LINK });
+        return;
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return; // el usuario cancelo, no insistir
+      console.error("No se pudo compartir el audio como nota de voz, se manda el link:", err);
+    }
+  }
+  compartirPorWhatsapp(`🎤 Escucha este audio:\n${audioUrl}${texto ? `\n\n${texto}` : ""}`);
+}
+
 // Boton de "Compartir" -- se repite en cada mensaje del bot (texto,
 // audio o video). Mas grande y visible (pedido explicito de Vic),
-// estilo pill verde parecido al boton de WhatsApp de la app.
-function BotonCompartir({ contenido }: { contenido: string }) {
+// estilo pill verde parecido al boton de WhatsApp de la app. Para
+// audio manda el archivo de verdad cuando se puede (ver
+// compartirAudio); para texto y video manda el link de siempre.
+function BotonCompartir(props: { contenido: string } | { audioUrl: string; texto?: string }) {
+  function manejarClic() {
+    if ("audioUrl" in props) {
+      void compartirAudio(props.audioUrl, props.texto);
+    } else {
+      compartirPorWhatsapp(props.contenido);
+    }
+  }
   return (
     <button
       type="button"
-      onClick={() => compartirPorWhatsapp(contenido)}
+      onClick={manejarClic}
       className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3.5 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
     >
       ↗️ Compartir
@@ -927,13 +965,11 @@ export function PublicChatDemo({
               {m.texto}
               {m.rol === "bot" && !m.agendado && (m.texto || m.audioUrl) && (
                 <div>
-                  <BotonCompartir
-                    contenido={
-                      m.audioUrl
-                        ? `🎤 Escucha este audio:\n${m.audioUrl}${m.texto ? `\n\n${m.texto}` : ""}`
-                        : m.texto
-                    }
-                  />
+                  {m.audioUrl ? (
+                    <BotonCompartir audioUrl={m.audioUrl} texto={m.texto} />
+                  ) : (
+                    <BotonCompartir contenido={m.texto} />
+                  )}
                 </div>
               )}
               {m.agendado && (

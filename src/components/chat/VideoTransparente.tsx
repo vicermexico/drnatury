@@ -20,6 +20,13 @@ import { useEffect, useRef, useState } from "react";
 // el video de verdad reproduciendose YA CON SONIDO -- asi se evita el
 // problema de que los celulares bloquean el audio automatico.
 //
+// Para que no se sienta lento/trabado mientras se reproduce (cada
+// cuadro se tiene que leer, combinar y volver a dibujar a mano), se
+// procesan como maximo 24 cuadros por segundo (de sobra para que se
+// vea fluido) y se combinan los canales de color+transparencia con
+// numeros de 32 bits en vez de uno por uno -- mucho menos trabajo para
+// el celular en cada cuadro.
+//
 // Con flotante=true (el chat real y el chat de prueba del Master), el
 // video -- mientras se esta reproduciendo -- se ve GRANDE encima de
 // toda la pantalla (de abajo hasta arriba), pero sin bloquear que la
@@ -54,9 +61,21 @@ export function VideoTransparente({ src, className, flotante = false }: Props) {
     const ctx = canvas.getContext("2d");
     if (!ctxLectura || !ctx) return;
     let activo = true;
+    // No hace falta procesar cada cuadro del video a su velocidad
+    // nativa (a veces 30 o hasta 60 por segundo) -- con 24 por segundo
+    // se ve igual de fluido para un video de alguien hablando, y le
+    // quita una buena parte del trabajo al celular (menos trabazon).
+    const MIN_MS_ENTRE_CUADROS = 1000 / 24;
+    let ultimoProcesado = 0;
 
     function dibujarCuadro() {
       if (!activo || !video || video.paused || video.ended) return;
+      const ahoraMs = typeof performance !== "undefined" ? performance.now() : Date.now();
+      if (ahoraMs - ultimoProcesado < MIN_MS_ENTRE_CUADROS) {
+        siguienteCuadro();
+        return;
+      }
+      ultimoProcesado = ahoraMs;
       const anchoTotal = video.videoWidth;
       const alto = video.videoHeight;
       const anchoMitad = Math.floor(anchoTotal / 2);
@@ -75,21 +94,27 @@ export function VideoTransparente({ src, className, flotante = false }: Props) {
       try {
         ctxLectura!.drawImage(video, 0, 0);
         const cuadro = ctxLectura!.getImageData(0, 0, anchoTotal, alto);
-        const salida = new Uint8ClampedArray(anchoMitad * alto * 4);
+        // Para que no se sienta lento/trabado al reproducirse, en vez
+        // de copiar los 4 canales (R, G, B, A) uno por uno con un
+        // array normal, se "ve" el mismo bloque de memoria como
+        // numeros de 32 bits (un numero = un pixel completo). Asi se
+        // copia el pixel de color entero de un solo jalon y nomas se
+        // le cambia el ultimo byte (la transparencia) por el de la
+        // mascara -- son muchas menos operaciones por cuadro.
+        const origenU8 = cuadro.data;
+        const origenU32 = new Uint32Array(origenU8.buffer, origenU8.byteOffset, origenU8.length / 4);
+        const salidaU8 = new Uint8ClampedArray(anchoMitad * alto * 4);
+        const salidaU32 = new Uint32Array(salidaU8.buffer);
         for (let y = 0; y < alto; y++) {
-          const filaOrigen = y * anchoTotal * 4;
-          const filaSalida = y * anchoMitad * 4;
+          const filaOrigenPix = y * anchoTotal;
+          const filaSalidaPix = y * anchoMitad;
           for (let x = 0; x < anchoMitad; x++) {
-            const iColor = filaOrigen + x * 4;
-            const iMascara = filaOrigen + (anchoMitad + x) * 4;
-            const iSalida = filaSalida + x * 4;
-            salida[iSalida] = cuadro.data[iColor];
-            salida[iSalida + 1] = cuadro.data[iColor + 1];
-            salida[iSalida + 2] = cuadro.data[iColor + 2];
-            salida[iSalida + 3] = cuadro.data[iMascara]; // canal rojo de la mascara = que tan visible es
+            const colorPix = filaOrigenPix + x;
+            const mascaraByte = (filaOrigenPix + anchoMitad + x) * 4; // canal rojo de la mascara = que tan visible es
+            salidaU32[filaSalidaPix + x] = (origenU32[colorPix] & 0x00ffffff) | (origenU8[mascaraByte] << 24);
           }
         }
-        ctx!.putImageData(new ImageData(salida, anchoMitad, alto), 0, 0);
+        ctx!.putImageData(new ImageData(salidaU8, anchoMitad, alto), 0, 0);
       } catch (err) {
         // Si por algun motivo el navegador bloquea leer el video (ej.
         // CORS), se avisa en la consola en vez de quedarse "pegado" sin
