@@ -355,11 +355,17 @@ export function PublicChatDemo({
   }, []);
 
   // En cuanto manda su primer mensaje, se le ofrece activar
-  // notificaciones (una sola vez por conversacion).
+  // notificaciones -- pero solo si el navegador todavia no tiene una
+  // respuesta guardada (ni "si" ni "no"). Si ya las activo antes (o ya
+  // dijo que no) en este mismo navegador, Chrome ya se acuerda de eso
+  // aunque sea una conversacion nueva -- asi que no se le vuelve a
+  // preguntar ni se le vuelve a avisar "ya quedo activado".
   useEffect(() => {
-    if (primerMensajeEnviado && notifEstado === "oculto") {
-      setNotifEstado("ofrecer");
+    if (!primerMensajeEnviado || notifEstado !== "oculto") return;
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission !== "default") {
+      return;
     }
+    setNotifEstado("ofrecer");
   }, [primerMensajeEnviado, notifEstado]);
 
   async function activarNotificaciones() {
