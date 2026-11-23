@@ -179,15 +179,23 @@ export async function DELETE(request: NextRequest) {
   if (dbErr) return NextResponse.json({ error: "DB_ERROR", message: dbErr.message }, { status: 500 });
 
   // Si el audio o video que se borro vive en nuestro propio storage,
-  // tambien se borra el archivo para no dejar basura.
-  const marcaStorage = "/storage/v1/object/public/whatsapp-bot-bienvenida/";
-  for (const url of [fila?.audio_url, fila?.video_url] as (string | undefined)[]) {
-    if (url && url.includes(marcaStorage)) {
-      const path = url.split(marcaStorage)[1];
-      if (path) {
-        await admin.storage.from("whatsapp-bot-bienvenida").remove([path]);
+  // tambien se borra el archivo para no dejar basura -- pero esto es
+  // "mejor esfuerzo": el renglon de la base de datos YA se borro arriba,
+  // asi que si tronara este paso (ej. el archivo ya no existe, o algun
+  // error de storage) no se le debe avisar al usuario que "no se pudo
+  // borrar" cuando en realidad el mensaje si desaparecio.
+  try {
+    const marcaStorage = "/storage/v1/object/public/whatsapp-bot-bienvenida/";
+    for (const url of [fila?.audio_url, fila?.video_url] as (string | undefined)[]) {
+      if (url && url.includes(marcaStorage)) {
+        const path = url.split(marcaStorage)[1];
+        if (path) {
+          await admin.storage.from("whatsapp-bot-bienvenida").remove([path]);
+        }
       }
     }
+  } catch (err) {
+    console.error("No se pudo borrar el archivo de storage (el mensaje si se borro):", err);
   }
 
   return NextResponse.json({ ok: true });
