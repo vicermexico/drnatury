@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useDictado } from "@/hooks/useDictado";
 import { useNotaDeVoz } from "@/hooks/useNotaDeVoz";
 import { MENSAJE_INICIAL_ANUNCIO } from "@/lib/whatsapp-bot/mensajes";
+import { requestNotificationPermission } from "@/lib/firebase";
 
 type EstadoAgendado = {
   fase: "inicio" | "conversando" | "agendando";
@@ -137,6 +138,25 @@ function obtenerOrigen(): "inicio" | "anuncio" {
   return params.get("origen") === "inicio" ? "inicio" : "anuncio";
 }
 
+// De que anuncio de Facebook/Instagram vino el visitante
+// (drnatury.com/chat?anuncio=B3) -- se manda una sola vez, al crear la
+// conversacion, para que Master pueda ver despues de que anuncio vino
+// cada lead (ver chat_leads.codigo_anuncio).
+function obtenerCodigoAnuncio(): string | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  return params.get("anuncio")?.trim() || null;
+}
+
+// Cuando el visitante le da clic a un link de recordatorio
+// (drnatury.com/chat?retomar=<id>), en vez de generar una conversacion
+// nueva se retoma esa misma -- ver el useEffect "retomar" mas abajo.
+function obtenerIdRetomar(): string | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  return params.get("retomar")?.trim() || null;
+}
+
 // Un id por conversacion (se genera una sola vez al abrir el chat) para
 // que Master pueda ver en su panel cuantos mensajes llegaron y cuantos
 // se cerraron con cita -- ver tabla chat_leads y
@@ -257,8 +277,79 @@ export function PublicChatDemo({
   // del link normal de anuncio (sin ese query param).
   const [mensajeInicial] = useState<string>(obtenerMensajeInicial);
   const [origen] = useState<"inicio" | "anuncio">(obtenerOrigen);
-  const [conversacionId] = useState<string>(nuevoIdConversacion);
+  const [codigoAnuncio] = useState<string | null>(obtenerCodigoAnuncio);
+  const [conversacionId, setConversacionId] = useState<string>(
+    () => obtenerIdRetomar() ?? nuevoIdConversacion()
+  );
+  // Ofrecer notificaciones al visitante (para poder avisarle si se le
+  // va el chat, ver estrategia de seguimiento/retencion): se muestra en
+  // cuanto manda su primer mensaje y se oculta en cuanto decide algo.
+  const [notifEstado, setNotifEstado] = useState<"oculto" | "ofrecer" | "pidiendo" | "activada" | "rechazada">("oculto");
   const finDeMensajesRef = useRef<HTMLDivElement>(null);
+
+  // Si llego por un link de recordatorio (?retomar=<id>), se trae de
+  // vuelta la conversacion exacta donde se quedo (estado + mensajes).
+  // Si esa conversacion ya no existe o ya se cerro con una cita, se
+  // arranca una nueva en su lugar, avisandole con un mensaje del bot.
+  useEffect(() => {
+    const idRetomar = obtenerIdRetomar();
+    if (!idRetomar) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/public/asistente-whatsapp/retomar?id=${encodeURIComponent(idRetomar)}`);
+        const data = await res.json().catch(() => null);
+        if (!data?.encontrada) {
+          setConversacionId(nuevoIdConversacion());
+          return;
+        }
+        if (data.cerrada) {
+          setConversacionId(nuevoIdConversacion());
+          setPrimerMensajeEnviado(true);
+          setMensajes([{ id: siguienteId++, rol: "bot", texto: "Esa cita ya se había agendado. 😊 ¿Le ayudo con algo más?" }]);
+          return;
+        }
+        setEstado(data.estado as EstadoAgendado);
+        setMensajes(
+          (data.mensajes as { rol: "paciente" | "bot"; texto: string }[]).map((m) => ({
+            id: siguienteId++,
+            rol: m.rol,
+            texto: m.texto,
+          }))
+        );
+        setPrimerMensajeEnviado(true);
+      } catch {
+        // Si falla, se queda con la conversacion nueva de siempre.
+      }
+    })();
+    // Solo se checa una vez, al montar.
+  }, []);
+
+  // En cuanto manda su primer mensaje, se le ofrece activar
+  // notificaciones (una sola vez por conversacion).
+  useEffect(() => {
+    if (primerMensajeEnviado && notifEstado === "oculto") {
+      setNotifEstado("ofrecer");
+    }
+  }, [primerMensajeEnviado, notifEstado]);
+
+  async function activarNotificaciones() {
+    setNotifEstado("pidiendo");
+    try {
+      const token = await requestNotificationPermission();
+      if (!token) {
+        setNotifEstado("rechazada");
+        return;
+      }
+      await fetch("/api/public/asistente-whatsapp/notificaciones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversacionId, token }),
+      });
+      setNotifEstado("activada");
+    } catch {
+      setNotifEstado("rechazada");
+    }
+  }
   // Guarda siempre el estado mas reciente de la conversacion para que
   // la llamada de voz (que se vuelve a llamar sola, sin que la persona
   // le de clic a nada) nunca use un estado viejo.
@@ -402,7 +493,7 @@ export function PublicChatDemo({
       const res = await fetch("/api/public/asistente-whatsapp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mensaje, estado, conversacionId, origen }),
+        body: JSON.stringify({ mensaje, estado, conversacionId, origen, codigoAnuncio }),
       });
       const data = await res.json().catch(() => null);
 
@@ -465,7 +556,7 @@ export function PublicChatDemo({
       const res = await fetch("/api/public/asistente-whatsapp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mensaje, estado, conversacionId, origen }),
+        body: JSON.stringify({ mensaje, estado, conversacionId, origen, codigoAnuncio }),
       });
       const data = await res.json().catch(() => null);
 
@@ -530,7 +621,7 @@ export function PublicChatDemo({
       const res = await fetch("/api/public/asistente-whatsapp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mensaje: texto, estado: estadoRef.current, conversacionId, origen }),
+        body: JSON.stringify({ mensaje: texto, estado: estadoRef.current, conversacionId, origen, codigoAnuncio }),
       });
       const data = await res.json().catch(() => null);
 
@@ -883,6 +974,38 @@ export function PublicChatDemo({
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {notifEstado === "ofrecer" && (
+        <div className="shrink-0 flex items-center gap-2 border-t border-amber-200 bg-amber-50 px-4 py-2">
+          <span className="text-base">🔔</span>
+          <p className="flex-1 min-w-0 text-xs text-amber-800">
+            ¿Le avisamos por aquí si se le va el chat, para que no pierda su lugar?
+          </p>
+          <button
+            onClick={activarNotificaciones}
+            className="shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600"
+          >
+            Sí, avísenme
+          </button>
+          <button
+            onClick={() => setNotifEstado("rechazada")}
+            className="shrink-0 rounded-lg px-2 py-1.5 text-xs text-amber-700 hover:bg-amber-100"
+          >
+            No, gracias
+          </button>
+        </div>
+      )}
+      {notifEstado === "pidiendo" && (
+        <div className="shrink-0 flex items-center gap-2 border-t border-amber-200 bg-amber-50 px-4 py-2">
+          <p className="text-xs text-amber-700">Activando notificaciones...</p>
+        </div>
+      )}
+      {notifEstado === "activada" && (
+        <div className="shrink-0 flex items-center gap-2 border-t border-green-200 bg-green-50 px-4 py-2">
+          <span className="text-base">🔔</span>
+          <p className="text-xs text-green-700">Listo, le avisamos si se le va el chat.</p>
         </div>
       )}
 
