@@ -1021,6 +1021,17 @@ export async function generarRespuesta(args: {
   // siguiente mensaje.
   let resultadoBase = await calcularRespuestaBase(mensaje, normalizado, estadoConCelular, canalPublico, ubicaciones);
 
+  // 2) Si ya le ensenaste exactamente que contestar ante este mensaje,
+  // se usa ese texto -- pero el paso/estado que ya se calculo arriba se
+  // respeta igual, para que la conversacion siga avanzando bien. Esto
+  // va ANTES de agregar lo del celular (ver abajo): si no, una
+  // correccion ensenada (ej. para "gracias") borraria por completo la
+  // peticion del celular que se le iba a pegar.
+  const correccionExacta = correcciones.find((c) => c.disparador === normalizado);
+  if (correccionExacta) {
+    resultadoBase = { ...resultadoBase, respuesta: correccionExacta.respuesta, nota: "Respuesta aprendida" };
+  }
+
   if (agradecerCelular) {
     resultadoBase = { ...resultadoBase, respuesta: `Gracias, ya quedó registrado.\n\n${resultadoBase.respuesta}` };
   } else if (!estado.celularPedidoTemprano) {
@@ -1045,14 +1056,6 @@ export async function generarRespuesta(args: {
         nuevoEstado: { ...resultadoBase.nuevoEstado, celularTempranoIntentos: intentos + 1 },
       };
     }
-  }
-
-  // 2) Si ya le ensenaste exactamente que contestar ante este mensaje,
-  // se usa ese texto -- pero el paso/estado que ya se calculo arriba
-  // se respeta igual, para que la conversacion siga avanzando bien.
-  const correccionExacta = correcciones.find((c) => c.disparador === normalizado);
-  if (correccionExacta) {
-    return { ...resultadoBase, respuesta: correccionExacta.respuesta, nota: "Respuesta aprendida" };
   }
 
   return resultadoBase;
