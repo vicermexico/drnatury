@@ -22,10 +22,13 @@ import { useEffect, useRef, useState } from "react";
 //
 // Para que no se sienta lento/trabado mientras se reproduce (cada
 // cuadro se tiene que leer, combinar y volver a dibujar a mano), se
-// procesan como maximo 24 cuadros por segundo (de sobra para que se
-// vea fluido) y se combinan los canales de color+transparencia con
-// numeros de 32 bits en vez de uno por uno -- mucho menos trabajo para
-// el celular en cada cuadro.
+// procesan como maximo 20 cuadros por segundo (de sobra para que se
+// vea fluido), se combinan los canales de color+transparencia con
+// numeros de 32 bits en vez de uno por uno, y el espacio donde se arma
+// cada cuadro se reutiliza en vez de crear uno nuevo cada vez -- crear
+// y tirar memoria 20+ veces por segundo es justo lo que hace que un
+// celular mas sencillo se trabe de repente (el telefono se detiene un
+// instante a "limpiar" esa memoria), aunque el audio siga sonando.
 //
 // Con flotante=true (el chat real y el chat de prueba del Master), el
 // video -- mientras se esta reproduciendo -- se ve GRANDE encima de
@@ -62,11 +65,33 @@ export function VideoTransparente({ src, className, flotante = false }: Props) {
     if (!ctxLectura || !ctx) return;
     let activo = true;
     // No hace falta procesar cada cuadro del video a su velocidad
-    // nativa (a veces 30 o hasta 60 por segundo) -- con 24 por segundo
+    // nativa (a veces 30 o hasta 60 por segundo) -- con 20 por segundo
     // se ve igual de fluido para un video de alguien hablando, y le
     // quita una buena parte del trabajo al celular (menos trabazon).
-    const MIN_MS_ENTRE_CUADROS = 1000 / 24;
+    const MIN_MS_ENTRE_CUADROS = 1000 / 20;
     let ultimoProcesado = 0;
+
+    // Se reutiliza el mismo espacio en memoria para armar cada cuadro
+    // (en vez de crear uno nuevo cada vez) -- solo se vuelve a crear si
+    // cambia el tamaño del video (algo que normalmente pasa una sola
+    // vez, al arrancar).
+    let salidaU8: Uint8ClampedArray<ArrayBuffer> | null = null;
+    let salidaU32: Uint32Array | null = null;
+    let imagenSalida: ImageData | null = null;
+    let anchoBuffer = 0;
+    let altoBuffer = 0;
+
+    function obtenerBufferDeSalida(anchoMitad: number, alto: number) {
+      if (salidaU8 && salidaU32 && imagenSalida && anchoBuffer === anchoMitad && altoBuffer === alto) {
+        return { salidaU8, salidaU32, imagenSalida };
+      }
+      salidaU8 = new Uint8ClampedArray(anchoMitad * alto * 4);
+      salidaU32 = new Uint32Array(salidaU8.buffer);
+      imagenSalida = new ImageData(salidaU8, anchoMitad, alto);
+      anchoBuffer = anchoMitad;
+      altoBuffer = alto;
+      return { salidaU8, salidaU32, imagenSalida };
+    }
 
     function dibujarCuadro() {
       if (!activo || !video || video.paused || video.ended) return;
@@ -103,18 +128,17 @@ export function VideoTransparente({ src, className, flotante = false }: Props) {
         // mascara -- son muchas menos operaciones por cuadro.
         const origenU8 = cuadro.data;
         const origenU32 = new Uint32Array(origenU8.buffer, origenU8.byteOffset, origenU8.length / 4);
-        const salidaU8 = new Uint8ClampedArray(anchoMitad * alto * 4);
-        const salidaU32 = new Uint32Array(salidaU8.buffer);
+        const { salidaU32: salidaU32Buf, imagenSalida: imagenSalidaBuf } = obtenerBufferDeSalida(anchoMitad, alto);
         for (let y = 0; y < alto; y++) {
           const filaOrigenPix = y * anchoTotal;
           const filaSalidaPix = y * anchoMitad;
           for (let x = 0; x < anchoMitad; x++) {
             const colorPix = filaOrigenPix + x;
             const mascaraByte = (filaOrigenPix + anchoMitad + x) * 4; // canal rojo de la mascara = que tan visible es
-            salidaU32[filaSalidaPix + x] = (origenU32[colorPix] & 0x00ffffff) | (origenU8[mascaraByte] << 24);
+            salidaU32Buf[filaSalidaPix + x] = (origenU32[colorPix] & 0x00ffffff) | (origenU8[mascaraByte] << 24);
           }
         }
-        ctx!.putImageData(new ImageData(salidaU8, anchoMitad, alto), 0, 0);
+        ctx!.putImageData(imagenSalidaBuf, 0, 0);
       } catch (err) {
         // Si por algun motivo el navegador bloquea leer el video (ej.
         // CORS), se avisa en la consola en vez de quedarse "pegado" sin
