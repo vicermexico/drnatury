@@ -191,13 +191,20 @@ export async function POST(request: NextRequest) {
       precio: number;
       fotos: { id: string; url: string }[];
     }[] | undefined;
+    // "como libro" (voltear paginas, pedido original) o "solo imagen"
+    // (foto + nombre + precio + botones, uno debajo del otro) -- switch
+    // de Vic en Master -> Productos (ver ProductosPanel.tsx).
+    let catalogoComoLibro: boolean | undefined;
     if (resultado.mostrarCatalogo) {
-      const { data: productosRaw } = await admin
-        .from("productos")
-        .select("id, nombre, descripcion, precio, producto_fotos(id, url, orden)")
-        .eq("bot_id", botId)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false });
+      const [{ data: productosRaw }, { data: botRow }] = await Promise.all([
+        admin
+          .from("productos")
+          .select("id, nombre, descripcion, precio, producto_fotos(id, url, orden)")
+          .eq("bot_id", botId)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false }),
+        admin.from("whatsapp_bots").select("catalogo_como_libro").eq("id", botId).maybeSingle(),
+      ]);
       type Row = {
         id: string;
         nombre: string;
@@ -212,6 +219,7 @@ export async function POST(request: NextRequest) {
         precio: p.precio,
         fotos: [...p.producto_fotos].sort((a, b) => a.orden - b.orden).map((f) => ({ id: f.id, url: f.url })),
       }));
+      catalogoComoLibro = botRow?.catalogo_como_libro ?? true;
     }
 
     // El chat publico reusa el mismo nombre de campo "agendado" (y la
@@ -231,7 +239,13 @@ export async function POST(request: NextRequest) {
         }
       : undefined;
 
-    return NextResponse.json({ ...resultado, agendado: agendadoComoPedido, ubicacion, productos: productosCatalogo });
+    return NextResponse.json({
+      ...resultado,
+      agendado: agendadoComoPedido,
+      ubicacion,
+      productos: productosCatalogo,
+      catalogoComoLibro,
+    });
   }
 
   const { data: ubicacionesRaw } = await admin
