@@ -2,11 +2,12 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { generarRespuesta, ESTADO_INICIAL, normalizar, esRespuestaNegativaAgendar, type EstadoAgendado, type Correccion, type Anuncio, type Ubicacion } from "@/lib/whatsapp-bot/engine";
+import { generarRespuestaPomada, ESTADO_INICIAL_PEDIDO, type EstadoPedido } from "@/lib/whatsapp-bot/engine-pomada";
 import { obtenerSerieBienvenida } from "@/lib/whatsapp-bot/bienvenida";
 import { crearCitaRapida } from "@/lib/appointments/quickBook";
 import { generateConfirmToken } from "@/lib/appointments/tokens";
 import { notificarApoyoConCliente } from "@/lib/push/send";
-import { obtenerBotIdPorSlug } from "@/lib/whatsapp-bot/bots";
+import { obtenerBotIdPorSlug, esBotSlugValido } from "@/lib/whatsapp-bot/bots";
 
 // Version PUBLICA (sin login) del "cerebro" del bot -- para la pagina
 // de demo que Vic manda por link a quien quiera (/demo-whatsapp).
@@ -15,6 +16,12 @@ import { obtenerBotIdPorSlug } from "@/lib/whatsapp-bot/bots";
 // solo se lee lo que ya esta guardado (correcciones + anuncios) para
 // que conteste igual que en la demo de Master, pero sin poder
 // modificar nada.
+//
+// Desde la Fase 1/2 del bot de venta de productos puede haber mas de un
+// bot (ver src/lib/whatsapp-bot/bots.ts): "consultas" usa el cerebro de
+// citas (engine.ts) y "pomada" usa el cerebro de ventas de la Pomada
+// Barak Flex (engine-pomada.ts) -- son conversaciones muy distintas, asi
+// que de aqui en adelante cada quien sigue su propio camino.
 export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") ?? "unknown";
   if (!checkRateLimit(`bot-demo-publico:${ip}`, 40, 60_000)) {
@@ -23,7 +30,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({})) as {
     mensaje?: string;
-    estado?: EstadoAgendado;
+    estado?: EstadoAgendado | EstadoPedido;
     conversacionId?: string;
     origen?: string;
     codigoAnuncio?: string;
@@ -34,15 +41,10 @@ export async function POST(request: NextRequest) {
   if (!mensaje) {
     return NextResponse.json({ error: "MISSING_FIELDS", message: "Falta el mensaje" }, { status: 400 });
   }
-  const estado: EstadoAgendado = body.estado ?? ESTADO_INICIAL;
 
   const admin = createAdminClient();
-  // Desde la Fase 1 del bot de venta de productos puede haber mas de un
-  // bot (ver src/lib/whatsapp-bot/bots.ts) -- "bot" dice de cual chat
-  // publico viene este mensaje (/chat = "consultas", /barak-flex =
-  // "pomada"), para usar nada mas sus propios datos y para que la
-  // conversacion quede guardada bajo el bot correcto.
-  const botId = await obtenerBotIdPorSlug(admin, body.bot ?? "consultas");
+  const botSlug = esBotSlugValido(body.bot) ? body.bot : "consultas";
+  const botId = await obtenerBotIdPorSlug(admin, botSlug);
   if (!botId) {
     return NextResponse.json({ error: "BOT_NO_ENCONTRADO" }, { status: 400 });
   }
@@ -106,6 +108,98 @@ export async function POST(request: NextRequest) {
   const anuncios: Anuncio[] = (anunciosRaw ?? []).map((a) => ({ textoNormalizado: a.texto_normalizado as string }));
   const bienvenida = await obtenerSerieBienvenida(admin, botId);
 
+  // El bot de la pomada sigue su propio camino de aqui en adelante: su
+  // propio cerebro (sin sintomas de citas, sin consultorios), su propio
+  // resumen de cierre ("pedido" en vez de "agendado") y su propia tabla
+  // (pomada_pedidos en vez de appointments).
+  if (botSlug === "pomada") {
+    const estado: EstadoPedido = (body.estado as EstadoPedido) ?? ESTADO_INICIAL_PEDIDO;
+    const resultado = await generarRespuestaPomada({ mensaje, estado, correcciones, anuncios, bienvenida, canalPublico: true });
+
+    if (resultado.nota === "no_entendido_publico" && conversacionId) {
+      void notificarApoyoConCliente(conversacionId, mensaje);
+    }
+
+    if (conversacionId) {
+      try {
+        if (resultado.mensajesBienvenida && resultado.mensajesBienvenida.length > 0) {
+          await admin.from("chat_messages").insert(
+            resultado.mensajesBienvenida.map((item) => ({
+              lead_id: conversacionId,
+              rol: "bot" as const,
+              texto: item.tipo === "audio" ? "[audio de bienvenida]" : item.tipo === "video" ? "[video de bienvenida]" : item.contenido,
+            }))
+          );
+        } else if (resultado.respuesta) {
+          await admin.from("chat_messages").insert({ lead_id: conversacionId, rol: "bot", texto: resultado.respuesta });
+        }
+        await admin.from("chat_leads").update({ estado: resultado.nuevoEstado }).eq("id", conversacionId);
+      } catch (err) {
+        console.error("Error registrando la respuesta del bot de pomada:", err);
+      }
+    }
+
+    // Si justo en este turno se termino de cerrar el pedido, se
+    // registra de verdad en pomada_pedidos -- igual que con las citas,
+    // sin bloquear la respuesta al cliente si algo sale mal.
+    let ubicacion: { appointmentId: string; token: string } | undefined;
+    const pedido = resultado.pedido;
+    if (pedido) {
+      try {
+        const { data: pedidoCreado, error: pedidoError } = await admin
+          .from("pomada_pedidos")
+          .insert({
+            chat_lead_id: conversacionId ?? null,
+            nombre: pedido.nombre,
+            celular: pedido.celular,
+            cantidad: pedido.cantidad,
+            precio_unitario: pedido.precioUnitario,
+            precio_total: pedido.precioTotal,
+            direccion: pedido.direccion,
+            horario: pedido.horario,
+          })
+          .select("id")
+          .single();
+        if (pedidoError || !pedidoCreado) {
+          console.error("No se pudo registrar el pedido de pomada:", pedidoError, pedido);
+        } else {
+          ubicacion = { appointmentId: pedidoCreado.id as string, token: generateConfirmToken(pedidoCreado.id as string) };
+          if (conversacionId) {
+            // OJO: aqui se usa "pedido_id" (no "appointment_id") -- esa
+            // columna tiene una FK estricta a la tabla "appointments" y
+            // un pedido de producto no vive ahi (ver pomada_pedidos).
+            await admin
+              .from("chat_leads")
+              .update({ cerrada_con_cita: true, pedido_id: pedidoCreado.id as string })
+              .eq("id", conversacionId);
+            await admin.from("chat_messages").delete().eq("lead_id", conversacionId);
+          }
+        }
+      } catch (err) {
+        console.error("Error registrando el pedido de pomada en la plataforma:", err);
+      }
+    }
+
+    // El chat publico reusa el mismo nombre de campo "agendado" (y la
+    // misma UI de "Confirmar por WhatsApp") para mostrar el resumen del
+    // pedido -- ver construirMensajeWhatsapp en PublicChatDemo.tsx.
+    const agendadoComoPedido = pedido
+      ? {
+          tipo: "pedido" as const,
+          nombre: pedido.nombre,
+          celular: pedido.celular,
+          dia: "",
+          hora: pedido.horario,
+          modalidad: "Entrega a domicilio",
+          lugar: pedido.direccion,
+          personas: pedido.cantidad,
+          costoTotal: pedido.precioTotal,
+        }
+      : undefined;
+
+    return NextResponse.json({ ...resultado, agendado: agendadoComoPedido, ubicacion });
+  }
+
   const { data: ubicacionesRaw } = await admin
     .from("whatsapp_bot_ubicaciones")
     .select("nombre, nombre_normalizado, direccion, lat, lng, audio_url")
@@ -119,6 +213,7 @@ export async function POST(request: NextRequest) {
     audioUrl: u.audio_url as string | null,
   }));
 
+  const estado: EstadoAgendado = (body.estado as EstadoAgendado) ?? ESTADO_INICIAL;
   const resultado = await generarRespuesta({
     mensaje,
     estado,
@@ -130,7 +225,7 @@ export async function POST(request: NextRequest) {
     // Solo el bot "consultas" cae de respaldo al saludo generico de
     // DrNatury cuando no hay bienvenida configurada -- los demas bots
     // se quedan sin saludo mientras Master no les arme el suyo.
-    usarBienvenidaGenerica: (body.bot ?? "consultas") === "consultas",
+    usarBienvenidaGenerica: true,
   });
 
   // Si el bot de plano no supo que contestar (ver nota

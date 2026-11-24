@@ -929,6 +929,22 @@ export interface BienvenidaItem {
   contenido: string; // el texto en si, o la URL del audio/video
 }
 
+// Resumen de un pedido de producto (ver Fase 2 del bot de venta de
+// productos, bot "pomada" / Pomada Barak Flex) cuando se termina de
+// cerrar un pedido -- el chat publico lo usa igual que ResumenAgendado,
+// para ofrecer el boton de "Confirmar por WhatsApp" con estos datos ya
+// escritos. Vive aqui (no en engine-pomada.ts) para que ResultadoRespuesta
+// lo pueda traer sin crear un import circular.
+export interface ResumenPedido {
+  nombre: string;
+  celular: string;
+  cantidad: number;
+  precioUnitario: number;
+  precioTotal: number;
+  direccion: string;
+  horario: string; // ej. "Mañana (8:00am a 2:00pm)"
+}
+
 export interface ResultadoRespuesta {
   respuesta: string;
   nuevoEstado: EstadoAgendado;
@@ -942,6 +958,10 @@ export interface ResultadoRespuesta {
   // chat publico para ofrecer un boton de "confirmar por WhatsApp" con
   // estos datos ya escritos en el mensaje.
   agendado?: ResumenAgendado;
+  // Se llena solo cuando se termina de cerrar un PEDIDO de producto
+  // (bot "pomada", ver engine-pomada.ts) -- mutuamente exclusivo con
+  // "agendado" (una conversacion de citas nunca llena esto, y viceversa).
+  pedido?: ResumenPedido;
 }
 
 // El audio de bienvenida real que Vic ya tiene grabado (lo mismo que

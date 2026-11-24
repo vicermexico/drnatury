@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDictado } from "@/hooks/useDictado";
 import { useNotaDeVoz } from "@/hooks/useNotaDeVoz";
 import { MENSAJE_INICIAL_ANUNCIO } from "@/lib/whatsapp-bot/mensajes";
@@ -12,6 +12,10 @@ type EstadoAgendado = {
 };
 
 interface ResumenAgendado {
+  // "pedido" cuando es un pedido de producto (bot "pomada", ver Fase 2
+  // del bot de venta de productos) en vez de una cita de consultorio/
+  // domicilio -- cambia el texto del boton y el mensaje de WhatsApp.
+  tipo?: "cita" | "pedido";
   nombre: string;
   celular: string;
   dia: string;
@@ -235,6 +239,18 @@ function BotonCompartir(props: { contenido: string } | { audioUrl: string; texto
 }
 
 function construirMensajeWhatsapp(a: ResumenAgendado): string {
+  if (a.tipo === "pedido") {
+    return (
+      `Hola, ya hice mi pedido de Pomada Barak Flex con el asistente:\n\n` +
+      `• Nombre: ${a.nombre}\n` +
+      `• Celular: ${a.celular}\n` +
+      `• Cantidad: ${a.personas}\n` +
+      `• Dirección: ${a.lugar}\n` +
+      `• Entrega: ${a.hora}\n` +
+      `• Total a pagar (contra entrega): $${a.costoTotal}\n\n` +
+      `¿Me pueden confirmar mi pedido por este medio (WhatsApp)?`
+    );
+  }
   return (
     `Hola, ya agendé mi cita con el asistente de DrNatury:\n\n` +
     `• Nombre: ${a.nombre}\n` +
@@ -482,19 +498,29 @@ export function PublicChatDemo({
     void enviarNotaDeVoz(blobUrl, texto);
   });
 
+  // Segun el bot, el id de "ubicacionDatos" es de una cita a domicilio
+  // (bot "consultas") o de un pedido de producto (bot "pomada", ver
+  // Fase 2 del bot de venta de productos) -- cada quien vive en su
+  // propia tabla, asi que el endpoint para guardar el pin de GPS
+  // tambien es distinto.
+  const endpointUbicacion = useCallback(
+    (id: string): string => (bot === "pomada" ? `/api/pedidos/${id}/ubicacion` : `/api/appointments/${id}/ubicacion`),
+    [bot]
+  );
+
   // En cuanto haya un id+token de verdad (ya se agendo la cita a
   // domicilio), manda sola la ubicacion que se habia quedado
   // esperando -- asi no importa en que momento el paciente le haya
   // dado clic al icono de pin.
   useEffect(() => {
     if (!ubicacionDatos || !ubicacionPendiente) return;
-    fetch(`/api/appointments/${ubicacionDatos.appointmentId}/ubicacion`, {
+    fetch(endpointUbicacion(ubicacionDatos.appointmentId), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token: ubicacionDatos.token, lat: ubicacionPendiente.lat, lng: ubicacionPendiente.lng }),
     }).catch(() => {});
     setUbicacionPendiente(null);
-  }, [ubicacionDatos, ubicacionPendiente]);
+  }, [ubicacionDatos, ubicacionPendiente, endpointUbicacion]);
 
   // Usa el mismo endpoint que ya existe para el link de /ubicacion/[id]
   // que se manda por WhatsApp (ver UbicacionButton.tsx) -- aqui nada mas
@@ -518,7 +544,7 @@ export function PublicChatDemo({
           return;
         }
         try {
-          const res = await fetch(`/api/appointments/${ubicacionDatos.appointmentId}/ubicacion`, {
+          const res = await fetch(endpointUbicacion(ubicacionDatos.appointmentId), {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -988,7 +1014,9 @@ export function PublicChatDemo({
                 // persona darle clic y de verdad se confirme la cita.
                 <div className="mt-3 rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-3">
                   <p className="text-center text-sm font-semibold text-emerald-900">
-                    Para confirmar y recordar tu cita por WhatsApp, da clic aquí
+                    {m.agendado.tipo === "pedido"
+                      ? "Para confirmar tu pedido por WhatsApp, da clic aquí"
+                      : "Para confirmar y recordar tu cita por WhatsApp, da clic aquí"}
                   </p>
                   <div className="flex justify-center text-xl leading-none text-emerald-500 animate-bounce" aria-hidden="true">
                     ⬇️
@@ -1036,7 +1064,9 @@ export function PublicChatDemo({
                 <p className="text-xs text-gray-500">
                   {estadoUbicacion === "listo"
                     ? "Ya sabemos exactamente dónde llegar. Nos vemos pronto 🙌"
-                    : "En cuanto termine de agendarse su cita a domicilio, se la agregamos a la agenda de DrNatury."}
+                    : bot === "pomada"
+                      ? "En cuanto termine de hacer su pedido, se la agregamos a la entrega."
+                      : "En cuanto termine de agendarse su cita a domicilio, se la agregamos a la agenda de DrNatury."}
                 </p>
                 <button
                   onClick={() => setMostrarModalUbicacion(false)}
