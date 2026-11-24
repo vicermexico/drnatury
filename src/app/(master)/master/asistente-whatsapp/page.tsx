@@ -80,6 +80,12 @@ function seccionesDe(bot: BotSlug) {
   if (botVendeProductos(bot)) {
     secciones.push(
       {
+        href: `/master/asistente-whatsapp/productos${q}`,
+        icono: "🛍️",
+        titulo: "Productos",
+        descripcion: "Sube tus productos con nombre, descripción, precio y fotos",
+      },
+      {
         href: `/master/asistente-whatsapp/choferes${q}`,
         icono: "🚚",
         titulo: "Choferes",
