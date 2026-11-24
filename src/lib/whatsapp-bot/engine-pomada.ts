@@ -88,6 +88,31 @@ const DOLOR_KEYWORDS = [
   "me lastime",
   "me lastimé",
   "me lesione",
+  // Formas de COMENTAR el dolor (no solo preguntar) -- sinonimos y
+  // quejas parecidas, para que se detecten igual de bien.
+  "no aguanto",
+  "ya no aguanto",
+  "no soporto",
+  "ya no soporto",
+  "no puedo con el dolor",
+  "me esta matando",
+  "me mata",
+  "no me deja",
+  "no la paso",
+  "sufro de",
+  "padezco",
+  "ando mal de",
+  "me tiene mal",
+  "dolor tremendo",
+  "dolor horrible",
+  "dolor fuerte",
+  "mucho dolor",
+  "demasiado dolor",
+  "me duele un buen",
+  "me duele bastante",
+  "no puedo ni caminar",
+  "no puedo caminar bien",
+  "no puedo moverme",
 ];
 
 function detectarParteMencionada(normalizado: string): string | null {
@@ -114,14 +139,33 @@ const INGREDIENTE_KEYWORDS = [
   "ingredientes",
   "de que esta hecha",
   "de que esta hecho",
+  "de que esta compuesta",
   "composicion",
+  "componentes",
+  "que lleva",
   "que tiene la pomada",
   "para que es buena",
   "para que sirve",
   "que es lo que tiene",
+  "con que esta hecha",
+  "con que la hacen",
 ];
 
-const PRECIO_KEYWORDS = ["cuanto cuesta", "precio", "cuanto vale", "cuanto sale", "costo", "cuanto esta"];
+const PRECIO_KEYWORDS = [
+  "cuanto cuesta",
+  "precio",
+  "cuanto vale",
+  "cuanto sale",
+  "costo",
+  "cuanto esta",
+  "que precio tiene",
+  "en cuanto sale",
+  "en cuanto la dan",
+  "cuanto me cuesta",
+  "cual es el costo",
+  "que precio manejan",
+  "cuanto es",
+];
 
 function respuestaPrecio(): string {
   return (
@@ -158,11 +202,24 @@ const COMPRAR_KEYWORDS = [
   "quiero comprar",
   "quiero pedir",
   "quiero ordenar",
+  "quiero adquirir",
   "quiero una pomada",
   "quiero mi pomada",
   "quiero la pomada",
+  "si la quiero",
+  "la quiero",
   "me interesa comprarla",
   "me interesa pedirla",
+  "deseo comprarla",
+  "deseo pedirla",
+  "me gustaria pedirla",
+  "me gustaria comprarla",
+  "hagame el pedido",
+  "hazme el pedido",
+  "quiero que me la manden",
+  "quiero que me la envien",
+  "mandenmela",
+  "envienmela",
   "dame una",
   "mandenme",
   "mándenme",
@@ -175,10 +232,18 @@ const COMPRAR_KEYWORDS = [
 // aparezca en medio de una frase larga sobre otra cosa).
 const SI_KEYWORDS = [
   "si",
+  "sip",
   "va",
   "dale",
   "simon",
   "claro",
+  "obvio",
+  "obviamente",
+  "asi es",
+  "efectivamente",
+  "correcto",
+  "aja",
+  "sale",
   "porfavor",
   "por favor",
   "adelante",
@@ -189,9 +254,24 @@ const SI_KEYWORDS = [
   "okay",
   "vale",
   "andale",
+  "me late",
 ];
 
-const NO_KEYWORDS = ["no quiero", "no gracias", "no por ahora", "no me interesa", "no de momento"];
+const NO_KEYWORDS = [
+  "no quiero",
+  "no gracias",
+  "no por ahora",
+  "no por el momento",
+  "no me interesa",
+  "no de momento",
+  "no todavia",
+  "aun no",
+  "despues la pido",
+  "lo voy a pensar",
+  "lo pensare",
+  "quizas despues",
+  "al rato la pido",
+];
 
 // Frases para cuando se queja de que el rango de 6 horas es mucho
 // tiempo (sinonimos que dio Vic) -- ahi se le ofrece partir el rango a
@@ -201,16 +281,22 @@ const QUEJA_TIEMPO_KEYWORDS = [
   "muchas horas",
   "mucho lapso",
   "no puedo esperar",
+  "no tengo tanto tiempo",
   "es mucho",
   "muy tardado",
   "bastante tiempo",
   "tanto tiempo",
+  "tanto rato",
+  "mucho rato",
   "muy largo",
+  "muy amplio",
   "mas corto",
   "más corto",
   "menos tiempo",
   "mas especifico",
   "algo mas rapido",
+  "mas pronto",
+  "lo quiero mas rapido",
 ];
 
 const NUMEROS_TEXTO: Record<string, number> = {
