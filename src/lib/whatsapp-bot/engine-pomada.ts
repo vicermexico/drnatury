@@ -149,6 +149,19 @@ const INGREDIENTE_KEYWORDS = [
   "que es lo que tiene",
   "con que esta hecha",
   "con que la hacen",
+  // "Saber mas"/"mas informacion" -- cuando contestan eso a la
+  // pregunta de "¿le gustaria saber mas, o que le hagamos su pedido?"
+  // (ver respuestaDolor y las demas respuestas que terminan igual), se
+  // le manda esta misma informacion de los ingredientes. Nota: aqui no
+  // hace falta la version con acentos -- normalizar() ya les quita los
+  // acentos antes de comparar.
+  "saber mas",
+  "mas informacion",
+  "mas info",
+  "cuentame mas",
+  "dime mas",
+  "explicame mas",
+  "mas detalles",
 ];
 
 const PRECIO_KEYWORDS = [
