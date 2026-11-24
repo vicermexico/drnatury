@@ -180,6 +180,40 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Si el cliente pidio ver el catalogo (ver CATALOGO_KEYWORDS en
+    // engine-pomada.ts), aqui se le rellenan los productos de verdad
+    // (vivos, con sus fotos) -- el engine nada mas marco la intencion,
+    // no conoce la base de datos.
+    let productosCatalogo: {
+      id: string;
+      nombre: string;
+      descripcion: string | null;
+      precio: number;
+      fotos: { id: string; url: string }[];
+    }[] | undefined;
+    if (resultado.mostrarCatalogo) {
+      const { data: productosRaw } = await admin
+        .from("productos")
+        .select("id, nombre, descripcion, precio, producto_fotos(id, url, orden)")
+        .eq("bot_id", botId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+      type Row = {
+        id: string;
+        nombre: string;
+        descripcion: string | null;
+        precio: number;
+        producto_fotos: { id: string; url: string; orden: number }[];
+      };
+      productosCatalogo = ((productosRaw ?? []) as unknown as Row[]).map((p) => ({
+        id: p.id,
+        nombre: p.nombre,
+        descripcion: p.descripcion,
+        precio: p.precio,
+        fotos: [...p.producto_fotos].sort((a, b) => a.orden - b.orden).map((f) => ({ id: f.id, url: f.url })),
+      }));
+    }
+
     // El chat publico reusa el mismo nombre de campo "agendado" (y la
     // misma UI de "Confirmar por WhatsApp") para mostrar el resumen del
     // pedido -- ver construirMensajeWhatsapp en PublicChatDemo.tsx.
@@ -197,7 +231,7 @@ export async function POST(request: NextRequest) {
         }
       : undefined;
 
-    return NextResponse.json({ ...resultado, agendado: agendadoComoPedido, ubicacion });
+    return NextResponse.json({ ...resultado, agendado: agendadoComoPedido, ubicacion, productos: productosCatalogo });
   }
 
   const { data: ubicacionesRaw } = await admin

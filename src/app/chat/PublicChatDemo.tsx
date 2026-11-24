@@ -5,6 +5,7 @@ import { useNotaDeVoz } from "@/hooks/useNotaDeVoz";
 import { MENSAJE_INICIAL_ANUNCIO } from "@/lib/whatsapp-bot/mensajes";
 import { requestNotificationPermission } from "@/lib/firebase";
 import { VideoTransparente } from "@/components/chat/VideoTransparente";
+import { RevistaChatCard, type ProductoRevista } from "@/components/chat/RevistaChatCard";
 
 type EstadoAgendado = {
   fase: "inicio" | "conversando" | "agendando";
@@ -42,6 +43,11 @@ interface MensajeUI {
   // entrada) -- el boton de "Compartir" solo sale ahi, no en cada
   // mensaje del bot (pedido explicito de Vic).
   esBienvenida?: boolean;
+  // Cuando el cliente pide ver el catalogo (ver CATALOGO_KEYWORDS en
+  // engine-pomada.ts), el bot manda un mensaje aparte nada mas con
+  // esto -- se ve como la tarjeta de la revista, no como una burbuja
+  // de texto normal (ver RevistaChatCard).
+  catalogo?: ProductoRevista[];
 }
 
 // Datos para mandar la ubicacion actual de la cita a domicilio que se
@@ -633,6 +639,12 @@ export function PublicChatDemo({
           { id: siguienteId++, rol: "bot", texto: data.respuesta, audioUrl: data.audioUrl, agendado: data.agendado },
         ]);
       }
+      // Si pidio ver el catalogo, la tarjeta de la revista llega en un
+      // mensaje aparte, despues del texto de arriba ("¡Claro! Aquí
+      // tienes nuestro catálogo 👇").
+      if (data.mostrarCatalogo && Array.isArray(data.productos) && data.productos.length > 0) {
+        setMensajes((prev) => [...prev, { id: siguienteId++, rol: "bot", texto: "", catalogo: data.productos }]);
+      }
       // Si no hay ni serie de bienvenida ni respuesta ni audio (bot sin
       // saludo configurado todavia), no se agrega ninguna burbuja vacia.
     } finally {
@@ -695,6 +707,9 @@ export function PublicChatDemo({
           ...prev,
           { id: siguienteId++, rol: "bot", texto: data.respuesta, audioUrl: data.audioUrl, agendado: data.agendado },
         ]);
+      }
+      if (data.mostrarCatalogo && Array.isArray(data.productos) && data.productos.length > 0) {
+        setMensajes((prev) => [...prev, { id: siguienteId++, rol: "bot", texto: "", catalogo: data.productos }]);
       }
     } finally {
       setEnviando(false);
@@ -969,7 +984,9 @@ export function PublicChatDemo({
           </p>
         )}
         {mensajes.map((m) =>
-          m.videoUrl ? (
+          m.catalogo ? (
+            <RevistaChatCard key={m.id} productos={m.catalogo} />
+          ) : m.videoUrl ? (
             // El video de bienvenida se ve grande, del ancho de todo
             // el chat -- no como una cajita chica igual que el audio o
             // el texto (asi lo pidio Vic).
