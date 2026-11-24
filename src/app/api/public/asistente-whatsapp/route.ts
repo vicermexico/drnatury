@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { generarRespuesta, ESTADO_INICIAL, type EstadoAgendado, type Correccion, type Anuncio, type Ubicacion } from "@/lib/whatsapp-bot/engine";
+import { generarRespuesta, ESTADO_INICIAL, normalizar, esRespuestaNegativaAgendar, type EstadoAgendado, type Correccion, type Anuncio, type Ubicacion } from "@/lib/whatsapp-bot/engine";
 import { obtenerSerieBienvenida } from "@/lib/whatsapp-bot/bienvenida";
 import { crearCitaRapida } from "@/lib/appointments/quickBook";
 import { generateConfirmToken } from "@/lib/appointments/tokens";
@@ -64,13 +64,18 @@ export async function POST(request: NextRequest) {
       await admin.from("chat_messages").insert({ lead_id: conversacionId, rol: "paciente", texto: mensaje });
       // Cada vez que el visitante escribe se "reactiva" la conversacion:
       // se marca cuando fue el ultimo movimiento (para el CRON de
-      // recordatorio, ver /api/cron/recordatorio-chat) y se limpia
-      // recordatorio_enviado_at para que, si ya se le habia mandado un
-      // recordatorio antes y volvio a escribir, se le pueda volver a
-      // mandar si se vuelve a quedar callado.
+      // recordatorio, ver /api/cron/recordatorio-chat) y se reinicia el
+      // nivel de recordatorio a 0, para que si ya se le habian mandado
+      // uno o varios avisos antes y volvio a escribir, se le puedan
+      // volver a mandar los 3 desde el principio si se vuelve a quedar
+      // callado. PERO si lo que contesto fue un "no" a que si quiere
+      // agendar (ej. despues del aviso de las 2 horas), no tiene caso
+      // seguirle insistiendo con el ultimo aviso del dia siguiente -- se
+      // deja en nivel 3 (ya se mandaron todos) para cancelarlo de una vez.
+      const nivelRecordatorio = esRespuestaNegativaAgendar(normalizar(mensaje)) ? 3 : 0;
       await admin
         .from("chat_leads")
-        .update({ updated_at: new Date().toISOString(), recordatorio_enviado_at: null })
+        .update({ updated_at: new Date().toISOString(), recordatorio_enviado_at: null, recordatorio_nivel: nivelRecordatorio })
         .eq("id", conversacionId);
     } catch (err) {
       console.error("Error registrando el chat_lead:", err);

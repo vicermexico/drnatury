@@ -362,6 +362,21 @@ function detectarContraindicacionEstudio(normalizado: string): string | null {
   return null;
 }
 
+// Si contesta que NO quiere agendar (ej. despues del aviso de
+// seguimiento de las 2 horas, "¿le gustaría agendar su cita?"), no
+// tiene caso seguirle insistiendo con el ultimo aviso del dia
+// siguiente -- se cancela de una vez (ver uso en
+// /api/public/asistente-whatsapp).
+const NEGATIVA_AGENDAR_KEYWORDS = [
+  "no quiero", "no me interesa", "no gracias", "no por ahora",
+  "no por el momento", "ya no quiero", "no se me antoja", "no deseo",
+];
+export function esRespuestaNegativaAgendar(normalizado: string): boolean {
+  const limpio = normalizado.trim();
+  if (limpio === "no" || limpio === "no.") return true;
+  return NEGATIVA_AGENDAR_KEYWORDS.some((f) => limpio.includes(f));
+}
+
 const AGENDAR_PALABRAS_ACCION = [
   "quiero", "quisiera", "necesito", "sacar", "saco", "pedir", "dar", "dame", "deme", "denme",
   "podria", "pudiera", "cuando", "donde", "como", "quien", "numero", "cual",
