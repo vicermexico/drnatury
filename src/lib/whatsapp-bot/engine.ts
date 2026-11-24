@@ -543,7 +543,9 @@ function respuestaSintoma(parte: string, veces: number): string {
 // anuncio) -- asi, si se sale a medio chat sin terminar de agendar, de
 // todos modos se le puede contactar despues. No se le vuelve a pedir
 // si de plano no lo da (se insiste una sola vez, ver generarRespuesta).
-const CELULAR_TEMPRANO_TEXT =
+// Exportado para que el bot de la pomada (ver engine-pomada.ts) use la
+// misma frase, en vez de inventar una propia.
+export const CELULAR_TEMPRANO_TEXT =
   "Por cierto, ¿me podría compartir su número de WhatsApp? Es para poder contactarlo si se corta la conversación.";
 
 // Intenta leer un numero de celular mexicano (10 digitos) de un
