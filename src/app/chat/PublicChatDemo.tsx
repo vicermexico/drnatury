@@ -601,12 +601,14 @@ export function PublicChatDemo({
           ]);
           await esperar(700);
         }
-      } else {
+      } else if (data.respuesta || data.audioUrl) {
         setMensajes((prev) => [
           ...prev,
           { id: siguienteId++, rol: "bot", texto: data.respuesta, audioUrl: data.audioUrl, agendado: data.agendado },
         ]);
       }
+      // Si no hay ni serie de bienvenida ni respuesta ni audio (bot sin
+      // saludo configurado todavia), no se agrega ninguna burbuja vacia.
     } finally {
       setEnviando(false);
     }
@@ -662,7 +664,7 @@ export function PublicChatDemo({
           ]);
           await esperar(700);
         }
-      } else {
+      } else if (data.respuesta || data.audioUrl) {
         setMensajes((prev) => [
           ...prev,
           { id: siguienteId++, rol: "bot", texto: data.respuesta, audioUrl: data.audioUrl, agendado: data.agendado },

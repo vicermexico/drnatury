@@ -119,7 +119,19 @@ export async function POST(request: NextRequest) {
     audioUrl: u.audio_url as string | null,
   }));
 
-  const resultado = await generarRespuesta({ mensaje, estado, correcciones, anuncios, bienvenida, ubicaciones, canalPublico: true });
+  const resultado = await generarRespuesta({
+    mensaje,
+    estado,
+    correcciones,
+    anuncios,
+    bienvenida,
+    ubicaciones,
+    canalPublico: true,
+    // Solo el bot "consultas" cae de respaldo al saludo generico de
+    // DrNatury cuando no hay bienvenida configurada -- los demas bots
+    // se quedan sin saludo mientras Master no les arme el suyo.
+    usarBienvenidaGenerica: (body.bot ?? "consultas") === "consultas",
+  });
 
   // Si el bot de plano no supo que contestar (ver nota
   // "no_entendido_publico" en engine.ts), se avisa a Master por push
@@ -139,9 +151,12 @@ export async function POST(request: NextRequest) {
             texto: item.tipo === "audio" ? "[audio de bienvenida]" : item.tipo === "video" ? "[video de bienvenida]" : item.contenido,
           }))
         );
-      } else {
+      } else if (resultado.respuesta) {
         await admin.from("chat_messages").insert({ lead_id: conversacionId, rol: "bot", texto: resultado.respuesta });
       }
+      // Si no hay ni serie de bienvenida ni respuesta (bot sin saludo
+      // configurado todavia, ver usarBienvenidaGenerica en engine.ts), no
+      // se guarda nada -- no hay ninguna respuesta de verdad que registrar.
     } catch (err) {
       console.error("Error registrando la respuesta del bot:", err);
     }
