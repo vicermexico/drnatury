@@ -43,6 +43,12 @@ function seccionesDe(bot: BotSlug) {
       descripcion: "Para que el bot sepa reconocer tus anuncios",
     },
     {
+      href: `/master/asistente-whatsapp/links${q}`,
+      icono: "🔗",
+      titulo: "Links",
+      descripcion: "Genera un link distinto por cada campaña para saber de cuál vino cada cliente",
+    },
+    {
       href: `/master/asistente-whatsapp/ubicaciones${q}`,
       icono: "📍",
       titulo: "Ubicaciones",
