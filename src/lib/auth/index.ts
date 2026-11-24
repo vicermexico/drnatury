@@ -48,6 +48,7 @@ export function getRolePath(role: Role): string {
     ASISTENTE: "/asistente/dashboard",
     ALMACENISTA: "/almacen/dashboard",
     PACIENTE: "/paciente/citas",
+    CHOFER: "/chofer/dashboard",
   };
   return paths[role];
 }

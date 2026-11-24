@@ -32,6 +32,7 @@ const ROLE_REQUIRED: Record<string, string> = {
   "/asistente": "ASISTENTE",
   "/almacen":   "ALMACENISTA",
   "/paciente":  "PACIENTE",
+  "/chofer":    "CHOFER",
 };
 
 function noStore(res: NextResponse) {

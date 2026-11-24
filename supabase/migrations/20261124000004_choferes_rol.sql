@@ -1,0 +1,12 @@
+-- Fase 3 del bot de venta de productos (sistema de choferes y entregas,
+-- ver Fase 2 en pomada_pedidos): se agrega el rol CHOFER al mismo enum
+-- "user_role" que ya usan MASTER/TERAPEUTA/ASISTENTE/ALMACENISTA/PACIENTE
+-- (ver profiles.roles), para que los choferes entren con el mismo
+-- sistema de celular + contrasena (aqui usada como PIN de 6 digitos)
+-- que ya usan los almacenistas -- no se crea un sistema de acceso aparte.
+--
+-- IMPORTANTE: un valor de enum agregado con ALTER TYPE ... ADD VALUE no
+-- se puede usar en la MISMA transaccion en la que se agrego -- por eso
+-- esta migracion no hace nada mas que esto (ninguna sucursal_pedido,
+-- insert, etc. que ya lo use).
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'CHOFER';

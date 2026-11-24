@@ -1,4 +1,4 @@
-export type Role = "MASTER" | "TERAPEUTA" | "ASISTENTE" | "ALMACENISTA" | "PACIENTE";
+export type Role = "MASTER" | "TERAPEUTA" | "ASISTENTE" | "ALMACENISTA" | "PACIENTE" | "CHOFER";
 
 export type AppointmentStatus =
   | "PENDIENTE"

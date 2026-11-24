@@ -10,6 +10,7 @@ const ROLE_LABELS: Record<Role, string> = {
   ASISTENTE: "Asistente",
   ALMACENISTA: "Almacenista",
   PACIENTE: "Paciente",
+  CHOFER: "Chofer",
 };
 
 const ROLE_DESCRIPTIONS: Record<Role, string> = {
@@ -18,6 +19,7 @@ const ROLE_DESCRIPTIONS: Record<Role, string> = {
   ASISTENTE: "Gestión de citas en todas las sucursales",
   ALMACENISTA: "Control de inventario y almacén",
   PACIENTE: "Ver y gestionar mis citas",
+  CHOFER: "Entregas del día",
 };
 
 interface Props {
