@@ -14,6 +14,7 @@ const NAV = [
   { href: "/master/terapeutas", label: "Terapeutas",     icon: "🧑‍⚕️" },
   { href: "/master/almacenistas", label: "Almacen",      icon: "📦" },
   { href: "/master/choferes",     label: "Choferes",     icon: "🚚" },
+  { href: "/master/rutas",        label: "Rutas",        icon: "🗺️" },
   { href: "/master/configuracion", label: "Configuracion", icon: "⚙️" },
   { href: "/master/whatsapp-citas",    label: "WhatsApp Citas",  icon: "💬" },
   { href: "/master/asistente-whatsapp", label: "Asistente WhatsApp", icon: "🤖" },
