@@ -25,16 +25,18 @@ export async function PATCH(request: NextRequest) {
     chat_perfil_nombre?: string;
     chat_perfil_foto?: string | null;
     anuncio_facebook_url?: string | null;
+    catalogo_como_libro?: boolean;
   };
   const slug = body.bot ?? "consultas";
   if (!esBotSlugValido(slug)) {
     return NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
   }
 
-  const patch: Record<string, string | null> = {};
+  const patch: Record<string, string | null | boolean> = {};
   if (body.chat_perfil_nombre !== undefined) patch.chat_perfil_nombre = body.chat_perfil_nombre;
   if (body.chat_perfil_foto !== undefined) patch.chat_perfil_foto = body.chat_perfil_foto;
   if (body.anuncio_facebook_url !== undefined) patch.anuncio_facebook_url = body.anuncio_facebook_url;
+  if (body.catalogo_como_libro !== undefined) patch.catalogo_como_libro = body.catalogo_como_libro;
 
   const admin = createAdminClient();
   const { error: dbErr } = await admin.from("whatsapp_bots").update(patch).eq("slug", slug);

@@ -362,17 +362,34 @@ export function ProductosPanel({ bot }: { bot: BotSlug }) {
   const [pagoContraEntrega, setPagoContraEntrega] = useState(true);
   const [error, setError] = useState("");
   const [creando, setCreando] = useState(false);
+  const [catalogoComoLibro, setCatalogoComoLibro] = useState(true);
+  const [guardandoEstilo, setGuardandoEstilo] = useState(false);
 
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
       const res = await fetch(`/api/master/productos?bot=${bot}`);
-      const data = (await res.json()) as { productos: Producto[] };
+      const data = (await res.json()) as { productos: Producto[]; catalogoComoLibro?: boolean };
       setProductos(data.productos ?? []);
+      setCatalogoComoLibro(data.catalogoComoLibro ?? true);
     } finally {
       setCargando(false);
     }
   }, [bot]);
+
+  async function cambiarEstiloCatalogo(comoLibro: boolean) {
+    setCatalogoComoLibro(comoLibro);
+    setGuardandoEstilo(true);
+    try {
+      await fetch("/api/master/bot-demo/perfil", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bot, catalogo_como_libro: comoLibro }),
+      });
+    } finally {
+      setGuardandoEstilo(false);
+    }
+  }
 
   useEffect(() => {
     cargar();
@@ -429,6 +446,42 @@ export function ProductosPanel({ bot }: { bot: BotSlug }) {
 
   return (
     <div className="space-y-6">
+      <div className="rounded-2xl bg-white border border-gray-200 p-5 space-y-3">
+        <h2 className="text-sm font-semibold text-gray-700">Cómo se ve el catálogo en el chat</h2>
+        <p className="text-xs text-gray-500">
+          Puedes elegir si el catálogo se muestra como una revista que se voltea página por página, o más sencillo:
+          nada más la foto, el nombre, el precio y los botones, uno debajo del otro.
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => cambiarEstiloCatalogo(true)}
+            disabled={guardandoEstilo}
+            className={`flex-1 rounded-xl border px-4 py-3 text-left text-sm transition disabled:opacity-60 ${
+              catalogoComoLibro
+                ? "border-emerald-500 bg-emerald-50 text-emerald-800 font-semibold"
+                : "border-gray-200 text-gray-600"
+            }`}
+          >
+            📖 Como libro
+            <span className="block text-xs font-normal mt-0.5 opacity-80">Se voltean las páginas</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => cambiarEstiloCatalogo(false)}
+            disabled={guardandoEstilo}
+            className={`flex-1 rounded-xl border px-4 py-3 text-left text-sm transition disabled:opacity-60 ${
+              !catalogoComoLibro
+                ? "border-emerald-500 bg-emerald-50 text-emerald-800 font-semibold"
+                : "border-gray-200 text-gray-600"
+            }`}
+          >
+            🖼️ Solo imagen
+            <span className="block text-xs font-normal mt-0.5 opacity-80">Foto, nombre, precio y botones</span>
+          </button>
+        </div>
+      </div>
+
       <form onSubmit={crear} className="rounded-2xl bg-white border border-gray-200 p-5 space-y-3">
         <h2 className="text-sm font-semibold text-gray-700">Agregar producto</h2>
         <input

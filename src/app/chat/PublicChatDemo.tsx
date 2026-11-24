@@ -48,6 +48,10 @@ interface MensajeUI {
   // esto -- se ve como la tarjeta de la revista, no como una burbuja
   // de texto normal (ver RevistaChatCard).
   catalogo?: ProductoRevista[];
+  // "como libro" (se voltean paginas) o "solo imagen" (foto + nombre +
+  // precio + botones, uno debajo del otro) -- switch de Vic en Master
+  // -> Productos (ver ProductosPanel.tsx).
+  catalogoComoLibro?: boolean;
 }
 
 // Datos para mandar la ubicacion actual de la cita a domicilio que se
@@ -643,7 +647,7 @@ export function PublicChatDemo({
       // mensaje aparte, despues del texto de arriba ("¡Claro! Aquí
       // tienes nuestro catálogo 👇").
       if (data.mostrarCatalogo && Array.isArray(data.productos) && data.productos.length > 0) {
-        setMensajes((prev) => [...prev, { id: siguienteId++, rol: "bot", texto: "", catalogo: data.productos }]);
+        setMensajes((prev) => [...prev, { id: siguienteId++, rol: "bot", texto: "", catalogo: data.productos, catalogoComoLibro: data.catalogoComoLibro }]);
       }
       // Si no hay ni serie de bienvenida ni respuesta ni audio (bot sin
       // saludo configurado todavia), no se agrega ninguna burbuja vacia.
@@ -709,7 +713,7 @@ export function PublicChatDemo({
         ]);
       }
       if (data.mostrarCatalogo && Array.isArray(data.productos) && data.productos.length > 0) {
-        setMensajes((prev) => [...prev, { id: siguienteId++, rol: "bot", texto: "", catalogo: data.productos }]);
+        setMensajes((prev) => [...prev, { id: siguienteId++, rol: "bot", texto: "", catalogo: data.productos, catalogoComoLibro: data.catalogoComoLibro }]);
       }
     } finally {
       setEnviando(false);
@@ -985,7 +989,7 @@ export function PublicChatDemo({
         )}
         {mensajes.map((m) =>
           m.catalogo ? (
-            <RevistaChatCard key={m.id} productos={m.catalogo} />
+            <RevistaChatCard key={m.id} productos={m.catalogo} comoLibro={m.catalogoComoLibro ?? true} />
           ) : m.videoUrl ? (
             // El video de bienvenida se ve grande, del ancho de todo
             // el chat -- no como una cajita chica igual que el audio o

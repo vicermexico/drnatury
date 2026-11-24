@@ -30,7 +30,16 @@ function formatoPrecio(n: number) {
 // aparecer se vea como si cubriera la pantalla, y luego se anima nada
 // mas el "transform" de regreso a su tamano real, sin mover el resto
 // del chat ni romper el scroll).
-export function RevistaChatCard({ productos }: { productos: ProductoRevista[] }) {
+export function RevistaChatCard({
+  productos,
+  comoLibro = true,
+}: {
+  productos: ProductoRevista[];
+  // false = modo "solo imagen" que pidio Vic: nada mas la foto, el
+  // nombre, el precio y los botones, uno debajo del otro, sin libro
+  // que se voltea (switch en Master -> Productos).
+  comoLibro?: boolean;
+}) {
   const marcoRef = useRef<HTMLDivElement>(null);
   const libroRef = useRef<HTMLDivElement>(null);
   const contenedorRef = useRef<HTMLDivElement>(null);
@@ -89,7 +98,10 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
   }, []);
 
   useEffect(() => {
-    if (productos.length === 0 || !libroRef.current) return;
+    // El libro que se voltea solo aplica en modo "como libro" -- en
+    // modo "solo imagen" ni siquiera se monta el div del libro (ver
+    // JSX mas abajo), asi que aqui no hay nada que hacer.
+    if (!comoLibro || productos.length === 0 || !libroRef.current) return;
     let destruido = false;
     let instancia: PageFlipInstancia | null = null;
 
@@ -149,9 +161,10 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
       destruido = true;
       instancia?.destroy();
     };
-  }, [productos]);
+  }, [productos, comoLibro]);
 
   useEffect(() => {
+    if (!comoLibro) return;
     const libroEl = libroRef.current;
     if (!libroEl) return;
     function onClick(e: MouseEvent) {
@@ -165,7 +178,7 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
     }
     libroEl.addEventListener("click", onClick);
     return () => libroEl.removeEventListener("click", onClick);
-  }, [productos]);
+  }, [productos, comoLibro]);
 
   // Comparte nombre + precio + descripcion y, cuando el navegador lo
   // permite (Web Share API nivel 2, la mayoria de los Android), tambien
@@ -208,16 +221,49 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
 
   return (
     <div ref={contenedorRef} className="revista-chat-contenedor">
-      <div className="revista-marco" ref={marcoRef}>
-        <div className="revista-lomo" />
-        <div ref={libroRef} />
-        <div className="revista-canto-der" />
-      </div>
-      <div className="revista-indicadores">
-        {productos.map((p, i) => (
-          <span key={p.id} className={i === pagActiva ? "activo" : ""} />
-        ))}
-      </div>
+      {comoLibro ? (
+        <>
+          <div className="revista-marco" ref={marcoRef}>
+            <div className="revista-lomo" />
+            <div ref={libroRef} />
+            <div className="revista-canto-der" />
+          </div>
+          <div className="revista-indicadores">
+            {productos.map((p, i) => (
+              <span key={p.id} className={i === pagActiva ? "activo" : ""} />
+            ))}
+          </div>
+        </>
+      ) : (
+        // Modo "solo imagen": nada de libro que se voltea -- cada
+        // producto es una tarjeta sencilla, una debajo de otra.
+        <div className="revista-simple-lista">
+          {productos.map((p) => (
+            <div className="revista-simple-tarjeta" key={p.id}>
+              <div className="revista-simple-foto">
+                {p.fotos[0] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.fotos[0].url} alt="" />
+                ) : (
+                  <span>🧴</span>
+                )}
+              </div>
+              <div className="revista-info">
+                <p className="revista-nombre">{p.nombre}</p>
+                <p className="revista-precio">{formatoPrecio(p.precio)}</p>
+                <div className="revista-botones">
+                  <button type="button" className="revista-btn-ver" onClick={() => setDetalle(p)}>
+                    Ver más
+                  </button>
+                  <button type="button" className="revista-btn-compartir" onClick={() => compartir(p)}>
+                    📤 Compartir
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* El modal se manda por portal directo al <body> -- si se deja
           anidado dentro de la tarjeta, cualquier "transform" que le
@@ -383,6 +429,32 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
         }
         .revista-indicadores span.activo {
           background: #3fae6b;
+        }
+        .revista-simple-lista {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          width: 100%;
+        }
+        .revista-simple-tarjeta {
+          background: #fbf9f4;
+          border-radius: 14px;
+          overflow: hidden;
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+        .revista-simple-foto {
+          height: 200px;
+          background: #e9e4d8;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 4rem;
+        }
+        .revista-simple-foto img {
+          width: 86%;
+          height: 86%;
+          object-fit: contain;
+          filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.22));
         }
         .revista-modal {
           position: fixed;

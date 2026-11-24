@@ -17,14 +17,17 @@ export async function GET(request: NextRequest) {
   const admin = createAdminClient();
   const botId = await obtenerBotIdPorSlug(admin, bot);
 
-  const { data, error: dbErr } = await admin
-    .from("productos")
-    .select(
-      "id, nombre, descripcion, precio, envio_tipo, envio_costo, pago_contra_entrega, created_at, producto_fotos(id, url, orden)"
-    )
-    .eq("bot_id", botId)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false });
+  const [{ data, error: dbErr }, { data: botRow }] = await Promise.all([
+    admin
+      .from("productos")
+      .select(
+        "id, nombre, descripcion, precio, envio_tipo, envio_costo, pago_contra_entrega, created_at, producto_fotos(id, url, orden)"
+      )
+      .eq("bot_id", botId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false }),
+    admin.from("whatsapp_bots").select("catalogo_como_libro").eq("id", botId).maybeSingle(),
+  ]);
 
   if (dbErr) return NextResponse.json({ error: "DB_ERROR", message: dbErr.message }, { status: 500 });
 
@@ -51,7 +54,7 @@ export async function GET(request: NextRequest) {
     fotos: [...p.producto_fotos].sort((a, b) => a.orden - b.orden).map((f) => ({ id: f.id, url: f.url })),
   }));
 
-  return NextResponse.json({ productos });
+  return NextResponse.json({ productos, catalogoComoLibro: botRow?.catalogo_como_libro ?? true });
 }
 
 // POST: da de alta un producto nuevo (sin fotos todavia -- esas se
