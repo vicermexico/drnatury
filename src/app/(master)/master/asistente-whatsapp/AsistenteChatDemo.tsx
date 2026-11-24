@@ -32,7 +32,15 @@ function esperar(ms: number) {
 
 let siguienteId = 1;
 
-export function AsistenteChatDemo({ bot }: { bot: string }) {
+export function AsistenteChatDemo({
+  bot,
+  mensajeInicialAnuncio = MENSAJE_INICIAL_ANUNCIO,
+}: {
+  bot: string;
+  // El mismo que edita Vic en Master -> Perfil del chat (ver
+  // ChatPerfilEditor.tsx) -- si no se manda, se usa el de siempre.
+  mensajeInicialAnuncio?: string;
+}) {
   const [mensajes, setMensajes] = useState<MensajeUI[]>([]);
   const [estado, setEstado] = useState<EstadoAgendado>(ESTADO_INICIAL);
   const [input, setInput] = useState("");
@@ -52,7 +60,7 @@ export function AsistenteChatDemo({ bot }: { bot: string }) {
   // al anuncio -- asi Master ve desde el primer momento exactamente lo
   // mismo que veria un paciente, sin tener que escribirlo el mismo.
   useEffect(() => {
-    enviarMensaje(MENSAJE_INICIAL_ANUNCIO, ESTADO_INICIAL);
+    enviarMensaje(mensajeInicialAnuncio, ESTADO_INICIAL);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -136,7 +144,7 @@ export function AsistenteChatDemo({ bot }: { bot: string }) {
     // pasa el estado de arranque de una vez (ver nota en enviarMensaje)
     // para no mandarlo con el estado de la conversacion que se acaba
     // de borrar.
-    enviarMensaje(MENSAJE_INICIAL_ANUNCIO, ESTADO_INICIAL);
+    enviarMensaje(mensajeInicialAnuncio, ESTADO_INICIAL);
   }
 
   function abrirCorreccion(m: MensajeUI) {

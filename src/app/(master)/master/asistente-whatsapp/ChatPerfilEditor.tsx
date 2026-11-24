@@ -13,6 +13,7 @@ interface Props {
   nombreInicial: string;
   fotoInicial: string | null;
   facebookUrlInicial: string | null;
+  mensajeInicialAnuncioInicial: string;
 }
 
 type Status = "idle" | "loading" | "ok" | "error";
@@ -56,19 +57,29 @@ function Lapiz({ onClick, title }: { onClick: () => void; title: string }) {
   );
 }
 
-export function ChatPerfilEditor({ bot, nombreInicial, fotoInicial, facebookUrlInicial }: Props) {
+export function ChatPerfilEditor({
+  bot,
+  nombreInicial,
+  fotoInicial,
+  facebookUrlInicial,
+  mensajeInicialAnuncioInicial,
+}: Props) {
   const [nombre, setNombre] = useState(nombreInicial);
   const [foto, setFoto] = useState<string | null>(fotoInicial);
   const [facebookUrl, setFacebookUrl] = useState<string | null>(facebookUrlInicial);
+  const [mensajeInicialAnuncio, setMensajeInicialAnuncio] = useState(mensajeInicialAnuncioInicial);
 
   const [editandoNombre, setEditandoNombre] = useState(false);
   const [borradorNombre, setBorradorNombre] = useState(nombreInicial);
   const [editandoFacebook, setEditandoFacebook] = useState(false);
   const [borradorFacebook, setBorradorFacebook] = useState(facebookUrlInicial ?? "");
+  const [editandoMensajeInicial, setEditandoMensajeInicial] = useState(false);
+  const [borradorMensajeInicial, setBorradorMensajeInicial] = useState(mensajeInicialAnuncioInicial);
 
   const [statusNombre, setStatusNombre] = useState<Status>("idle");
   const [statusFoto, setStatusFoto] = useState<Status>("idle");
   const [statusFacebook, setStatusFacebook] = useState<Status>("idle");
+  const [statusMensajeInicial, setStatusMensajeInicial] = useState<Status>("idle");
 
   const inputFotoRef = useRef<HTMLInputElement>(null);
 
@@ -95,6 +106,19 @@ export function ChatPerfilEditor({ bot, nombreInicial, fotoInicial, facebookUrlI
       setStatusFacebook("ok");
     } else {
       setStatusFacebook("error");
+    }
+  }
+
+  async function guardarMensajeInicial() {
+    const valor = borradorMensajeInicial.trim() || "¡Hola! ¿Podrían darme más información?";
+    setStatusMensajeInicial("loading");
+    const ok = await guardarConfig(bot, { mensaje_inicial_anuncio: valor });
+    if (ok) {
+      setMensajeInicialAnuncio(valor);
+      setEditandoMensajeInicial(false);
+      setStatusMensajeInicial("ok");
+    } else {
+      setStatusMensajeInicial("error");
     }
   }
 
@@ -263,6 +287,46 @@ export function ChatPerfilEditor({ bot, nombreInicial, fotoInicial, facebookUrlI
 
           <div className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-500">
             📲 Escribir por WhatsApp <span className="text-[10px] text-gray-400">(fijo, no se edita aquí)</span>
+          </div>
+
+          <div className="pt-2">
+            <p className="text-xs font-medium text-gray-500 mb-1.5">
+              Mensaje que se manda solo cuando alguien entra desde tu anuncio de Facebook/Instagram
+            </p>
+            {!editandoMensajeInicial ? (
+              <div className="flex items-start gap-2 rounded-xl border border-gray-200 px-4 py-2.5">
+                <p className="flex-1 min-w-0 text-sm text-gray-800">{mensajeInicialAnuncio}</p>
+                <Lapiz
+                  title="Cambiar mensaje inicial del anuncio"
+                  onClick={() => {
+                    setBorradorMensajeInicial(mensajeInicialAnuncio);
+                    setEditandoMensajeInicial(true);
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 space-y-2">
+                <textarea
+                  value={borradorMensajeInicial}
+                  onChange={(e) => setBorradorMensajeInicial(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-sm resize-none"
+                  autoFocus
+                />
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setEditandoMensajeInicial(false)} className="text-xs px-2 py-1 text-gray-500">
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={guardarMensajeInicial}
+                    disabled={statusMensajeInicial === "loading"}
+                    className="text-xs px-3 py-1 rounded-lg bg-blue-600 text-white disabled:opacity-60"
+                  >
+                    {statusMensajeInicial === "loading" ? "Guardando..." : "Guardar"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -26,6 +26,7 @@ export async function PATCH(request: NextRequest) {
     chat_perfil_foto?: string | null;
     anuncio_facebook_url?: string | null;
     catalogo_como_libro?: boolean;
+    mensaje_inicial_anuncio?: string;
   };
   const slug = body.bot ?? "consultas";
   if (!esBotSlugValido(slug)) {
@@ -37,6 +38,9 @@ export async function PATCH(request: NextRequest) {
   if (body.chat_perfil_foto !== undefined) patch.chat_perfil_foto = body.chat_perfil_foto;
   if (body.anuncio_facebook_url !== undefined) patch.anuncio_facebook_url = body.anuncio_facebook_url;
   if (body.catalogo_como_libro !== undefined) patch.catalogo_como_libro = body.catalogo_como_libro;
+  if (body.mensaje_inicial_anuncio !== undefined) {
+    patch.mensaje_inicial_anuncio = body.mensaje_inicial_anuncio.trim() || "¡Hola! ¿Podrían darme más información?";
+  }
 
   const admin = createAdminClient();
   const { error: dbErr } = await admin.from("whatsapp_bots").update(patch).eq("slug", slug);
