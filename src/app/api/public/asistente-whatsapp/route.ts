@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { generarRespuesta, ESTADO_INICIAL, type EstadoAgendado, type Correccion, type Anuncio, type Ubicacion } from "@/lib/whatsapp-bot/engine";
+import { generarRespuesta, ESTADO_INICIAL, normalizar, esRespuestaNegativaAgendar, type EstadoAgendado, type Correccion, type Anuncio, type Ubicacion } from "@/lib/whatsapp-bot/engine";
 import { obtenerSerieBienvenida } from "@/lib/whatsapp-bot/bienvenida";
 import { crearCitaRapida } from "@/lib/appointments/quickBook";
 import { generateConfirmToken } from "@/lib/appointments/tokens";
@@ -68,10 +68,14 @@ export async function POST(request: NextRequest) {
       // nivel de recordatorio a 0, para que si ya se le habian mandado
       // uno o varios avisos antes y volvio a escribir, se le puedan
       // volver a mandar los 3 desde el principio si se vuelve a quedar
-      // callado.
+      // callado. PERO si lo que contesto fue un "no" a que si quiere
+      // agendar (ej. despues del aviso de las 2 horas), no tiene caso
+      // seguirle insistiendo con el ultimo aviso del dia siguiente -- se
+      // deja en nivel 3 (ya se mandaron todos) para cancelarlo de una vez.
+      const nivelRecordatorio = esRespuestaNegativaAgendar(normalizar(mensaje)) ? 3 : 0;
       await admin
         .from("chat_leads")
-        .update({ updated_at: new Date().toISOString(), recordatorio_enviado_at: null, recordatorio_nivel: 0 })
+        .update({ updated_at: new Date().toISOString(), recordatorio_enviado_at: null, recordatorio_nivel: nivelRecordatorio })
         .eq("id", conversacionId);
     } catch (err) {
       console.error("Error registrando el chat_lead:", err);

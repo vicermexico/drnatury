@@ -33,7 +33,7 @@ import { enviarPushDirecto, notificarSeguimientoPendiente } from "@/lib/push/sen
 // pendiente"), para que el mismo pueda darle seguimiento por WhatsApp.
 const NIVELES: { minutos: number; texto: (ultimoBot: string) => string }[] = [
   { minutos: 2, texto: (ultimoBot) => ultimoBot || "¿Seguimos con su cita?" },
-  { minutos: 120, texto: () => "¿Le gustaría agendar su cita?" },
+  { minutos: 120, texto: () => "Estamos en espera de su respuesta, ¿le gustaría agendar su cita?" },
   { minutos: 60 * 24, texto: () => "Estamos pendientes con su cita, ¿gusta retomarla?" },
 ];
 
