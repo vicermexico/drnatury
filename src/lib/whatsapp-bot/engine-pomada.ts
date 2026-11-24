@@ -336,30 +336,50 @@ const QUEJA_TIEMPO_KEYWORDS = [
 // revista. Va ANTES que todo lo demas (ver generarRespuestaPomada) para
 // que no se confunda con una pregunta sobre la pomada, pero nunca
 // interrumpe un pedido ya empezado (fase "pidiendo").
+// Frases que de por si ya dicen "catalogo", sin necesidad de que
+// aparezca la palabra "producto" (ej. "ver la revista", "catalogo").
 const CATALOGO_KEYWORDS = [
   "catalogo",
   "catálogo",
-  "que productos tienen",
-  "que productos manejan",
-  "que productos venden",
-  "que otros productos",
-  "otros productos",
-  "mas productos",
-  "más productos",
-  "que mas venden",
-  "que más venden",
-  "que mas tienen",
-  "que más tienen",
-  "que vendes",
-  "que venden",
-  "ver productos",
-  "ver el catalogo",
-  "ver catalogo",
-  "mostrar catalogo",
-  "mostrar el catalogo",
   "ver la revista",
   "revista",
 ];
+
+// Para el resto de las formas de preguntar ("que productos tienes",
+// "que productos manejan", "que otros productos hay", etc.) en vez de
+// listar frase por frase (facil que falte una variante, como paso con
+// "tienes" vs "tienen"), se checa que el mensaje mencione "producto(s)"
+// Y ademas tenga alguna palabra de pregunta/cantidad -- cubre tu/usted,
+// singular/plural y mucho mas variantes con menos codigo.
+const CATALOGO_PALABRAS_INTENCION = [
+  "que",
+  "cual",
+  "cuales",
+  "tiene",
+  "tienes",
+  "tienen",
+  "manejan",
+  "manejas",
+  "maneja",
+  "venden",
+  "vendes",
+  "vende",
+  "hay",
+  "mas",
+  "más",
+  "otro",
+  "otros",
+  "otra",
+  "otras",
+  "ver",
+  "mostrar",
+];
+
+function pareceCatalogo(normalizado: string): boolean {
+  if (contieneAlguna(normalizado, CATALOGO_KEYWORDS)) return true;
+  if (!normalizado.includes("producto")) return false;
+  return CATALOGO_PALABRAS_INTENCION.some((p) => normalizado.includes(p));
+}
 
 function mostrarCatalogo(): ResultadoRespuestaPomada {
   return {
@@ -672,7 +692,7 @@ export async function generarRespuestaPomada(args: {
   // le sigue el paso que haga falta como siempre, para no dejarlo a
   // medias.
   let resultado =
-    estadoConCelular.fase !== "pidiendo" && contieneAlguna(normalizado, CATALOGO_KEYWORDS)
+    estadoConCelular.fase !== "pidiendo" && pareceCatalogo(normalizado)
       ? mostrarCatalogo()
       : calcularRespuestaBase(mensaje, normalizado, estadoConCelular, canalPublico, anuncios, bienvenida);
 
