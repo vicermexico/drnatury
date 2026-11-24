@@ -82,16 +82,27 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
         const foto = p.fotos[0]?.url;
         const pagina = document.createElement("div");
         pagina.className = "revista-pagina";
+        // OJO: la libreria page-flip no envuelve esta tarjeta en otro
+        // contenedor -- este MISMO div es al que luego le pone sus
+        // propios estilos inline (position: absolute; display: block;
+        // height/width fijos) para animarlo, y un estilo inline siempre
+        // le gana a cualquier regla de CSS, asi que poner aqui mismo
+        // "display: flex" en el CSS no sirve de nada (por eso se
+        // recortaban los botones). La solucion es un wrapper de adentro
+        // (revista-contenido) que si puede ser flex/overflow:hidden sin
+        // que la libreria lo toque.
         pagina.innerHTML = `
-          <div class="revista-foto">${
-            foto ? `<img src="${foto}" alt="" />` : `<span class="revista-foto-vacia">🧴</span>`
-          }</div>
-          <div class="revista-info">
-            <p class="revista-nombre">${p.nombre}</p>
-            <p class="revista-precio">${formatoPrecio(p.precio)}</p>
-            <div class="revista-botones">
-              <button type="button" class="revista-btn-ver" data-i="${i}">Ver más</button>
-              <button type="button" class="revista-btn-compartir" data-i="${i}">📤 Compartir</button>
+          <div class="revista-contenido">
+            <div class="revista-foto">${
+              foto ? `<img src="${foto}" alt="" />` : `<span class="revista-foto-vacia">🧴</span>`
+            }</div>
+            <div class="revista-info">
+              <p class="revista-nombre">${p.nombre}</p>
+              <p class="revista-precio">${formatoPrecio(p.precio)}</p>
+              <div class="revista-botones">
+                <button type="button" class="revista-btn-ver" data-i="${i}">Ver más</button>
+                <button type="button" class="revista-btn-compartir" data-i="${i}">📤 Compartir</button>
+              </div>
             </div>
           </div>
         `;
@@ -265,9 +276,11 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
           z-index: 1;
         }
         .revista-pagina {
-          position: relative;
           background: #fbf9f4;
           color: #241f18;
+        }
+        .revista-contenido {
+          position: relative;
           display: flex;
           flex-direction: column;
           height: 100%;
