@@ -191,8 +191,9 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
           flex-direction: column;
           align-items: center;
           padding: 18px 8px 14px;
-          background: radial-gradient(circle at 50% 0%, #16231b, #0e1410 60%);
+          background: #ffffff;
           border-radius: 18px;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
           will-change: transform;
         }
         .revista-marco {
@@ -303,7 +304,7 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: rgba(255, 255, 255, 0.25);
+          background: rgba(0, 0, 0, 0.15);
         }
         .revista-indicadores span.activo {
           background: #3fae6b;
