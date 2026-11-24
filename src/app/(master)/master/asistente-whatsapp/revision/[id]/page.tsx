@@ -23,7 +23,7 @@ export default async function RevisionConversacionPage({
 
   // Se trae tambien a que bot pertenece esta conversacion (ver Fase 1
   // del bot de venta de productos) -- para armar el link de regreso
-  // correcto (/chat o /barak-plus, segun de cual haya sido) y para que
+  // correcto (/chat o /barak-flex, segun de cual haya sido) y para que
   // "← Revisar mensajes no cerrados" regrese a la lista del bot
   // correcto. Si el visitante dejo su celular durante la platica (ver
   // estado.celular en engine.ts) pero no activo su propia notificacion,

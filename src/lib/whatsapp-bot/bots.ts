@@ -8,7 +8,7 @@ import type { createAdminClient } from "@/lib/supabase/admin";
 // entre si (ver tabla whatsapp_bots y migracion
 // whatsapp_bots_fase1). Por ahora son dos: "consultas" (el que ya
 // existia, para agendar citas) y "pomada" (nuevo, para vender la
-// Pomada Barak Plus) -- el slug de cada uno es fijo en el codigo (se
+// Pomada Barak Flex) -- el slug de cada uno es fijo en el codigo (se
 // usa para armar las rutas del panel y los links publicos), pero el
 // NOMBRE que ve Master en los botones si se puede editar (columna
 // "nombre" en whatsapp_bots).
@@ -19,12 +19,12 @@ export function esBotSlugValido(valor: unknown): valor is BotSlug {
   return typeof valor === "string" && (BOT_SLUGS as readonly string[]).includes(valor);
 }
 
-// A que link publico manda cada bot (ver /chat y /barak-plus) -- se usa
+// A que link publico manda cada bot (ver /chat y /barak-flex) -- se usa
 // por ejemplo para armar el link de "Mandar por WhatsApp" en la
 // revision de una conversacion, segun de que bot haya sido.
 export const BOT_LINK_PUBLICO: Record<BotSlug, string> = {
   consultas: "https://www.drnatury.com/chat",
-  pomada: "https://www.drnatury.com/barak-plus",
+  pomada: "https://www.drnatury.com/barak-flex",
 };
 
 export async function obtenerBotIdPorSlug(

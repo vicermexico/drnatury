@@ -1,13 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PublicChatDemo } from "../chat/PublicChatDemo";
 
-// Pagina publica (sin login) del bot de venta de Pomada Barak Plus --
+// Pagina publica (sin login) del bot de venta de Pomada Barak Flex --
 // chat totalmente aparte del de consultas (drnatury.com/chat), para el
 // trafico de la campaña de Facebook/Instagram de la pomada (ver Fase 1
 // del bot de venta de productos). Mismo componente de chat que /chat,
 // nomas que aqui se le manda el bot "pomada" para que conteste con su
 // propia bienvenida, anuncios, correcciones y ubicaciones.
-export default async function BarakPlusPage() {
+export default async function BarakFlexPage() {
   const admin = createAdminClient();
   const { data: config } = await admin
     .from("whatsapp_bots")
@@ -20,7 +20,7 @@ export default async function BarakPlusPage() {
       <div className="w-full max-w-md h-full flex flex-col">
         <PublicChatDemo
           bot="pomada"
-          perfilNombre={config?.chat_perfil_nombre || "Pomada Barak Plus"}
+          perfilNombre={config?.chat_perfil_nombre || "Pomada Barak Flex"}
           perfilFoto={config?.chat_perfil_foto ?? null}
           facebookUrl={config?.anuncio_facebook_url ?? null}
         />

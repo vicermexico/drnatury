@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient();
   // Desde la Fase 1 del bot de venta de productos puede haber mas de un
   // bot (ver src/lib/whatsapp-bot/bots.ts) -- "bot" dice de cual chat
-  // publico viene este mensaje (/chat = "consultas", /barak-plus =
+  // publico viene este mensaje (/chat = "consultas", /barak-flex =
   // "pomada"), para usar nada mas sus propios datos y para que la
   // conversacion quede guardada bajo el bot correcto.
   const botId = await obtenerBotIdPorSlug(admin, body.bot ?? "consultas");
