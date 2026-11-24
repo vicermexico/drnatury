@@ -131,13 +131,18 @@ function respuestaPrecio(): string {
   );
 }
 
+// Respuesta para CUALQUIER dolor/molestia que pregunten (no solo
+// ciática -- aplica igual para espalda, rodillas, cervicales, etc., ver
+// PARTES_CUERPO): nada mas el beneficio y los ingredientes. El precio,
+// el envío gratis y el pago contra entrega se dejan para cuando
+// pregunten el precio (ver respuestaPrecio) o ya quieran pedirla (ver
+// iniciarPedido) -- no se le avienta todo junto de entrada.
 function respuestaDolor(normalizado: string): string {
   const parte = detectarParteMencionada(normalizado);
   return (
     `¡Claro que sí! La Pomada Barak Flex le puede ayudar muchísimo${parte ? ` con ese dolor en ${parte}` : " con ese dolor"} 💪 ` +
     `Trae Glucosamina, Condroitina, Citrato de Magnesio, Clavo, Ajo Negro, Alcanfor y Mentol -- una combinación pensada ` +
-    `para aliviar músculos, articulaciones y contracturas. Cuesta $${PRECIO_UNITARIO} MXN, el envío es gratis y el pago es ` +
-    `contra entrega. ¿Le gustaría que le hagamos su pedido?`
+    `para aliviar músculos, articulaciones y contracturas. ¿Le gustaría saber más, o que le hagamos su pedido?`
   );
 }
 
