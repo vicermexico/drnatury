@@ -137,10 +137,13 @@ const ESTADO_INICIAL: EstadoAgendado = { fase: "inicio" };
 // bienvenida y va directo a la pregunta de consultorio/domicilio.
 const MENSAJE_INICIAL_AGENDAR = "Quisiera agendar mi cita";
 
-function obtenerMensajeInicial(): string {
-  if (typeof window === "undefined") return MENSAJE_INICIAL_ANUNCIO;
+// mensajeAnuncio: lo que Vic haya configurado para este bot en Master
+// -> Perfil del chat (mensaje_inicial_anuncio); si no ha configurado
+// nada todavia, se usa el de siempre (MENSAJE_INICIAL_ANUNCIO).
+function obtenerMensajeInicial(mensajeAnuncio: string): string {
+  if (typeof window === "undefined") return mensajeAnuncio;
   const params = new URLSearchParams(window.location.search);
-  return params.get("origen") === "inicio" ? MENSAJE_INICIAL_AGENDAR : MENSAJE_INICIAL_ANUNCIO;
+  return params.get("origen") === "inicio" ? MENSAJE_INICIAL_AGENDAR : mensajeAnuncio;
 }
 
 function obtenerOrigen(): "inicio" | "anuncio" {
@@ -325,6 +328,9 @@ interface PublicChatDemoProps {
   perfilNombre?: string;
   perfilFoto?: string | null;
   facebookUrl?: string | null;
+  // Mensaje editable en Master -> Perfil del chat (ver
+  // ChatPerfilEditor.tsx); si no se manda, se usa el de siempre.
+  mensajeInicialAnuncio?: string;
 }
 
 export function PublicChatDemo({
@@ -332,6 +338,7 @@ export function PublicChatDemo({
   perfilNombre = "DrNatury",
   perfilFoto = null,
   facebookUrl = null,
+  mensajeInicialAnuncio = MENSAJE_INICIAL_ANUNCIO,
 }: PublicChatDemoProps) {
   const [mensajes, setMensajes] = useState<MensajeUI[]>([]);
   const [estado, setEstado] = useState<EstadoAgendado>(ESTADO_INICIAL);
@@ -369,7 +376,7 @@ export function PublicChatDemo({
   // Se calcula una sola vez, al montar en el navegador: si viene del
   // boton "Agenda tu cita" de la pagina de inicio (?origen=inicio) o
   // del link normal de anuncio (sin ese query param).
-  const [mensajeInicial] = useState<string>(obtenerMensajeInicial);
+  const [mensajeInicial] = useState<string>(() => obtenerMensajeInicial(mensajeInicialAnuncio));
   const [origen] = useState<"inicio" | "anuncio">(obtenerOrigen);
   const [codigoAnuncio] = useState<string | null>(obtenerCodigoAnuncio);
   const [conversacionId, setConversacionId] = useState<string>(
