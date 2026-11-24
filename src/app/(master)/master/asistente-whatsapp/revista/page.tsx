@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { esBotSlugValido, botVendeProductos } from "@/lib/whatsapp-bot/bots";
 import { RevistaPanel } from "./RevistaPanel";
-import "./stPageFlip.css";
+import "@/styles/stPageFlip.css";
 
 // Pantalla "revista": muestra los productos reales de este bot como si
 // fueran paginas de una revista digital que se pueden voltear, con

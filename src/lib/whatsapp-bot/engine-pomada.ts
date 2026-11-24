@@ -53,6 +53,13 @@ export interface ResultadoRespuestaPomada {
   nota?: string;
   mensajesBienvenida?: BienvenidaItem[];
   pedido?: ResumenPedido;
+  // true cuando el cliente pidio ver el catalogo (ver CATALOGO_KEYWORDS
+  // mas abajo) -- la ruta publica (route.ts) rellena la lista real de
+  // productos antes de mandarsela al chat; aqui nada mas se marca la
+  // intencion. Por ahora el catalogo es solo para ver y compartir -- el
+  // pedido de verdad sigue siendo solo de la Pomada (Vic pidio dejar
+  // pendiente "pedir cualquier producto" hasta que suba mas productos).
+  mostrarCatalogo?: boolean;
 }
 
 // Precio fijo por pomada (dato que dio Vic) -- se puede pedir mas de
@@ -323,6 +330,44 @@ const QUEJA_TIEMPO_KEYWORDS = [
   "mas pronto",
   "lo quiero mas rapido",
 ];
+
+// Frases para cuando quieren ver el catalogo de productos (no nomas
+// preguntar el precio de la pomada) -- se manda el link/tarjeta de la
+// revista. Va ANTES que todo lo demas (ver generarRespuestaPomada) para
+// que no se confunda con una pregunta sobre la pomada, pero nunca
+// interrumpe un pedido ya empezado (fase "pidiendo").
+const CATALOGO_KEYWORDS = [
+  "catalogo",
+  "catálogo",
+  "que productos tienen",
+  "que productos manejan",
+  "que productos venden",
+  "que otros productos",
+  "otros productos",
+  "mas productos",
+  "más productos",
+  "que mas venden",
+  "que más venden",
+  "que mas tienen",
+  "que más tienen",
+  "que vendes",
+  "que venden",
+  "ver productos",
+  "ver el catalogo",
+  "ver catalogo",
+  "mostrar catalogo",
+  "mostrar el catalogo",
+  "ver la revista",
+  "revista",
+];
+
+function mostrarCatalogo(): ResultadoRespuestaPomada {
+  return {
+    respuesta: "¡Claro! Aquí tienes nuestro catálogo 👇",
+    nuevoEstado: { fase: "conversando" },
+    mostrarCatalogo: true,
+  };
+}
 
 const NUMEROS_TEXTO: Record<string, number> = {
   un: 1,
@@ -622,7 +667,14 @@ export async function generarRespuestaPomada(args: {
     }
   }
 
-  let resultado = calcularRespuestaBase(mensaje, normalizado, estadoConCelular, canalPublico, anuncios, bienvenida);
+  // El catalogo se puede pedir en cualquier momento de la platica, pero
+  // nunca a mitad de un pedido ya empezado (fase "pidiendo") -- ahi se
+  // le sigue el paso que haga falta como siempre, para no dejarlo a
+  // medias.
+  let resultado =
+    estadoConCelular.fase !== "pidiendo" && contieneAlguna(normalizado, CATALOGO_KEYWORDS)
+      ? mostrarCatalogo()
+      : calcularRespuestaBase(mensaje, normalizado, estadoConCelular, canalPublico, anuncios, bienvenida);
 
   // Si Master ya ensenio exactamente que contestar ante este mensaje, se
   // usa ese texto -- el paso/estado que ya se calculo arriba se respeta
