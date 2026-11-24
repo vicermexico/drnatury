@@ -87,10 +87,10 @@ export async function notificarApoyoConCliente(conversacionId: string, ultimoMen
 }
 
 // Cuando un visitante del chat publico se quedo a medias (ver CRON
-// /api/cron/recordatorio-chat) y NO activo su propia notificacion pero
-// si dejo su celular durante la platica, se le avisa a Master para que
-// le mande el link de regreso por WhatsApp a mano (ver boton "Mandar
-// por WhatsApp" en /master/asistente-whatsapp/revision/[id]).
+// /api/cron/recordatorio-chat), SIEMPRE se le avisa a Master tambien
+// -- haya activado o no sus propias notificaciones -- para que el
+// mismo pueda darle seguimiento por WhatsApp (ver boton "Mandar por
+// WhatsApp" en /master/asistente-whatsapp/revision/[id]).
 export async function notificarSeguimientoPendiente(conversacionId: string, ultimaPreguntaBot: string): Promise<void> {
   const tag = `[PUSH seguimiento-pendiente -> ${conversacionId}]`;
   try {

@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { enviarPushDirecto, notificarSeguimientoPendiente } from "@/lib/push/send";
-import type { EstadoAgendado } from "@/lib/whatsapp-bot/engine";
 
 // A diferencia de los otros CRON (reminders, low-stock) este NO lo
 // dispara Vercel -- Vercel en este plan solo deja correr un cron una
@@ -12,15 +11,31 @@ import type { EstadoAgendado } from "@/lib/whatsapp-bot/engine";
 //
 // Busca conversaciones del chat publico (/chat) que:
 //  - no se cerraron con cita (cerrada_con_cita = false)
-//  - lleven 3+ minutos sin que el visitante escriba (updated_at viejo)
-//  - todavia no se les mando el recordatorio (recordatorio_enviado_at null)
+//  - todavia no se les mando el ultimo de los 3 avisos (recordatorio_nivel < 3)
+//  - ya les toca el siguiente aviso segun cuanto llevan calladas
+//    (updated_at, que se reinicia cada vez que el visitante escribe)
 //
-// Y le repite al visitante LA MISMA pregunta que le hizo el bot, con un
-// link que lo regresa exactamente a esa conversacion -- si el visitante
-// no activo su propia notificacion pero si dejo su celular durante la
-// platica, en vez de avisarle a el se le avisa a Master (push
-// "Seguimiento pendiente") para que le mande el link por WhatsApp a mano.
-const LIMITE_MINUTOS = 3;
+// Se manda hasta 3 avisos por conversacion, cada vez mas espaciados:
+//  1) a los 2 minutos  -- se repite la misma pregunta que no contesto
+//     (la ultima que hizo el bot).
+//  2) a las 2 horas     -- "¿Le gustaría agendar su cita?"
+//  3) al dia siguiente  -- "Estamos pendientes con su cita, ¿gusta
+//     retomarla?"
+// Despues del tercero ya no se vuelve a insistir.
+//
+// Cada aviso se escribe TAMBIEN dentro del chat (chat_messages, como si
+// lo hubiera dicho el bot) para que si el visitante regresa por su
+// cuenta -- sin darle clic a la notificacion -- ya lo encuentre
+// esperandolo ahi. Si el visitante activo sus propias notificaciones
+// tambien se le manda el push directo a el. Y sin importar si se le
+// pudo avisar al visitante o no, a Master SIEMPRE se le avisa tambien
+// de que esa conversacion se quedo a medias (push "Seguimiento
+// pendiente"), para que el mismo pueda darle seguimiento por WhatsApp.
+const NIVELES: { minutos: number; texto: (ultimoBot: string) => string }[] = [
+  { minutos: 2, texto: (ultimoBot) => ultimoBot || "¿Seguimos con su cita?" },
+  { minutos: 120, texto: () => "¿Le gustaría agendar su cita?" },
+  { minutos: 60 * 24, texto: () => "Estamos pendientes con su cita, ¿gusta retomarla?" },
+];
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -29,14 +44,18 @@ export async function GET(request: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const corte = new Date(Date.now() - LIMITE_MINUTOS * 60 * 1000).toISOString();
+  // Trae candidatos con el corte del PRIMER nivel (el mas chico) -- el
+  // filtro exacto de cada renglon (segun en que nivel vaya) se hace
+  // abajo, uno por uno, porque cada conversacion puede estar esperando
+  // un tiempo distinto.
+  const corteMinimo = new Date(Date.now() - NIVELES[0].minutos * 60 * 1000).toISOString();
 
   const { data: leads, error } = await admin
     .from("chat_leads")
-    .select("id, estado, push_token")
+    .select("id, push_token, updated_at, recordatorio_nivel")
     .eq("cerrada_con_cita", false)
-    .is("recordatorio_enviado_at", null)
-    .lte("updated_at", corte);
+    .lt("recordatorio_nivel", NIVELES.length)
+    .lte("updated_at", corteMinimo);
 
   if (error) {
     console.error("[CRON recordatorio-chat] Error:", error.message);
@@ -46,10 +65,20 @@ export async function GET(request: NextRequest) {
   let revisados = 0;
   let avisadosVisitante = 0;
   let avisadosMaster = 0;
+  const ahoraMs = Date.now();
 
   for (const lead of leads ?? []) {
-    revisados++;
     const id = lead.id as string;
+    const nivelActual = (lead.recordatorio_nivel as number | null) ?? 0;
+    if (nivelActual >= NIVELES.length) continue;
+
+    const umbral = NIVELES[nivelActual];
+    const updatedAtMs = new Date(lead.updated_at as string).getTime();
+    // Todavia no le toca este nivel -- no lleva suficiente tiempo callada.
+    if (ahoraMs - updatedAtMs < umbral.minutos * 60 * 1000) continue;
+
+    revisados++;
+    const pushToken = lead.push_token as string | null;
 
     const { data: ultimoBot } = await admin
       .from("chat_messages")
@@ -60,29 +89,28 @@ export async function GET(request: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    const texto = (ultimoBot?.texto as string | undefined) || "¿Seguimos con su cita?";
-    const estado = lead.estado as EstadoAgendado | null;
-    const celular = estado?.celular;
-    const pushToken = lead.push_token as string | null;
+    const texto = umbral.texto((ultimoBot?.texto as string | undefined) ?? "");
 
     try {
+      // Se escribe en el chat para que, si el visitante regresa por su
+      // cuenta, lo vea ahi esperandolo.
+      await admin.from("chat_messages").insert({ lead_id: id, rol: "bot", texto });
+
       if (pushToken) {
         await enviarPushDirecto(pushToken, "DrNatury", texto, `/chat?retomar=${id}`);
         avisadosVisitante++;
-      } else if (celular) {
-        await notificarSeguimientoPendiente(id, texto);
-        avisadosMaster++;
       }
-      // Si no hay ni push_token ni celular no hay nada que hacer -- de
-      // todas formas se marca como revisado para no seguirlo intentando
-      // cada 1-2 minutos para siempre.
+      // Sin importar si se le pudo avisar al visitante, a Master
+      // siempre se le avisa tambien.
+      await notificarSeguimientoPendiente(id, texto);
+      avisadosMaster++;
     } catch (err) {
       console.error(`[CRON recordatorio-chat] Error avisando de ${id}:`, err);
     }
 
     await admin
       .from("chat_leads")
-      .update({ recordatorio_enviado_at: new Date().toISOString() })
+      .update({ recordatorio_enviado_at: new Date().toISOString(), recordatorio_nivel: nivelActual + 1 })
       .eq("id", id);
   }
 
