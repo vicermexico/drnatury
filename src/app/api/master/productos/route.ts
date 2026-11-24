@@ -19,7 +19,9 @@ export async function GET(request: NextRequest) {
 
   const { data, error: dbErr } = await admin
     .from("productos")
-    .select("id, nombre, descripcion, precio, created_at, producto_fotos(id, url, orden)")
+    .select(
+      "id, nombre, descripcion, precio, envio_tipo, envio_costo, pago_contra_entrega, created_at, producto_fotos(id, url, orden)"
+    )
     .eq("bot_id", botId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
@@ -31,6 +33,9 @@ export async function GET(request: NextRequest) {
     nombre: string;
     descripcion: string | null;
     precio: number;
+    envio_tipo: "gratis" | "costo";
+    envio_costo: number | null;
+    pago_contra_entrega: boolean;
     created_at: string;
     producto_fotos: { id: string; url: string; orden: number }[];
   };
@@ -39,6 +44,9 @@ export async function GET(request: NextRequest) {
     nombre: p.nombre,
     descripcion: p.descripcion,
     precio: p.precio,
+    envioTipo: p.envio_tipo,
+    envioCosto: p.envio_costo,
+    pagoContraEntrega: p.pago_contra_entrega,
     createdAt: p.created_at,
     fotos: [...p.producto_fotos].sort((a, b) => a.orden - b.orden).map((f) => ({ id: f.id, url: f.url })),
   }));
@@ -57,6 +65,9 @@ export async function POST(request: NextRequest) {
     nombre?: string;
     descripcion?: string;
     precio?: number;
+    envioTipo?: "gratis" | "costo";
+    envioCosto?: number;
+    pagoContraEntrega?: boolean;
   };
   if (!esBotSlugValido(body.bot)) {
     return NextResponse.json({ error: "MISSING_FIELDS", message: "Falta indicar el bot" }, { status: 400 });
@@ -69,14 +80,31 @@ export async function POST(request: NextRequest) {
   if (!Number.isFinite(precio) || precio < 0) {
     return NextResponse.json({ error: "INVALID_PRECIO", message: "El precio no es válido" }, { status: 400 });
   }
+  const envioTipo = body.envioTipo === "costo" ? "costo" : "gratis";
+  let envioCosto: number | null = null;
+  if (envioTipo === "costo") {
+    envioCosto = Number(body.envioCosto);
+    if (!Number.isFinite(envioCosto) || envioCosto < 0) {
+      return NextResponse.json({ error: "INVALID_ENVIO", message: "El costo de envío no es válido" }, { status: 400 });
+    }
+  }
+  const pagoContraEntrega = body.pagoContraEntrega !== false;
 
   const admin = createAdminClient();
   const botId = await obtenerBotIdPorSlug(admin, body.bot);
 
   const { data: producto, error: dbErr } = await admin
     .from("productos")
-    .insert({ bot_id: botId, nombre, descripcion: body.descripcion?.trim() || null, precio })
-    .select("id, nombre, descripcion, precio, created_at")
+    .insert({
+      bot_id: botId,
+      nombre,
+      descripcion: body.descripcion?.trim() || null,
+      precio,
+      envio_tipo: envioTipo,
+      envio_costo: envioCosto,
+      pago_contra_entrega: pagoContraEntrega,
+    })
+    .select("id, nombre, descripcion, precio, envio_tipo, envio_costo, pago_contra_entrega, created_at")
     .single();
 
   if (dbErr || !producto) {
@@ -89,6 +117,9 @@ export async function POST(request: NextRequest) {
       nombre: producto.nombre,
       descripcion: producto.descripcion,
       precio: producto.precio,
+      envioTipo: producto.envio_tipo,
+      envioCosto: producto.envio_costo,
+      pagoContraEntrega: producto.pago_contra_entrega,
       createdAt: producto.created_at,
       fotos: [],
     },

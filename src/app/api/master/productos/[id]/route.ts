@@ -15,6 +15,9 @@ export async function PATCH(
     nombre?: string;
     descripcion?: string;
     precio?: number;
+    envioTipo?: "gratis" | "costo";
+    envioCosto?: number | null;
+    pagoContraEntrega?: boolean;
   };
 
   const patch: Record<string, unknown> = {};
@@ -33,6 +36,19 @@ export async function PATCH(
     }
     patch.precio = precio;
   }
+  if (body.envioTipo !== undefined) {
+    patch.envio_tipo = body.envioTipo === "costo" ? "costo" : "gratis";
+    if (patch.envio_tipo === "costo") {
+      const envioCosto = Number(body.envioCosto);
+      if (!Number.isFinite(envioCosto) || envioCosto < 0) {
+        return NextResponse.json({ error: "INVALID_ENVIO", message: "El costo de envío no es válido" }, { status: 400 });
+      }
+      patch.envio_costo = envioCosto;
+    } else {
+      patch.envio_costo = null;
+    }
+  }
+  if (body.pagoContraEntrega !== undefined) patch.pago_contra_entrega = body.pagoContraEntrega;
 
   const admin = createAdminClient();
   const { error: dbErr } = await admin.from("productos").update(patch).eq("id", id);
