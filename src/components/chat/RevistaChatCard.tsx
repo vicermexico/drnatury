@@ -406,7 +406,7 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
         }
         .revista-foto-grande {
           height: 190px;
-          background: radial-gradient(circle at 50% 40%, #f3f0e8, #e2ddd0 75%);
+          background: #e9e4d8;
           display: flex;
           align-items: center;
           justify-content: center;
