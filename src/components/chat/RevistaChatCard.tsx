@@ -135,13 +135,41 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
     return () => libroEl.removeEventListener("click", onClick);
   }, [productos]);
 
-  function compartir(p: ProductoRevista) {
-    const texto = `Mira "${p.nombre}" -- ${formatoPrecio(p.precio)}`;
-    if (navigator.share) {
-      navigator.share({ title: p.nombre, text: texto }).catch(() => {});
-    } else {
-      alert("Aquí se abre el menú para compartir por WhatsApp, etc.");
+  // Comparte nombre + precio + descripcion y, cuando el navegador lo
+  // permite (Web Share API nivel 2, la mayoria de los Android), tambien
+  // la foto del producto como archivo adjunto -- antes nada mas se
+  // compartia el texto.
+  async function compartir(p: ProductoRevista) {
+    const texto = `Mira "${p.nombre}" -- ${formatoPrecio(p.precio)}${
+      p.descripcion ? `\n${p.descripcion}` : ""
+    }`;
+    const fotoUrl = p.fotos[0]?.url;
+
+    try {
+      if (fotoUrl && navigator.canShare) {
+        const respuesta = await fetch(fotoUrl);
+        const blob = await respuesta.blob();
+        const archivo = new File([blob], "producto.jpg", { type: blob.type || "image/jpeg" });
+        if (navigator.canShare({ files: [archivo] })) {
+          await navigator.share({ title: p.nombre, text: texto, files: [archivo] });
+          return;
+        }
+      }
+    } catch {
+      // si falla bajar la foto (CORS, sin internet, etc.) se sigue con
+      // el intento de compartir nada mas el texto, mas abajo.
     }
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: p.nombre, text: texto, url: fotoUrl });
+        return;
+      }
+    } catch {
+      return;
+    }
+
+    alert("Aquí se abre el menú para compartir por WhatsApp, etc.");
   }
 
   if (productos.length === 0) return null;
@@ -242,15 +270,18 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
           color: #241f18;
           display: flex;
           flex-direction: column;
+          height: 100%;
           overflow: hidden;
         }
         .revista-foto {
           flex: 1;
+          min-height: 0;
           background: #e9e4d8;
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 3.5rem;
+          overflow: hidden;
         }
         .revista-foto img {
           width: 100%;
@@ -258,6 +289,7 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
           object-fit: cover;
         }
         .revista-info {
+          flex-shrink: 0;
           padding: 14px 16px 16px;
           border-top: 1px solid rgba(0, 0, 0, 0.08);
         }
