@@ -396,7 +396,7 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
           z-index: 50;
         }
         .revista-tarjeta {
-          background: #fbf9f4;
+          background: #e9e4d8;
           color: #241f18;
           border-radius: 16px;
           max-width: 340px;
