@@ -34,6 +34,13 @@ interface Chofer {
   name: string;
 }
 
+interface ResumenHoy {
+  entregados: number;
+  rechazados: number;
+  montoCobrado: number;
+  motivos: { motivo: string; cantidad: number }[];
+}
+
 // Colores por ruta, en el orden en que se van creando -- los pedidos
 // sin ruta todavia se pintan en gris (ver GRIS mas abajo).
 const COLORES = ["#2563eb", "#16a34a", "#d97706", "#db2777", "#7c3aed", "#0891b2", "#dc2626", "#65a30d"];
@@ -43,6 +50,7 @@ export function RutasPanel({ choferes }: { choferes: Chofer[] }) {
   const [rutas, setRutas] = useState<Ruta[]>([]);
   const [pendientesConUbicacion, setPendientesConUbicacion] = useState<Pedido[]>([]);
   const [pendientesSinUbicacion, setPendientesSinUbicacion] = useState<Pedido[]>([]);
+  const [resumenHoy, setResumenHoy] = useState<ResumenHoy | null>(null);
   const [cargando, setCargando] = useState(true);
   const [tamanos, setTamanos] = useState<string[]>(["10", "10"]);
   const [error, setError] = useState("");
@@ -56,10 +64,12 @@ export function RutasPanel({ choferes }: { choferes: Chofer[] }) {
         rutas: Ruta[];
         pendientesConUbicacion: Pedido[];
         pendientesSinUbicacion: Pedido[];
+        resumenHoy: ResumenHoy;
       };
       setRutas(data.rutas ?? []);
       setPendientesConUbicacion(data.pendientesConUbicacion ?? []);
       setPendientesSinUbicacion(data.pendientesSinUbicacion ?? []);
+      setResumenHoy(data.resumenHoy ?? null);
     } finally {
       setCargando(false);
     }
@@ -133,6 +143,39 @@ export function RutasPanel({ choferes }: { choferes: Chofer[] }) {
 
   return (
     <div className="space-y-6">
+      {resumenHoy && (resumenHoy.entregados > 0 || resumenHoy.rechazados > 0) && (
+        <section className="rounded-2xl bg-white border border-gray-200 p-5 space-y-3">
+          <h2 className="text-sm font-semibold text-gray-700">Resumen de hoy</h2>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl bg-green-50 p-4 text-center">
+              <p className="text-2xl font-bold text-green-700">{resumenHoy.entregados}</p>
+              <p className="text-xs text-green-700 mt-0.5">Entregados</p>
+            </div>
+            <div className="rounded-xl bg-red-50 p-4 text-center">
+              <p className="text-2xl font-bold text-red-600">{resumenHoy.rechazados}</p>
+              <p className="text-xs text-red-600 mt-0.5">No entregados</p>
+            </div>
+            <div className="rounded-xl bg-blue-50 p-4 text-center">
+              <p className="text-2xl font-bold text-blue-700">${resumenHoy.montoCobrado}</p>
+              <p className="text-xs text-blue-700 mt-0.5">Cobrado (MXN)</p>
+            </div>
+          </div>
+          {resumenHoy.motivos.length > 0 && (
+            <div className="pt-1">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Motivos de rechazo</p>
+              <ul className="space-y-1">
+                {resumenHoy.motivos.map((m) => (
+                  <li key={m.motivo} className="text-sm text-gray-600 flex justify-between">
+                    <span>{m.motivo}</span>
+                    <span className="font-medium text-gray-900">{m.cantidad}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
+
       <MapaRutas grupos={gruposMapa} />
 
       <section className="rounded-2xl bg-white border border-gray-200 p-5 space-y-3">
