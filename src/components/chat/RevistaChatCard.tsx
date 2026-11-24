@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "@/styles/stPageFlip.css";
 
 export interface ProductoRevista {
@@ -63,7 +64,27 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
       el.style.transition = "transform 650ms cubic-bezier(0.2, 0.8, 0.2, 1)";
       el.style.transform = "translate(0px, 0px) scale(1)";
     });
-    return () => cancelAnimationFrame(id);
+
+    // En cuanto termina de animarse hay que QUITAR el "transform" por
+    // completo (no dejarlo en "translate(0,0) scale(1)") -- un elemento
+    // con transform (o will-change: transform, ver CSS mas abajo) se
+    // vuelve el "techo" para cualquier hijo con position:fixed, como el
+    // modal de "Ver mas". Si se queda puesto, el modal ya no cubre toda
+    // la pantalla sino solo el pedacito de esta tarjeta (asi se veia el
+    // bug que reporto Vic, la foto "saliendose del fondo").
+    const elNoNulo = el;
+    function alTerminar(evento: TransitionEvent) {
+      if (evento.propertyName !== "transform") return;
+      elNoNulo.style.transition = "";
+      elNoNulo.style.transform = "";
+      elNoNulo.style.willChange = "auto";
+    }
+    el.addEventListener("transitionend", alTerminar);
+
+    return () => {
+      cancelAnimationFrame(id);
+      el.removeEventListener("transitionend", alTerminar);
+    };
     // Solo se anima una vez, al aparecer.
   }, []);
 
@@ -198,31 +219,40 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
         ))}
       </div>
 
-      {detalle && (
-        <div className="revista-modal" onClick={(e) => e.target === e.currentTarget && setDetalle(null)}>
-          <div className="revista-tarjeta">
-            <div className="revista-foto-grande">
-              {detalle.fotos[0] ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={detalle.fotos[0].url} alt="" />
-              ) : (
-                <span>🧴</span>
-              )}
-            </div>
-            <div className="revista-cuerpo">
-              <h2>{detalle.nombre}</h2>
-              <p className="revista-precio">{formatoPrecio(detalle.precio)}</p>
-              {detalle.descripcion && <p className="revista-desc">{detalle.descripcion}</p>}
-              <button type="button" className="revista-btn-ver" onClick={() => compartir(detalle)}>
-                📤 Compartir
+      {/* El modal se manda por portal directo al <body> -- si se deja
+          anidado dentro de la tarjeta, cualquier "transform" que le
+          quede puesto a algun ancestro (como el de la animacion de
+          entrada) hace que el "position: fixed" del modal ya no cubra
+          toda la pantalla, sino nada mas el pedacito de la tarjeta
+          (asi se veia el bug de "la foto se sale del fondo"). */}
+      {detalle &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="revista-modal" onClick={(e) => e.target === e.currentTarget && setDetalle(null)}>
+            <div className="revista-tarjeta">
+              <div className="revista-foto-grande">
+                {detalle.fotos[0] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={detalle.fotos[0].url} alt="" />
+                ) : (
+                  <span>🧴</span>
+                )}
+              </div>
+              <div className="revista-cuerpo">
+                <h2>{detalle.nombre}</h2>
+                <p className="revista-precio">{formatoPrecio(detalle.precio)}</p>
+                {detalle.descripcion && <p className="revista-desc">{detalle.descripcion}</p>}
+                <button type="button" className="revista-btn-ver" onClick={() => compartir(detalle)}>
+                  📤 Compartir
+                </button>
+              </div>
+              <button type="button" className="revista-cerrar" onClick={() => setDetalle(null)}>
+                Cerrar
               </button>
             </div>
-            <button type="button" className="revista-cerrar" onClick={() => setDetalle(null)}>
-              Cerrar
-            </button>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
       <style jsx global>{`
         .revista-chat-contenedor {
@@ -299,7 +329,7 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
         .revista-foto img {
           width: 100%;
           height: 100%;
-          object-fit: cover;
+          object-fit: contain;
         }
         .revista-info {
           flex-shrink: 0;
@@ -357,7 +387,8 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
         .revista-modal {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.6);
+          background: rgba(20, 24, 20, 0.22);
+          backdrop-filter: blur(3px);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -371,19 +402,21 @@ export function RevistaChatCard({ productos }: { productos: ProductoRevista[] })
           max-width: 340px;
           width: 100%;
           overflow: hidden;
+          box-shadow: 0 24px 48px rgba(0, 0, 0, 0.28), 0 6px 16px rgba(0, 0, 0, 0.14);
         }
         .revista-foto-grande {
           height: 190px;
-          background: #e9e4d8;
+          background: radial-gradient(circle at 50% 40%, #f3f0e8, #e2ddd0 75%);
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 4rem;
         }
         .revista-foto-grande img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
+          width: 86%;
+          height: 86%;
+          object-fit: contain;
+          filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.22));
         }
         .revista-cuerpo {
           padding: 16px 18px 18px;
