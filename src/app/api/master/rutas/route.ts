@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { guardRole } from "@/lib/auth/api-guard";
+import { esBotSlugValido, botVendeProductos } from "@/lib/whatsapp-bot/bots";
 
 // Fase 3 (sistema de choferes y entregas): le da a la pantalla
-// /master/rutas todo lo que necesita pintar de un jalon -- las rutas ya
+// /master/asistente-whatsapp/rutas todo lo que necesita pintar de un jalon -- las rutas ya
 // armadas (con sus pedidos, en el orden sugerido, y el chofer asignado
 // si ya se le puso uno), los pedidos pendientes que SI tienen ubicacion
 // de GPS (listos para agruparse en una ruta nueva) y los que NO la
@@ -17,9 +18,27 @@ function inicioDeHoyMonterrey(): string {
   return `${hoy}T00:00:00-06:00`;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const { error } = await guardRole("MASTER");
   if (error) return error;
+
+  const bot = request.nextUrl.searchParams.get("bot");
+  if (!esBotSlugValido(bot)) {
+    return NextResponse.json({ error: "MISSING_FIELDS", message: "Falta indicar el bot" }, { status: 400 });
+  }
+
+  // Hoy solo la pomada vende productos (ver pomada_pedidos) -- si en el
+  // futuro otro bot tambien vende algo, va a tener su propia tabla de
+  // pedidos (igual que esta), y este endpoint se vuelve a dividir por
+  // bot ahi. Mientras tanto, cualquier otro bot nada mas ve todo vacio.
+  if (!botVendeProductos(bot)) {
+    return NextResponse.json({
+      rutas: [],
+      pendientesConUbicacion: [],
+      pendientesSinUbicacion: [],
+      resumenHoy: { entregados: 0, rechazados: 0, montoCobrado: 0, motivos: [] },
+    });
+  }
 
   const admin = createAdminClient();
 
@@ -40,6 +59,7 @@ export async function GET() {
     admin
       .from("rutas_entrega")
       .select("id, etiqueta, chofer_id, created_at, profiles:chofer_id(name, phone)")
+      .eq("bot_slug", bot)
       .order("created_at", { ascending: false }),
     admin
       .from("pomada_pedidos")

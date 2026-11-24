@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import dynamic from "next/dynamic";
 import type { GrupoMapa } from "./MapaRutas";
+import type { BotSlug } from "@/lib/whatsapp-bot/bots";
 
 // El mapa se carga sin SSR (ver comentario en MapaRutas.tsx) -- aqui
 // solo se le pasan los datos ya calculados.
@@ -46,7 +47,7 @@ interface ResumenHoy {
 const COLORES = ["#2563eb", "#16a34a", "#d97706", "#db2777", "#7c3aed", "#0891b2", "#dc2626", "#65a30d"];
 const GRIS = "#9ca3af";
 
-export function RutasPanel({ choferes }: { choferes: Chofer[] }) {
+export function RutasPanel({ bot, choferes }: { bot: BotSlug; choferes: Chofer[] }) {
   const [rutas, setRutas] = useState<Ruta[]>([]);
   const [pendientesConUbicacion, setPendientesConUbicacion] = useState<Pedido[]>([]);
   const [pendientesSinUbicacion, setPendientesSinUbicacion] = useState<Pedido[]>([]);
@@ -59,7 +60,7 @@ export function RutasPanel({ choferes }: { choferes: Chofer[] }) {
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
-      const res = await fetch("/api/master/rutas");
+      const res = await fetch(`/api/master/rutas?bot=${bot}`);
       const data = await res.json() as {
         rutas: Ruta[];
         pendientesConUbicacion: Pedido[];
@@ -73,7 +74,7 @@ export function RutasPanel({ choferes }: { choferes: Chofer[] }) {
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [bot]);
 
   useEffect(() => {
     cargar();
@@ -90,7 +91,7 @@ export function RutasPanel({ choferes }: { choferes: Chofer[] }) {
       const res = await fetch("/api/master/rutas/generar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tamanos: numeros }),
+        body: JSON.stringify({ tamanos: numeros, bot }),
       });
       const data = await res.json() as { message?: string };
       if (!res.ok) { setError(data.message ?? "Error al generar las rutas"); return; }

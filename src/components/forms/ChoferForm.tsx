@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import type { BotSlug } from "@/lib/whatsapp-bot/bots";
 
-export function ChoferForm() {
+export function ChoferForm({ bot }: { bot: BotSlug }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
@@ -30,12 +31,13 @@ export function ChoferForm() {
           name: form.name,
           phone: form.phone,
           pin: form.pin,
+          bot,
         }),
       });
       const data = await res.json() as { message?: string };
       if (res.status === 409) { setError("Este número de celular ya está registrado"); return; }
       if (!res.ok) { setError(data.message ?? "Error al crear el chofer"); return; }
-      router.push("/master/choferes");
+      router.push(`/master/asistente-whatsapp/choferes?bot=${bot}`);
     });
   }
 

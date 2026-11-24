@@ -19,6 +19,16 @@ export function esBotSlugValido(valor: unknown): valor is BotSlug {
   return typeof valor === "string" && (BOT_SLUGS as readonly string[]).includes(valor);
 }
 
+// Que bots venden un producto de verdad (con entrega a domicilio,
+// choferes y rutas -- ver Fase 2/3) y cuales nada mas agendan citas de
+// consultorio. Por ahora solo la pomada vende algo; "consultas" no
+// necesita ni le aparecen los botones de "Choferes"/"Rutas" en su menu.
+const BOTS_CON_PRODUCTOS: readonly BotSlug[] = ["pomada"];
+
+export function botVendeProductos(slug: BotSlug): boolean {
+  return BOTS_CON_PRODUCTOS.includes(slug);
+}
+
 // A que link publico manda cada bot (ver /chat y /barak-flex) -- se usa
 // por ejemplo para armar el link de "Mandar por WhatsApp" en la
 // revision de una conversacion, segun de que bot haya sido.

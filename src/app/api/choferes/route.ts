@@ -3,22 +3,33 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { guardRole } from "@/lib/auth/api-guard";
 import { phoneToEmail } from "@/lib/auth/patient-secret";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { esBotSlugValido } from "@/lib/whatsapp-bot/bots";
 
 // Mismo patron que /api/almacenistas (ver ese archivo) -- los choferes
 // (Fase 3 del bot de venta de productos, ver pomada_pedidos) entran con
 // el mismo sistema de celular + contrasena que ya usan los almacenistas;
 // aqui a la contrasena se le llama "PIN" porque Master la captura como
 // un PIN de exactamente 6 digitos, no como una contrasena cualquiera.
+//
+// Cada chofer pertenece a un bot especifico (chofer_bot_slug) -- pedido
+// de Vic, 2026-11-24: "cada bot tiene sus choferes y rutas" -- para
+// cuando haya mas de un bot que venda productos.
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const { error } = await guardRole("MASTER");
   if (error) return error;
+
+  const bot = request.nextUrl.searchParams.get("bot");
+  if (!esBotSlugValido(bot)) {
+    return NextResponse.json({ error: "MISSING_FIELDS", message: "Falta indicar el bot" }, { status: 400 });
+  }
 
   const admin = createAdminClient();
   const { data, error: dbErr } = await admin
     .from("profiles")
     .select("id, name, phone, is_active")
     .contains("roles", ["CHOFER"])
+    .eq("chofer_bot_slug", bot)
     .is("deleted_at", null)
     .order("name");
 
@@ -36,11 +47,11 @@ export async function POST(request: NextRequest) {
   if (error) return error;
 
   const body = await request.json().catch(() => ({})) as Record<string, string>;
-  const { name, phone, pin } = body;
+  const { name, phone, pin, bot } = body;
 
-  if (!name || !phone || !pin) {
+  if (!name || !phone || !pin || !esBotSlugValido(bot)) {
     return NextResponse.json(
-      { error: "MISSING_FIELDS", message: "Nombre, teléfono y PIN son obligatorios" },
+      { error: "MISSING_FIELDS", message: "Nombre, teléfono, PIN y bot son obligatorios" },
       { status: 400 }
     );
   }
@@ -106,6 +117,7 @@ export async function POST(request: NextRequest) {
       phone: normalizedPhone,
       name: name.trim(),
       roles: ["CHOFER"],
+      chofer_bot_slug: bot,
     })
     .select("id, name, phone")
     .single();

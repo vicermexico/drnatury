@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import type { BotSlug } from "@/lib/whatsapp-bot/bots";
 
 interface Chofer {
   id: string;
@@ -83,7 +84,7 @@ function EditForm({ chofer, onCancel }: { chofer: Chofer; onCancel: () => void }
   );
 }
 
-function DeleteButton({ choferId, name }: { choferId: string; name: string }) {
+function DeleteButton({ choferId, name, bot }: { choferId: string; name: string; bot: BotSlug }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -98,7 +99,7 @@ function DeleteButton({ choferId, name }: { choferId: string; name: string }) {
         setConfirming(false);
         return;
       }
-      router.push("/master/choferes");
+      router.push(`/master/asistente-whatsapp/choferes?bot=${bot}`);
     });
   }
 
@@ -132,7 +133,7 @@ function DeleteButton({ choferId, name }: { choferId: string; name: string }) {
   );
 }
 
-export function ChoferActions({ chofer }: { chofer: Chofer }) {
+export function ChoferActions({ chofer, bot }: { chofer: Chofer; bot: BotSlug }) {
   const [editing, setEditing] = useState(false);
   return (
     <div className="space-y-3">
@@ -147,7 +148,7 @@ export function ChoferActions({ chofer }: { chofer: Chofer }) {
           Editar chofer
         </button>
       )}
-      <DeleteButton choferId={chofer.id} name={chofer.name} />
+      <DeleteButton choferId={chofer.id} name={chofer.name} bot={bot} />
     </div>
   );
 }

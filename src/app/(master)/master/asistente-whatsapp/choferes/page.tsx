@@ -1,22 +1,38 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { esBotSlugValido, type BotSlug } from "@/lib/whatsapp-bot/bots";
+import { redirect } from "next/navigation";
 
-async function getChoferes() {
+async function getChoferes(bot: BotSlug) {
   const admin = createAdminClient();
   const { data } = await admin
     .from("profiles")
     .select("id, name, phone, is_active")
     .contains("roles", ["CHOFER"])
+    .eq("chofer_bot_slug", bot)
     .is("deleted_at", null)
     .order("name");
   return data ?? [];
 }
 
-export default async function ChoferesPage() {
-  const choferes = await getChoferes();
+export default async function ChoferesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ bot?: string }>;
+}) {
+  const { bot } = await searchParams;
+  if (!esBotSlugValido(bot)) redirect("/master/asistente-whatsapp");
+
+  const choferes = await getChoferes(bot);
+  const q = `?bot=${bot}`;
 
   return (
     <div className="max-w-3xl space-y-6">
+      <div>
+        <Link href={`/master/asistente-whatsapp${q}`} className="text-sm text-blue-600 hover:underline">
+          ← Menú del bot
+        </Link>
+      </div>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Choferes</h1>
@@ -24,7 +40,7 @@ export default async function ChoferesPage() {
             {choferes.length} chofer{choferes.length !== 1 ? "es" : ""} registrado{choferes.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <Link href="/master/choferes/nueva"
+        <Link href={`/master/asistente-whatsapp/choferes/nueva${q}`}
           className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
           + Nuevo chofer
         </Link>
@@ -33,14 +49,14 @@ export default async function ChoferesPage() {
       {choferes.length === 0 ? (
         <div className="rounded-2xl bg-white border border-dashed border-gray-300 p-10 text-center">
           <p className="text-gray-500 text-sm mb-3">No hay choferes registrados</p>
-          <Link href="/master/choferes/nueva" className="text-blue-600 text-sm underline">
+          <Link href={`/master/asistente-whatsapp/choferes/nueva${q}`} className="text-blue-600 text-sm underline">
             Agregar el primer chofer
           </Link>
         </div>
       ) : (
         <div className="space-y-2">
           {choferes.map(c => (
-            <Link key={c.id} href={`/master/choferes/${c.id}`}
+            <Link key={c.id} href={`/master/asistente-whatsapp/choferes/${c.id}${q}`}
               className="flex items-center justify-between rounded-2xl bg-white border border-gray-200 px-5 py-4 hover:border-blue-300 hover:shadow-sm transition">
               <div>
                 <div className="flex items-center gap-2">

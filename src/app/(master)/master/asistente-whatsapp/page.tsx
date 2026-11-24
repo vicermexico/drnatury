@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ActivarNotificacionesApoyo } from "@/components/layout/master/ActivarNotificacionesApoyo";
 import { BotSelector } from "./BotSelector";
-import { esBotSlugValido, type BotSlug } from "@/lib/whatsapp-bot/bots";
+import { esBotSlugValido, botVendeProductos, type BotSlug } from "@/lib/whatsapp-bot/bots";
 
 // Pagina principal del Asistente de WhatsApp -- antes tenia todo junto
 // en una sola pagina (perfil, bienvenida, anuncios, correcciones y el
@@ -17,7 +17,7 @@ import { esBotSlugValido, type BotSlug } from "@/lib/whatsapp-bot/bots";
 // siempre, pero scoped a ese bot (todos los links cargan el "?bot=").
 function seccionesDe(bot: BotSlug) {
   const q = `?bot=${bot}`;
-  return [
+  const secciones = [
     {
       href: `/master/asistente-whatsapp/probar${q}`,
       icono: "💬",
@@ -67,6 +67,28 @@ function seccionesDe(bot: BotSlug) {
       descripcion: "Cuántos mensajes llegaron y cuántos cerraron con cita",
     },
   ];
+
+  // Choferes y Rutas solo le aplican a un bot que de verdad venda un
+  // producto con entrega a domicilio (ver Fase 2/3) -- "consultas" nada
+  // mas agenda citas de consultorio, no tiene nada que entregar.
+  if (botVendeProductos(bot)) {
+    secciones.push(
+      {
+        href: `/master/asistente-whatsapp/choferes${q}`,
+        icono: "🚚",
+        titulo: "Choferes",
+        descripcion: "Da de alta a los choferes que entregan los pedidos de este bot",
+      },
+      {
+        href: `/master/asistente-whatsapp/rutas${q}`,
+        icono: "🗺️",
+        titulo: "Rutas",
+        descripcion: "Agrupa los pedidos pendientes por cercanía y asígnalos a un chofer",
+      }
+    );
+  }
+
+  return secciones;
 }
 
 export default async function AsistenteWhatsappPage({

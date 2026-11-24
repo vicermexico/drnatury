@@ -4,7 +4,7 @@ import { guardRole } from "@/lib/auth/api-guard";
 
 // Fase 3 (panel del chofer): le da al chofer que tiene la sesion
 // iniciada SOLO sus propias rutas asignadas, con sus pedidos en el
-// orden sugerido de visita (ver /master/rutas, donde Master las arma).
+// orden sugerido de visita (ver /master/asistente-whatsapp/rutas, donde Master las arma).
 export async function GET() {
   const { error, userId } = await guardRole("CHOFER");
   if (error) return error;
