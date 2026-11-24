@@ -292,12 +292,17 @@ const EMOJIS_RAPIDOS = [
 ];
 
 interface PublicChatDemoProps {
+  // A que bot pertenece esta conversacion ("consultas" o "pomada", ver
+  // Fase 1 del bot de venta de productos) -- se manda en cada mensaje al
+  // backend para que conteste con los datos de ese bot y no de otro.
+  bot: string;
   perfilNombre?: string;
   perfilFoto?: string | null;
   facebookUrl?: string | null;
 }
 
 export function PublicChatDemo({
+  bot,
   perfilNombre = "DrNatury",
   perfilFoto = null,
   facebookUrl = null,
@@ -562,7 +567,7 @@ export function PublicChatDemo({
       const res = await fetch("/api/public/asistente-whatsapp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mensaje, estado, conversacionId, origen, codigoAnuncio }),
+        body: JSON.stringify({ mensaje, estado, conversacionId, origen, codigoAnuncio, bot }),
       });
       const data = await res.json().catch(() => null);
 
@@ -627,7 +632,7 @@ export function PublicChatDemo({
       const res = await fetch("/api/public/asistente-whatsapp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mensaje, estado, conversacionId, origen, codigoAnuncio }),
+        body: JSON.stringify({ mensaje, estado, conversacionId, origen, codigoAnuncio, bot }),
       });
       const data = await res.json().catch(() => null);
 
@@ -698,7 +703,7 @@ export function PublicChatDemo({
       const res = await fetch("/api/public/asistente-whatsapp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mensaje: texto, estado: estadoRef.current, conversacionId, origen, codigoAnuncio }),
+        body: JSON.stringify({ mensaje: texto, estado: estadoRef.current, conversacionId, origen, codigoAnuncio, bot }),
       });
       const data = await res.json().catch(() => null);
 

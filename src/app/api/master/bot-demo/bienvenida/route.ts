@@ -2,19 +2,28 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { guardRole } from "@/lib/auth/api-guard";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { obtenerBotIdPorSlug } from "@/lib/whatsapp-bot/bots";
 
 // Administra la serie de mensajes de bienvenida (texto y/o audio, en el
 // orden que Master decida) que el Asistente de WhatsApp manda cuando
 // alguien le escribe por primera vez despues de darle clic a un
 // anuncio. Ver src/lib/whatsapp-bot/bienvenida.ts para como se lee.
-export async function GET() {
+//
+// Desde la Fase 1 del bot de venta de productos, cada bot (ver
+// src/lib/whatsapp-bot/bots.ts) tiene su propia serie -- "bot" en la
+// query string (GET) o el body (POST/PATCH/DELETE) dice de cual.
+export async function GET(request: NextRequest) {
   const { error } = await guardRole("MASTER");
   if (error) return error;
 
   const admin = createAdminClient();
+  const botId = await obtenerBotIdPorSlug(admin, request.nextUrl.searchParams.get("bot") ?? "consultas");
+  if (!botId) return NextResponse.json({ error: "BOT_NO_ENCONTRADO" }, { status: 400 });
+
   const { data, error: dbErr } = await admin
     .from("whatsapp_bot_bienvenida")
     .select("id, orden, tipo, texto, audio_url, video_url")
+    .eq("bot_id", botId)
     .order("orden", { ascending: true });
 
   if (dbErr) return NextResponse.json({ error: "DB_ERROR", message: dbErr.message }, { status: 500 });
@@ -35,26 +44,32 @@ export async function POST(request: NextRequest) {
     texto?: string;
     audio_url?: string;
     video_url?: string;
+    bot?: string;
   };
 
   const admin = createAdminClient();
+  const botId = await obtenerBotIdPorSlug(admin, body.bot ?? "consultas");
+  if (!botId) return NextResponse.json({ error: "BOT_NO_ENCONTRADO" }, { status: 400 });
+
+  async function siguienteOrdenDe(): Promise<number> {
+    const { data: maxRow } = await admin
+      .from("whatsapp_bot_bienvenida")
+      .select("orden")
+      .eq("bot_id", botId)
+      .order("orden", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return ((maxRow?.orden as number | undefined) ?? 0) + 1;
+  }
 
   if (body.tipo === "texto") {
     const texto = (body.texto ?? "").trim();
     if (!texto) {
       return NextResponse.json({ error: "MISSING_FIELDS", message: "Falta el texto" }, { status: 400 });
     }
-    const { data: maxRow } = await admin
-      .from("whatsapp_bot_bienvenida")
-      .select("orden")
-      .order("orden", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const siguienteOrden = ((maxRow?.orden as number | undefined) ?? 0) + 1;
-
     const { error: dbErr } = await admin
       .from("whatsapp_bot_bienvenida")
-      .insert({ orden: siguienteOrden, tipo: "texto", texto });
+      .insert({ orden: await siguienteOrdenDe(), tipo: "texto", texto, bot_id: botId });
 
     if (dbErr) return NextResponse.json({ error: "DB_ERROR", message: dbErr.message }, { status: 500 });
     return NextResponse.json({ ok: true });
@@ -65,17 +80,9 @@ export async function POST(request: NextRequest) {
     if (!audioUrl) {
       return NextResponse.json({ error: "MISSING_FIELDS", message: "Falta el audio" }, { status: 400 });
     }
-    const { data: maxRow } = await admin
-      .from("whatsapp_bot_bienvenida")
-      .select("orden")
-      .order("orden", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const siguienteOrden = ((maxRow?.orden as number | undefined) ?? 0) + 1;
-
     const { error: dbErr } = await admin
       .from("whatsapp_bot_bienvenida")
-      .insert({ orden: siguienteOrden, tipo: "audio", audio_url: audioUrl });
+      .insert({ orden: await siguienteOrdenDe(), tipo: "audio", audio_url: audioUrl, bot_id: botId });
 
     if (dbErr) return NextResponse.json({ error: "DB_ERROR", message: dbErr.message }, { status: 500 });
     return NextResponse.json({ ok: true });
@@ -86,17 +93,9 @@ export async function POST(request: NextRequest) {
     if (!videoUrl) {
       return NextResponse.json({ error: "MISSING_FIELDS", message: "Falta el video" }, { status: 400 });
     }
-    const { data: maxRow } = await admin
-      .from("whatsapp_bot_bienvenida")
-      .select("orden")
-      .order("orden", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const siguienteOrden = ((maxRow?.orden as number | undefined) ?? 0) + 1;
-
     const { error: dbErr } = await admin
       .from("whatsapp_bot_bienvenida")
-      .insert({ orden: siguienteOrden, tipo: "video", video_url: videoUrl });
+      .insert({ orden: await siguienteOrdenDe(), tipo: "video", video_url: videoUrl, bot_id: botId });
 
     if (dbErr) return NextResponse.json({ error: "DB_ERROR", message: dbErr.message }, { status: 500 });
     return NextResponse.json({ ok: true });

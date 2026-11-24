@@ -13,7 +13,7 @@ interface MensajeBienvenidaUI {
   video_url: string | null;
 }
 
-export function BienvenidaManager() {
+export function BienvenidaManager({ bot }: { bot: string }) {
   const [mensajes, setMensajes] = useState<MensajeBienvenidaUI[]>([]);
   const [cargando, setCargando] = useState(true);
   // Ahora esta pantalla vive en su propia pagina (ver
@@ -34,7 +34,7 @@ export function BienvenidaManager() {
   async function cargar() {
     setCargando(true);
     try {
-      const res = await fetch("/api/master/bot-demo/bienvenida");
+      const res = await fetch(`/api/master/bot-demo/bienvenida?bot=${bot}`);
       const data = await res.json().catch(() => null);
       setMensajes(data?.mensajes ?? []);
     } finally {
@@ -44,7 +44,8 @@ export function BienvenidaManager() {
 
   useEffect(() => {
     if (abierto) cargar();
-  }, [abierto]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abierto, bot]);
 
   async function agregarTexto() {
     const texto = textoNuevo.trim();
@@ -54,7 +55,7 @@ export function BienvenidaManager() {
       const res = await fetch("/api/master/bot-demo/bienvenida", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tipo: "texto", texto }),
+        body: JSON.stringify({ tipo: "texto", texto, bot }),
       });
       if (res.ok) {
         setTextoNuevo("");
@@ -87,7 +88,7 @@ export function BienvenidaManager() {
       const res2 = await fetch("/api/master/bot-demo/bienvenida", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tipo: "audio", audio_url: data.publicUrl }),
+        body: JSON.stringify({ tipo: "audio", audio_url: data.publicUrl, bot }),
       });
       if (res2.ok) await cargar();
     } catch {
@@ -294,6 +295,7 @@ export function BienvenidaManager() {
 
           {mostrarVideo && (
             <RecorteVerdeVideo
+              bot={bot}
               onGuardado={() => {
                 setMostrarVideo(false);
                 cargar();

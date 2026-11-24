@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { RangoFechas } from "../mensajes/RangoFechas";
+import { esBotSlugValido, obtenerBotIdPorSlug } from "@/lib/whatsapp-bot/bots";
 
 // Lista de conversaciones del chat publico (/chat) que NO se cerraron
 // con cita -- para que Master pueda entrar a cada una, ver en donde se
@@ -17,12 +18,13 @@ interface LeadPorRevisar {
   total_mensajes: number;
 }
 
-async function getLeadsPorRevisar(desde: string | null, hasta: string | null): Promise<LeadPorRevisar[]> {
+async function getLeadsPorRevisar(botId: string, desde: string | null, hasta: string | null): Promise<LeadPorRevisar[]> {
   const admin = createAdminClient();
   let query = admin
     .from("chat_leads")
     .select("id, created_at, origen, chat_messages(rol, texto, created_at)")
     .eq("cerrada_con_cita", false)
+    .eq("bot_id", botId)
     .order("created_at", { ascending: false });
 
   if (desde) query = query.gte("created_at", `${desde}T06:00:00Z`);
@@ -56,15 +58,18 @@ async function getLeadsPorRevisar(desde: string | null, hasta: string | null): P
 export default async function RevisionChatPage({
   searchParams,
 }: {
-  searchParams: Promise<{ desde?: string; hasta?: string }>;
+  searchParams: Promise<{ desde?: string; hasta?: string; bot?: string }>;
 }) {
-  const { desde, hasta } = await searchParams;
-  const leads = await getLeadsPorRevisar(desde ?? null, hasta ?? null);
+  const { desde, hasta, bot: botParam } = await searchParams;
+  const bot = esBotSlugValido(botParam) ? botParam : "consultas";
+  const admin = createAdminClient();
+  const botId = await obtenerBotIdPorSlug(admin, bot);
+  const leads = botId ? await getLeadsPorRevisar(botId, desde ?? null, hasta ?? null) : [];
 
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <Link href="/master/asistente-whatsapp" className="text-sm text-blue-600 hover:underline">
+        <Link href={`/master/asistente-whatsapp?bot=${bot}`} className="text-sm text-blue-600 hover:underline">
           ← Asistente de WhatsApp
         </Link>
         <h1 className="text-2xl font-bold text-gray-900 mt-1">Revisar mensajes no cerrados</h1>

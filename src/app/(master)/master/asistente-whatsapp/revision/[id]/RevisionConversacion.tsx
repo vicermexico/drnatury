@@ -12,7 +12,7 @@ interface MensajeGuardado {
 // se identifica la correccion por el mensaje del paciente que la
 // origino, asi que buscamos aqui el mensaje de paciente inmediatamente
 // anterior a la respuesta del bot que se esta corrigiendo.
-export function RevisionConversacion({ mensajes }: { mensajes: MensajeGuardado[] }) {
+export function RevisionConversacion({ mensajes, bot }: { mensajes: MensajeGuardado[]; bot: string }) {
   const [corrigiendoId, setCorrigiendoId] = useState<string | null>(null);
   const [textoCorreccion, setTextoCorreccion] = useState("");
   const [guardando, setGuardando] = useState(false);
@@ -40,6 +40,7 @@ export function RevisionConversacion({ mensajes }: { mensajes: MensajeGuardado[]
         body: JSON.stringify({
           mensaje_paciente: mensajePaciente,
           respuesta_correcta: textoCorreccion.trim(),
+          bot,
         }),
       });
       if (res.ok) {

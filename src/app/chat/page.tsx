@@ -13,12 +13,14 @@ import { PublicChatDemo } from "./PublicChatDemo";
 export default async function DemoWhatsappPage() {
   // Nombre, foto y link del anuncio de Facebook que se ven en el
   // encabezado del chat y en su pantalla de opciones -- los edita
-  // Master desde /master/asistente-whatsapp.
+  // Master desde /master/asistente-whatsapp (bot "consultas"). Desde la
+  // Fase 1 del bot de venta de productos cada bot trae su propio perfil
+  // en la tabla whatsapp_bots, ya no en landing_config.
   const admin = createAdminClient();
   const { data: config } = await admin
-    .from("landing_config")
+    .from("whatsapp_bots")
     .select("chat_perfil_nombre, chat_perfil_foto, anuncio_facebook_url")
-    .limit(1)
+    .eq("slug", "consultas")
     .maybeSingle();
 
   return (
@@ -28,6 +30,7 @@ export default async function DemoWhatsappPage() {
     <div className="h-[100dvh] overflow-hidden overscroll-none bg-white flex flex-col items-center sm:py-6">
       <div className="w-full max-w-md h-full flex flex-col">
         <PublicChatDemo
+          bot="consultas"
           perfilNombre={config?.chat_perfil_nombre || "DrNatury"}
           perfilFoto={config?.chat_perfil_foto ?? null}
           facebookUrl={config?.anuncio_facebook_url ?? null}

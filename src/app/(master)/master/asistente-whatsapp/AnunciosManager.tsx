@@ -7,7 +7,7 @@ interface AnuncioUI {
   created_at: string;
 }
 
-export function AnunciosManager() {
+export function AnunciosManager({ bot }: { bot: string }) {
   const [anuncios, setAnuncios] = useState<AnuncioUI[]>([]);
   const [cargando, setCargando] = useState(true);
   const [textoNuevo, setTextoNuevo] = useState("");
@@ -20,7 +20,7 @@ export function AnunciosManager() {
   async function cargar() {
     setCargando(true);
     try {
-      const res = await fetch("/api/master/bot-demo/anuncios");
+      const res = await fetch(`/api/master/bot-demo/anuncios?bot=${bot}`);
       const data = await res.json().catch(() => null);
       setAnuncios(data?.anuncios ?? []);
     } finally {
@@ -30,7 +30,7 @@ export function AnunciosManager() {
 
   useEffect(() => {
     if (abierto) cargar();
-  }, [abierto]);
+  }, [abierto, bot]);
 
   async function agregar() {
     const texto = textoNuevo.trim();
@@ -40,7 +40,7 @@ export function AnunciosManager() {
       const res = await fetch("/api/master/bot-demo/anuncios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ texto }),
+        body: JSON.stringify({ texto, bot }),
       });
       if (res.ok) {
         setTextoNuevo("");

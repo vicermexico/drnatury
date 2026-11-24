@@ -1,11 +1,19 @@
 import Link from "next/link";
 import { AsistenteChatDemo } from "../AsistenteChatDemo";
+import { esBotSlugValido } from "@/lib/whatsapp-bot/bots";
 
-export default function ProbarBotPage() {
+export default async function ProbarBotPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ bot?: string }>;
+}) {
+  const { bot: botParam } = await searchParams;
+  const bot = esBotSlugValido(botParam) ? botParam : "consultas";
+
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <Link href="/master/asistente-whatsapp" className="text-sm text-blue-600 hover:underline">
+        <Link href={`/master/asistente-whatsapp?bot=${bot}`} className="text-sm text-blue-600 hover:underline">
           ← Asistente de WhatsApp
         </Link>
         <h1 className="text-2xl font-bold text-gray-900 mt-1">Probar y entrenar al bot</h1>
@@ -14,7 +22,7 @@ export default function ProbarBotPage() {
           NO está conectado a tu WhatsApp real, es solo de prueba.
         </p>
       </div>
-      <AsistenteChatDemo />
+      <AsistenteChatDemo key={bot} bot={bot} />
     </div>
   );
 }

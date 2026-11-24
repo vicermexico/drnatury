@@ -22,7 +22,7 @@ function linkMapa(u: { direccion: string | null; lat: number | null; lng: number
 // falta estar ahi), o -- si Master esta parado fisicamente en el
 // consultorio -- guardar tambien el GPS exacto de su celular, para un
 // pin mas preciso. Se puede usar cualquiera de los dos, o los dos.
-export function UbicacionesManager() {
+export function UbicacionesManager({ bot }: { bot: string }) {
   const [ubicaciones, setUbicaciones] = useState<UbicacionUI[]>([]);
   const [cargando, setCargando] = useState(true);
   const [nombreNuevo, setNombreNuevo] = useState("");
@@ -44,7 +44,7 @@ export function UbicacionesManager() {
   async function cargar() {
     setCargando(true);
     try {
-      const res = await fetch("/api/master/bot-demo/ubicaciones");
+      const res = await fetch(`/api/master/bot-demo/ubicaciones?bot=${bot}`);
       const data = await res.json().catch(() => null);
       setUbicaciones(data?.ubicaciones ?? []);
     } finally {
@@ -54,7 +54,7 @@ export function UbicacionesManager() {
 
   useEffect(() => {
     cargar();
-  }, []);
+  }, [bot]);
 
   async function guardarTexto() {
     const nombre = nombreNuevo.trim();
@@ -66,7 +66,7 @@ export function UbicacionesManager() {
       const res = await fetch("/api/master/bot-demo/ubicaciones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre, direccion }),
+        body: JSON.stringify({ nombre, direccion, bot }),
       });
       if (!res.ok) {
         setErrorGuardando({ nombre, mensaje: "No se pudo guardar. Intenta de nuevo." });
@@ -101,6 +101,7 @@ export function UbicacionesManager() {
               nombre: limpio,
               lat: pos.coords.latitude,
               lng: pos.coords.longitude,
+              bot,
             }),
           });
           if (!res.ok) {
@@ -145,7 +146,7 @@ export function UbicacionesManager() {
       const res2 = await fetch("/api/master/bot-demo/ubicaciones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre, audio_url: data.publicUrl }),
+        body: JSON.stringify({ nombre, audio_url: data.publicUrl, bot }),
       });
       if (!res2.ok) throw new Error("No se pudo guardar");
       await cargar();
