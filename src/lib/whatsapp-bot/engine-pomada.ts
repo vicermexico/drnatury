@@ -3,6 +3,7 @@ import {
   normalizar,
   detectarCodigoAnuncio,
   coincideConAnuncio,
+  CELULAR_TEMPRANO_TEXT,
   type Anuncio,
   type Correccion,
   type BienvenidaItem,
@@ -31,6 +32,17 @@ export interface EstadoPedido {
   // (manana u tarde) y luego, si se queja de que el rango de 6 horas es
   // mucho tiempo, se le ofrece partirlo a la mitad (ver paso "horario_mitad").
   bloque?: "manana" | "tarde";
+  // Igual que en el bot de citas (ver CELULAR_TEMPRANO_TEXT en engine.ts):
+  // se le pide el numero de WhatsApp desde el primer mensaje que
+  // escribio de verdad, por si se sale a medio chat sin terminar su
+  // pedido -- asi de todos modos se le puede volver a contactar. No se
+  // confunde con "celular" (el que se usa para confirmar el pedido, en
+  // el paso "celular" de mas arriba) -- si ya se tiene este, no se
+  // vuelve a pedir ahi.
+  celularPedidoTemprano?: boolean;
+  // Cuantas veces se le ha insistido con el celular sin que lo de --
+  // solo se insiste una vez mas, para no ser pesados.
+  celularTempranoIntentos?: number;
 }
 
 export const ESTADO_INICIAL_PEDIDO: EstadoPedido = { fase: "inicio" };
@@ -415,6 +427,16 @@ function manejarPidiendo(mensaje: string, normalizado: string, estado: EstadoPed
     if (nombre.length < 2) {
       return { respuesta: "¿Me puede decir su nombre completo, por favor?", nuevoEstado: estado };
     }
+    // Si ya se tiene su celular (se lo pidio desde el principio de la
+    // conversacion, ver celularPedidoTemprano), no hace falta volver a
+    // pedirlo aqui -- se usa ese mismo y se sigue derecho con la direccion.
+    if (estado.celular) {
+      return {
+        respuesta:
+          "Perfecto. ¿Cuál es la dirección completa donde se la entregamos? (calle, número y colonia) -- también le puede dar clic al pin 📍 de abajo para mandarnos su ubicación actual.",
+        nuevoEstado: { ...estado, paso: "direccion", nombre },
+      };
+    }
     return {
       respuesta: "Gracias. ¿A qué número de WhatsApp le confirmamos y avisamos cuando salga su pedido?",
       nuevoEstado: { ...estado, paso: "celular", nombre },
@@ -584,15 +606,57 @@ export async function generarRespuestaPomada(args: {
   const { mensaje, estado, correcciones, anuncios = [], bienvenida = [], canalPublico = false } = args;
   const normalizado = normalizar(mensaje);
 
-  let resultado = calcularRespuestaBase(mensaje, normalizado, estado, canalPublico, anuncios, bienvenida);
+  // Igual que el bot de citas (ver CELULAR_TEMPRANO_TEXT en engine.ts):
+  // si ya se le pidio el celular antes y todavia no lo tenemos, se revisa
+  // si este mensaje YA es el numero -- si si, se guarda (asi, si se sale
+  // a medio chat sin terminar su pedido, de todos modos se le puede
+  // volver a contactar) y se le agradece antes de seguir con lo que sea
+  // que toque contestar normalmente.
+  let estadoConCelular = estado;
+  let agradecerCelular = false;
+  if (estado.celularPedidoTemprano && !estado.celular) {
+    const celularDetectado = extraerCelular(mensaje);
+    if (celularDetectado) {
+      estadoConCelular = { ...estado, celular: celularDetectado };
+      agradecerCelular = true;
+    }
+  }
+
+  let resultado = calcularRespuestaBase(mensaje, normalizado, estadoConCelular, canalPublico, anuncios, bienvenida);
 
   // Si Master ya ensenio exactamente que contestar ante este mensaje, se
   // usa ese texto -- el paso/estado que ya se calculo arriba se respeta
   // igual, para que la conversacion siga avanzando (igual que en el bot
-  // de citas).
+  // de citas). Esto va ANTES de agregar lo del celular (ver abajo): si
+  // no, una correccion ensenada borraria por completo la peticion del
+  // celular que se le iba a pegar.
   const correccionExacta = correcciones.find((c) => c.disparador === normalizado);
   if (correccionExacta) {
     resultado = { ...resultado, respuesta: correccionExacta.respuesta, nota: "Respuesta aprendida" };
+  }
+
+  if (agradecerCelular) {
+    resultado = { ...resultado, respuesta: `Gracias, ya quedó registrado.\n\n${resultado.respuesta}` };
+  } else if (!estado.celularPedidoTemprano) {
+    // Primer mensaje que la persona escribio de verdad (fase "inicio"
+    // ya quedo atras) -- se le pide el celular aqui, pegado a lo que sea
+    // que le hayamos contestado.
+    resultado = {
+      ...resultado,
+      respuesta: `${resultado.respuesta}\n\n${CELULAR_TEMPRANO_TEXT}`,
+      nuevoEstado: { ...resultado.nuevoEstado, celularPedidoTemprano: true },
+    };
+  } else if (!estado.celular) {
+    // Ya se le pidio antes pero no contesto con su celular -- se le
+    // insiste UNA sola vez mas, para no ser pesados.
+    const intentos = estado.celularTempranoIntentos ?? 0;
+    if (intentos < 1) {
+      resultado = {
+        ...resultado,
+        respuesta: `${resultado.respuesta}\n\n${CELULAR_TEMPRANO_TEXT}`,
+        nuevoEstado: { ...resultado.nuevoEstado, celularTempranoIntentos: intentos + 1 },
+      };
+    }
   }
 
   return resultado;
