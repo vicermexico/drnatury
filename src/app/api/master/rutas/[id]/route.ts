@@ -15,15 +15,16 @@ export async function PATCH(
   const admin = createAdminClient();
 
   if (body.chofer_id) {
+    const { data: ruta } = await admin.from("rutas_entrega").select("bot_slug").eq("id", id).maybeSingle();
     const { data: chofer } = await admin
       .from("profiles")
-      .select("id")
+      .select("id, chofer_bot_slug")
       .eq("id", body.chofer_id)
       .contains("roles", ["CHOFER"])
       .is("deleted_at", null)
       .maybeSingle();
-    if (!chofer) {
-      return NextResponse.json({ error: "CHOFER_INVALIDO", message: "Ese chofer no existe" }, { status: 400 });
+    if (!chofer || chofer.chofer_bot_slug !== ruta?.bot_slug) {
+      return NextResponse.json({ error: "CHOFER_INVALIDO", message: "Ese chofer no es de este bot" }, { status: 400 });
     }
   }
 

@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { guardRole } from "@/lib/auth/api-guard";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { agruparPorCercania, type PedidoUbicado } from "@/lib/rutas/agrupar";
+import { esBotSlugValido } from "@/lib/whatsapp-bot/bots";
 
 // Fase 3: Master dice cuantas rutas necesita y de que tamano (ej. "2
 // rutas, 10 y 10") y aqui se arman de verdad -- se agrupan por
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
   const { error } = await guardRole("MASTER");
   if (error) return error;
 
-  const body = await request.json().catch(() => ({})) as { tamanos?: number[] };
+  const body = await request.json().catch(() => ({})) as { tamanos?: number[]; bot?: string };
   const tamanos = (body.tamanos ?? []).filter((n) => Number.isInteger(n) && n > 0);
   if (tamanos.length === 0) {
     return NextResponse.json(
@@ -27,6 +28,10 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+  if (!esBotSlugValido(body.bot)) {
+    return NextResponse.json({ error: "MISSING_FIELDS", message: "Falta indicar el bot" }, { status: 400 });
+  }
+  const bot = body.bot;
 
   const admin = createAdminClient();
 
@@ -59,7 +64,8 @@ export async function POST(request: NextRequest) {
   // sin repetir el numero de las que ya estaban.
   const { count: rutasExistentes } = await admin
     .from("rutas_entrega")
-    .select("id", { count: "exact", head: true });
+    .select("id", { count: "exact", head: true })
+    .eq("bot_slug", bot);
 
   const rutasCreadas: { id: string; etiqueta: string; cantidadPedidos: number }[] = [];
 
@@ -70,7 +76,7 @@ export async function POST(request: NextRequest) {
     const etiqueta = `Ruta ${(rutasExistentes ?? 0) + rutasCreadas.length + 1}`;
     const { data: ruta, error: rutaErr } = await admin
       .from("rutas_entrega")
-      .insert({ etiqueta })
+      .insert({ etiqueta, bot_slug: bot })
       .select("id, etiqueta")
       .single();
 
