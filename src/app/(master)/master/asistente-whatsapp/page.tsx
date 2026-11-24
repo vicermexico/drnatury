@@ -86,6 +86,12 @@ function seccionesDe(bot: BotSlug) {
         descripcion: "Sube tus productos con nombre, descripción, precio y fotos",
       },
       {
+        href: `/master/asistente-whatsapp/revista${q}`,
+        icono: "📖",
+        titulo: "Revista",
+        descripcion: "Así se vería tu catálogo como revista, con Ver más y Compartir",
+      },
+      {
         href: `/master/asistente-whatsapp/choferes${q}`,
         icono: "🚚",
         titulo: "Choferes",
