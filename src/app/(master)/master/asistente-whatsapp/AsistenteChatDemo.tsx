@@ -32,7 +32,7 @@ function esperar(ms: number) {
 
 let siguienteId = 1;
 
-export function AsistenteChatDemo() {
+export function AsistenteChatDemo({ bot }: { bot: string }) {
   const [mensajes, setMensajes] = useState<MensajeUI[]>([]);
   const [estado, setEstado] = useState<EstadoAgendado>(ESTADO_INICIAL);
   const [input, setInput] = useState("");
@@ -78,7 +78,7 @@ export function AsistenteChatDemo() {
       const res = await fetch("/api/master/bot-demo/responder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mensaje, estado: estadoForzado ?? estado }),
+        body: JSON.stringify({ mensaje, estado: estadoForzado ?? estado, bot }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data) {
@@ -151,6 +151,7 @@ export function AsistenteChatDemo() {
         body: JSON.stringify({
           mensaje_paciente: m.mensajePacienteQueLaOrigino,
           respuesta_correcta: textoCorreccion.trim(),
+          bot,
         }),
       });
       if (res.ok) {
@@ -171,7 +172,7 @@ export function AsistenteChatDemo() {
       const res = await fetch("/api/master/bot-demo/ensenar", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mensaje_paciente: m.mensajePacienteQueLaOrigino }),
+        body: JSON.stringify({ mensaje_paciente: m.mensajePacienteQueLaOrigino, bot }),
       });
       if (res.ok) {
         setMensajes((prev) => prev.map((msg) => (msg.id === m.id ? { ...msg, nota: undefined } : msg)));

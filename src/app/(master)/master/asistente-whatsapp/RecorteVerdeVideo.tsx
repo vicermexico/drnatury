@@ -48,10 +48,11 @@ function elegirMimeSoportado(): string {
 }
 
 interface Props {
+  bot: string;
   onGuardado: () => void;
 }
 
-export function RecorteVerdeVideo({ onGuardado }: Props) {
+export function RecorteVerdeVideo({ bot, onGuardado }: Props) {
   const [archivoUrl, setArchivoUrl] = useState<string | null>(null);
   const [nombreArchivo, setNombreArchivo] = useState("");
   const [fuerza, setFuerza] = useState(50);
@@ -326,7 +327,7 @@ export function RecorteVerdeVideo({ onGuardado }: Props) {
       const res2 = await fetch("/api/master/bot-demo/bienvenida", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tipo: "video", video_url: data.publicUrl }),
+        body: JSON.stringify({ tipo: "video", video_url: data.publicUrl, bot }),
       });
       if (!res2.ok) throw new Error("No se pudo guardar el mensaje de bienvenida");
 

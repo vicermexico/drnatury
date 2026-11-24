@@ -4,12 +4,18 @@ import { guardRole } from "@/lib/auth/api-guard";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { generarRespuesta, ESTADO_INICIAL, type EstadoAgendado, type Correccion, type Anuncio, type Ubicacion } from "@/lib/whatsapp-bot/engine";
 import { obtenerSerieBienvenida } from "@/lib/whatsapp-bot/bienvenida";
+import { obtenerBotIdPorSlug } from "@/lib/whatsapp-bot/bots";
 
 // Pagina de demo/entrenamiento del asistente de WhatsApp (ver
 // /master/asistente-whatsapp): Master escribe como si fuera un paciente,
 // este endpoint corre el "cerebro" del bot (src/lib/whatsapp-bot/engine.ts)
 // y regresa que hubiera contestado. Todavia NO esta conectado a ningun
 // WhatsApp real -- es solo para probar y entrenar antes de conectarlo.
+//
+// Desde la Fase 1 del bot de venta de productos puede haber mas de un
+// bot (ver src/lib/whatsapp-bot/bots.ts) -- "bot" en el body dice cual
+// de ellos se esta probando, para usar nada mas sus propios datos
+// (correcciones, anuncios, bienvenida, ubicaciones).
 export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") ?? "unknown";
   if (!checkRateLimit(`bot-demo:${ip}`, 60, 60_000)) {
@@ -22,6 +28,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({})) as {
     mensaje?: string;
     estado?: EstadoAgendado;
+    bot?: string;
   };
 
   const mensaje = (body.mensaje ?? "").trim();
@@ -31,20 +38,28 @@ export async function POST(request: NextRequest) {
   const estado: EstadoAgendado = body.estado ?? ESTADO_INICIAL;
 
   const admin = createAdminClient();
+  const botId = await obtenerBotIdPorSlug(admin, body.bot ?? "consultas");
+  if (!botId) {
+    return NextResponse.json({ error: "BOT_NO_ENCONTRADO" }, { status: 400 });
+  }
+
   const { data: correccionesRaw } = await admin
     .from("whatsapp_bot_correcciones")
-    .select("disparador, respuesta");
+    .select("disparador, respuesta")
+    .eq("bot_id", botId);
   const correcciones: Correccion[] = correccionesRaw ?? [];
 
   const { data: anunciosRaw } = await admin
     .from("whatsapp_bot_anuncios")
-    .select("texto_normalizado");
+    .select("texto_normalizado")
+    .eq("bot_id", botId);
   const anuncios: Anuncio[] = (anunciosRaw ?? []).map((a) => ({ textoNormalizado: a.texto_normalizado as string }));
-  const bienvenida = await obtenerSerieBienvenida(admin);
+  const bienvenida = await obtenerSerieBienvenida(admin, botId);
 
   const { data: ubicacionesRaw } = await admin
     .from("whatsapp_bot_ubicaciones")
-    .select("nombre, nombre_normalizado, direccion, lat, lng, audio_url");
+    .select("nombre, nombre_normalizado, direccion, lat, lng, audio_url")
+    .eq("bot_id", botId);
   const ubicaciones: Ubicacion[] = (ubicacionesRaw ?? []).map((u) => ({
     nombre: u.nombre as string,
     nombreNormalizado: u.nombre_normalizado as string,

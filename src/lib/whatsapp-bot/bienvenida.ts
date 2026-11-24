@@ -6,10 +6,11 @@ import type { BienvenidaItem } from "./engine";
 // (/master/asistente-whatsapp), en el orden que el mismo decidio -- la
 // usan tanto el chat publico como el de entrenamiento para mandar el
 // saludo inicial.
-export async function obtenerSerieBienvenida(admin: SupabaseClient): Promise<BienvenidaItem[]> {
+export async function obtenerSerieBienvenida(admin: SupabaseClient, botId: string): Promise<BienvenidaItem[]> {
   const { data } = await admin
     .from("whatsapp_bot_bienvenida")
     .select("tipo, texto, audio_url, video_url")
+    .eq("bot_id", botId)
     .order("orden", { ascending: true });
 
   return (data ?? [])

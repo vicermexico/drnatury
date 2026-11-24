@@ -14,7 +14,7 @@ interface CorreccionUI {
   updated_at: string;
 }
 
-export function CorreccionesManager() {
+export function CorreccionesManager({ bot }: { bot: string }) {
   const [correcciones, setCorrecciones] = useState<CorreccionUI[]>([]);
   const [cargando, setCargando] = useState(true);
   const [borrandoId, setBorrandoId] = useState<string | null>(null);
@@ -25,7 +25,7 @@ export function CorreccionesManager() {
   async function cargar() {
     setCargando(true);
     try {
-      const res = await fetch("/api/master/bot-demo/ensenar");
+      const res = await fetch(`/api/master/bot-demo/ensenar?bot=${bot}`);
       const data = await res.json().catch(() => null);
       setCorrecciones(data?.correcciones ?? []);
     } finally {
@@ -35,7 +35,7 @@ export function CorreccionesManager() {
 
   useEffect(() => {
     if (abierto) cargar();
-  }, [abierto]);
+  }, [abierto, bot]);
 
   async function borrar(id: string) {
     setBorrandoId(id);

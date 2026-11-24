@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { RangoFechas } from "./RangoFechas";
+import { esBotSlugValido, obtenerBotIdPorSlug } from "@/lib/whatsapp-bot/bots";
 
 // Resumen de los mensajes que entraron por el chat publico (/chat):
 // cuantos llegaron, cuantos se cerraron con cita y cuantos no, en un
@@ -22,7 +23,7 @@ interface ChatLeadRow {
   } | null;
 }
 
-async function getChatLeads(desde: string | null, hasta: string | null) {
+async function getChatLeads(botId: string, desde: string | null, hasta: string | null) {
   const admin = createAdminClient();
   let query = admin
     .from("chat_leads")
@@ -30,6 +31,7 @@ async function getChatLeads(desde: string | null, hasta: string | null) {
       id, created_at, cerrada_con_cita,
       appointments:appointment_id ( quick_name, num_personas, modalidad, domicilio_direccion, branches(name) )
     `)
+    .eq("bot_id", botId)
     .order("created_at", { ascending: false });
 
   if (desde) query = query.gte("created_at", `${desde}T06:00:00Z`);
@@ -54,10 +56,13 @@ function lugarDe(row: ChatLeadRow): string {
 export default async function MensajesChatPage({
   searchParams,
 }: {
-  searchParams: Promise<{ desde?: string; hasta?: string; q?: string }>;
+  searchParams: Promise<{ desde?: string; hasta?: string; q?: string; bot?: string }>;
 }) {
-  const { desde, hasta, q } = await searchParams;
-  const leads = await getChatLeads(desde ?? null, hasta ?? null);
+  const { desde, hasta, q, bot: botParam } = await searchParams;
+  const bot = esBotSlugValido(botParam) ? botParam : "consultas";
+  const admin = createAdminClient();
+  const botId = await obtenerBotIdPorSlug(admin, bot);
+  const leads = botId ? await getChatLeads(botId, desde ?? null, hasta ?? null) : [];
 
   const llegados = leads.length;
   const cerrados = leads.filter((l) => l.cerrada_con_cita);
@@ -81,7 +86,7 @@ export default async function MensajesChatPage({
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <Link href="/master/asistente-whatsapp" className="text-sm text-blue-600 hover:underline">
+        <Link href={`/master/asistente-whatsapp?bot=${bot}`} className="text-sm text-blue-600 hover:underline">
           ← Asistente de WhatsApp
         </Link>
         <h1 className="text-2xl font-bold text-gray-900 mt-1">Mensajes del chat</h1>
@@ -102,7 +107,7 @@ export default async function MensajesChatPage({
           <p className="text-xs text-emerald-700/80 mt-1">Cerrados con cita</p>
         </div>
         <Link
-          href="/master/asistente-whatsapp/revision"
+          href={`/master/asistente-whatsapp/revision?bot=${bot}`}
           className="rounded-2xl bg-amber-50 border border-amber-200 p-4 text-center hover:border-amber-400 transition"
         >
           <p className="text-2xl font-bold text-amber-700">{noCerrados}</p>

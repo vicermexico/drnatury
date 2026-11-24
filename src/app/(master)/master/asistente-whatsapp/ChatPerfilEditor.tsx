@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 // un formulario aparte.
 
 interface Props {
+  bot: string;
   nombreInicial: string;
   fotoInicial: string | null;
   facebookUrlInicial: string | null;
@@ -34,11 +35,11 @@ async function uploadFile(file: File) {
   return data.publicUrl;
 }
 
-async function guardarConfig(patch: object) {
-  const res = await fetch("/api/landing/config", {
+async function guardarConfig(bot: string, patch: object) {
+  const res = await fetch("/api/master/bot-demo/perfil", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(patch),
+    body: JSON.stringify({ bot, ...patch }),
   });
   return res.ok;
 }
@@ -55,7 +56,7 @@ function Lapiz({ onClick, title }: { onClick: () => void; title: string }) {
   );
 }
 
-export function ChatPerfilEditor({ nombreInicial, fotoInicial, facebookUrlInicial }: Props) {
+export function ChatPerfilEditor({ bot, nombreInicial, fotoInicial, facebookUrlInicial }: Props) {
   const [nombre, setNombre] = useState(nombreInicial);
   const [foto, setFoto] = useState<string | null>(fotoInicial);
   const [facebookUrl, setFacebookUrl] = useState<string | null>(facebookUrlInicial);
@@ -74,7 +75,7 @@ export function ChatPerfilEditor({ nombreInicial, fotoInicial, facebookUrlInicia
   async function guardarNombre() {
     const valor = borradorNombre.trim() || "DrNatury";
     setStatusNombre("loading");
-    const ok = await guardarConfig({ chat_perfil_nombre: valor });
+    const ok = await guardarConfig(bot, { chat_perfil_nombre: valor });
     if (ok) {
       setNombre(valor);
       setEditandoNombre(false);
@@ -87,7 +88,7 @@ export function ChatPerfilEditor({ nombreInicial, fotoInicial, facebookUrlInicia
   async function guardarFacebook() {
     const valor = borradorFacebook.trim() || null;
     setStatusFacebook("loading");
-    const ok = await guardarConfig({ anuncio_facebook_url: valor });
+    const ok = await guardarConfig(bot, { anuncio_facebook_url: valor });
     if (ok) {
       setFacebookUrl(valor);
       setEditandoFacebook(false);
@@ -101,7 +102,7 @@ export function ChatPerfilEditor({ nombreInicial, fotoInicial, facebookUrlInicia
     setStatusFoto("loading");
     try {
       const url = await uploadFile(file);
-      const ok = await guardarConfig({ chat_perfil_foto: url });
+      const ok = await guardarConfig(bot, { chat_perfil_foto: url });
       if (ok) {
         setFoto(url);
         setStatusFoto("ok");
