@@ -326,6 +326,42 @@ function detectarTemaEscaneo(normalizado: string): string | null {
   return ESCANEO_TEMAS_KEYWORDS.find((t) => normalizado.includes(t)) ?? null;
 }
 
+// Preguntan si se puede hacer el estudio aun con metal en el cuerpo
+// (placa, tornillos, protesis, etc. de una cirugia o fractura vieja).
+// El escaneo bioenergetico cuantico que se hace aqui no es como una
+// resonancia magnetica ni una radiografia -- trabaja con una
+// frecuencia muy baja, asi que el metal no afecta ni distorsiona la
+// lectura: si se puede. Lo unico que de plano SI impide el estudio es
+// el embarazo, un marcapasos, o algun otro aparato electronico dentro
+// del cuerpo que pueda distorsionar la lectura -- eso se checa primero.
+const EXCLUSION_ESTUDIO_KEYWORDS = [
+  "embarazada", "embarazo", "esta encinta", "estoy encinta",
+  "marcapasos", "marca pasos",
+  "desfibrilador",
+  "algo electronico", "dispositivo electronico", "aparato electronico",
+];
+const EXCLUSION_ESTUDIO_TEXT = "Nada más en ese caso sí le comento con toda honestidad: si está embarazada, trae marcapasos o algún otro aparato electrónico en el cuerpo, eso sí podría distorsionar la lectura y no se podría hacer el estudio. Fuera de eso, no hay ningún problema.";
+
+const METAL_CUERPO_KEYWORDS = [
+  "placa", "placas",
+  "tornillo", "tornillos",
+  "clavo", "clavos",
+  "varilla", "varillas",
+  "protesis", "prostesis",
+  "implante", "implantes",
+  "pin metalico", "pines metalicos",
+  "metal en el cuerpo", "metal en mi cuerpo",
+  "fractura", "fracturas",
+  "me opere", "me operaron", "tuve una cirugia", "una cirugia antigua",
+];
+const METAL_CUERPO_TEXT = "Sí se puede realizar el estudio sin ningún problema. El escaneo bioenergético cuántico que hacemos funciona con una frecuencia muy baja (no es como una resonancia magnética ni una radiografía), así que una placa, tornillos, prótesis u otro metal en el cuerpo no afecta ni distorsiona la lectura.";
+
+function detectarContraindicacionEstudio(normalizado: string): string | null {
+  if (contieneAlguna(normalizado, EXCLUSION_ESTUDIO_KEYWORDS)) return EXCLUSION_ESTUDIO_TEXT;
+  if (contieneAlguna(normalizado, METAL_CUERPO_KEYWORDS)) return METAL_CUERPO_TEXT;
+  return null;
+}
+
 const AGENDAR_PALABRAS_ACCION = [
   "quiero", "quisiera", "necesito", "sacar", "saco", "pedir", "dar", "dame", "deme", "denme",
   "podria", "pudiera", "cuando", "donde", "como", "quien", "numero", "cual",
@@ -1264,6 +1300,10 @@ async function calcularRespuestaBase(
         nuevoEstado: estado,
       };
     }
+    const contraindicacion = detectarContraindicacionEstudio(normalizado);
+    if (contraindicacion) {
+      return { respuesta: `${contraindicacion}\n\n${preguntaActualDelPaso(estado)}`, nuevoEstado: estado };
+    }
     switch (estado.paso) {
       case "modalidad": {
         const detectado = detectarModalidadYLugar(normalizado);
@@ -1558,6 +1598,20 @@ async function calcularRespuestaBase(
     if (temaEscaneo) {
       return {
         respuesta: `Claro que sí, el escaneo también revisa eso (${temaEscaneo}). No se preocupe, ahí lo vemos bien. ¿Para cuándo le gustaría agendar su cita?`,
+        nuevoEstado: { fase: "agendando", paso: "modalidad" },
+      };
+    }
+  }
+
+  // Preguntan si se puede hacer el estudio aun con metal en el cuerpo
+  // (placa, tornillos, protesis, etc.) o mencionan algo que de plano SI
+  // lo impide (embarazo, marcapasos, aparato electronico) -- ver
+  // detectarContraindicacionEstudio arriba.
+  {
+    const contraindicacion = detectarContraindicacionEstudio(normalizado);
+    if (contraindicacion) {
+      return {
+        respuesta: `${contraindicacion} ¿Para cuándo le gustaría agendar su cita?`,
         nuevoEstado: { fase: "agendando", paso: "modalidad" },
       };
     }
