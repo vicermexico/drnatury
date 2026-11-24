@@ -966,8 +966,24 @@ export async function generarRespuesta(args: {
   // (canalPublico=false, el valor de siempre) si se queda igual, porque
   // esos avisos son justo para que Master sepa que hay que entrenarlo.
   canalPublico?: boolean;
+  // Si no hay ninguna bienvenida configurada en whatsapp_bot_bienvenida,
+  // solo el bot "consultas" cae de respaldo al audio/texto generico de
+  // DrNatury (WELCOME_AUDIO_URL/WELCOME_TEXT) -- los demas bots (ej. el
+  // de la pomada, ver Fase 1 del bot de venta de productos) se quedan
+  // sin mandar ningun saludo mientras Master no les configure el suyo,
+  // para no aventarles por error el saludo que es de otro bot.
+  usarBienvenidaGenerica?: boolean;
 }): Promise<ResultadoRespuesta> {
-  const { mensaje, estado, correcciones, anuncios = [], bienvenida = [], ubicaciones = [], canalPublico = false } = args;
+  const {
+    mensaje,
+    estado,
+    correcciones,
+    anuncios = [],
+    bienvenida = [],
+    ubicaciones = [],
+    canalPublico = false,
+    usarBienvenidaGenerica = true,
+  } = args;
   const normalizado = normalizar(mensaje);
 
   // 1) Primer mensaje de la conversacion.
@@ -1028,21 +1044,26 @@ export async function generarRespuesta(args: {
     const serieBienvenida: BienvenidaItem[] =
       bienvenida.length > 0
         ? bienvenida
-        : [
-            { tipo: "audio", contenido: WELCOME_AUDIO_URL },
-            { tipo: "texto", contenido: WELCOME_TEXT },
-          ];
+        : usarBienvenidaGenerica
+          ? [
+              { tipo: "audio", contenido: WELCOME_AUDIO_URL },
+              { tipo: "texto", contenido: WELCOME_TEXT },
+            ]
+          : [];
     return {
       // Se deja tambien en "respuesta" (solo el texto, unido) por si algo
       // mas adelante necesita leerlo de un jalon -- lo que de verdad
-      // manda el chat es "mensajesBienvenida", uno por uno.
+      // manda el chat es "mensajesBienvenida", uno por uno. Si de plano
+      // no hay nada que mandar (bot sin bienvenida configurada y sin
+      // respaldo generico), se deja vacio -- el chat no debe inventar
+      // ninguna burbuja.
       respuesta: serieBienvenida
         .filter((m) => m.tipo === "texto")
         .map((m) => m.contenido)
         .join("\n\n"),
       nuevoEstado: { fase: "conversando" },
       nota: codigo ? `Código de anuncio detectado: ${codigo}` : undefined,
-      mensajesBienvenida: serieBienvenida,
+      mensajesBienvenida: serieBienvenida.length > 0 ? serieBienvenida : undefined,
     };
   }
 

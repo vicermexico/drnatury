@@ -106,7 +106,7 @@ export function AsistenteChatDemo({ bot }: { bot: string }) {
           ]);
           await esperar(700);
         }
-      } else {
+      } else if (data.respuesta || data.audioUrl || data.nota) {
         setMensajes((prev) => [
           ...prev,
           {
@@ -119,6 +119,9 @@ export function AsistenteChatDemo({ bot }: { bot: string }) {
           },
         ]);
       }
+      // Si el bot (ej. un bot nuevo sin bienvenida configurada todavia)
+      // de plano no tiene nada que contestar, no se agrega burbuja vacia
+      // -- asi Master ve exactamente lo mismo que veria un paciente real.
     } finally {
       setEnviando(false);
     }

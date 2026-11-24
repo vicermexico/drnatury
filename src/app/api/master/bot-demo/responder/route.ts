@@ -69,7 +69,18 @@ export async function POST(request: NextRequest) {
     audioUrl: u.audio_url as string | null,
   }));
 
-  const resultado = await generarRespuesta({ mensaje, estado, correcciones, anuncios, bienvenida, ubicaciones });
+  const resultado = await generarRespuesta({
+    mensaje,
+    estado,
+    correcciones,
+    anuncios,
+    bienvenida,
+    ubicaciones,
+    // Igual que en el chat publico: solo "consultas" cae de respaldo al
+    // saludo generico de DrNatury -- asi Master entrena/prueba cada bot
+    // viendo exactamente lo que de verdad le llegaria al paciente.
+    usarBienvenidaGenerica: (body.bot ?? "consultas") === "consultas",
+  });
 
   return NextResponse.json(resultado);
 }
