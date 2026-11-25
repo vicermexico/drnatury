@@ -233,6 +233,11 @@ const INGREDIENTE_KEYWORDS = [
   "dime mas",
   "explicame mas",
   "mas detalles",
+  // Pidiendo "informacion"/"info" a secas, sin decir de que exactamente
+  // (ej. "quisiera info", "me das informacion porfa", "información del
+  // producto") -- "info" ya cubre "información" tambien, por ser
+  // substring de la palabra completa.
+  "info",
 ];
 
 const PRECIO_KEYWORDS = [
@@ -612,14 +617,37 @@ const CATALOGO_PALABRAS_INTENCION = [
 function pareceCatalogo(normalizado: string): boolean {
   if (contieneAlguna(normalizado, CATALOGO_KEYWORDS)) return true;
   if (contieneAlguna(normalizado, FOTO_KEYWORDS)) return true;
+  // "Mas informacion del producto" / "informacion del producto" tiene
+  // "producto" + "mas", que tambien dispara el patron de catalogo de
+  // abajo -- pero ahi lo que de verdad quieren es la info de la pomada
+  // (ver INGREDIENTE_KEYWORDS), no la tarjeta del catalogo.
+  if (contieneAlguna(normalizado, INGREDIENTE_KEYWORDS)) return false;
   if (!normalizado.includes("producto")) return false;
   return CATALOGO_PALABRAS_INTENCION.some((p) => normalizado.includes(p));
 }
 
-function mostrarCatalogo(): ResultadoRespuestaPomada {
+// Casi todas las respuestas en fase "conversando" armaban su
+// "nuevoEstado" desde cero (solo con fase: "conversando") -- eso esta
+// bien para paso/cantidad/nombre/direccion/bloque (ya no importan
+// fuera de un pedido activo), pero NO para el celular (celular,
+// celularPedidoTemprano, celularTempranoIntentos): esos se tienen que
+// preservar en TODA la conversacion sin importar que se conteste
+// despues, si no se "olvida" el celular que ya se habia dado y se le
+// vuelve a insistir de mas (caso real que encontro Vic: contesto
+// "claro, <su numero>" y el bot igual seguia preguntando).
+function conversando(estado: EstadoPedido): EstadoPedido {
+  return {
+    fase: "conversando",
+    celular: estado.celular,
+    celularPedidoTemprano: estado.celularPedidoTemprano,
+    celularTempranoIntentos: estado.celularTempranoIntentos,
+  };
+}
+
+function mostrarCatalogo(estado: EstadoPedido): ResultadoRespuestaPomada {
   return {
     respuesta: "¡Claro! Aquí tienes nuestro catálogo 👇",
-    nuevoEstado: { fase: "conversando" },
+    nuevoEstado: conversando(estado),
     mostrarCatalogo: true,
   };
 }
@@ -680,7 +708,7 @@ function finalizarPedido(estado: EstadoPedido, horario: string): ResultadoRespue
     `El pago es hasta que reciba su pedido, sin anticipo 😊`;
   return {
     respuesta: resumen,
-    nuevoEstado: { fase: "conversando" },
+    nuevoEstado: conversando(estado),
     pedido: {
       nombre: estado.nombre ?? "",
       celular: estado.celular ?? "",
@@ -693,17 +721,25 @@ function finalizarPedido(estado: EstadoPedido, horario: string): ResultadoRespue
   };
 }
 
-function iniciarPedido(normalizado: string): ResultadoRespuestaPomada {
+function iniciarPedido(normalizado: string, estado: EstadoPedido): ResultadoRespuestaPomada {
   const cantidad = extraerCantidad(normalizado);
+  // Igual que en conversando() de arriba -- el celular que ya se tenga
+  // o ya se haya pedido NO se debe perder nada mas porque empieza el
+  // pedido.
+  const camposCelular = {
+    celular: estado.celular,
+    celularPedidoTemprano: estado.celularPedidoTemprano,
+    celularTempranoIntentos: estado.celularTempranoIntentos,
+  };
   if (cantidad) {
     return {
       respuesta: `¡Perfecto! Le preparamos ${cantidad} ${cantidad === 1 ? "pomada" : "pomadas"} de Barak Flex 🙌 ¿A nombre de quién hacemos el pedido?`,
-      nuevoEstado: { fase: "pidiendo", paso: "nombre", cantidad },
+      nuevoEstado: { fase: "pidiendo", paso: "nombre", cantidad, ...camposCelular },
     };
   }
   return {
     respuesta: `¡Con gusto! ¿Cuántas pomadas le mandamos? (cuestan $${PRECIO_UNITARIO} cada una, puede pedir las que quiera, y el envío es gratis 🚚)`,
-    nuevoEstado: { fase: "pidiendo", paso: "cantidad" },
+    nuevoEstado: { fase: "pidiendo", paso: "cantidad", ...camposCelular },
   };
 }
 
@@ -711,6 +747,18 @@ function manejarPidiendo(mensaje: string, normalizado: string, estado: EstadoPed
   if (estado.paso === "cantidad") {
     const cantidad = extraerCantidad(normalizado);
     if (!cantidad) {
+      // Si en vez de un numero preguntaron otra cosa (ej. "de que esta
+      // hecha la pomada", "quisiera informacion") -- antes se quedaba
+      // repitiendo siempre "digame el numero" sin importar que
+      // preguntaran, sin contestar nunca su pregunta de verdad. Ahora
+      // se le contesta eso primero y se le repite la pregunta pendiente,
+      // sin perder su lugar en el pedido.
+      if (contieneAlguna(normalizado, INGREDIENTE_KEYWORDS)) {
+        return {
+          respuesta: `${INGREDIENTES_TEXT}\n\n¿Cuántas pomadas le mandamos?`,
+          nuevoEstado: estado,
+        };
+      }
       return {
         respuesta: "Nada más dígame el número -- ¿cuántas pomadas le mandamos?",
         nuevoEstado: estado,
@@ -815,7 +863,7 @@ function manejarPidiendo(mensaje: string, normalizado: string, estado: EstadoPed
   }
 
   // No deberia llegar aqui, pero por si acaso se reinicia el pedido.
-  return iniciarPedido(normalizado);
+  return iniciarPedido(normalizado, estado);
 }
 
 function calcularRespuestaBase(
@@ -831,12 +879,12 @@ function calcularRespuestaBase(
       return {
         respuesta:
           "⚠️ Este mensaje no coincide con ningún anuncio guardado. Puede que no venga de un clic a un anuncio de Facebook/Instagram -- revísalo tú mismo en vez de contestar el saludo automático.",
-        nuevoEstado: { fase: "conversando" },
+        nuevoEstado: conversando(estado),
         nota: "mensaje_no_de_anuncio",
       };
     }
     if (pareceQuererComprar(normalizado)) {
-      return iniciarPedido(normalizado);
+      return iniciarPedido(normalizado, estado);
     }
     const codigo = detectarCodigoAnuncio(mensaje);
     return {
@@ -844,7 +892,7 @@ function calcularRespuestaBase(
         .filter((m) => m.tipo === "texto")
         .map((m) => m.contenido)
         .join("\n\n"),
-      nuevoEstado: { fase: "conversando" },
+      nuevoEstado: conversando(estado),
       nota: codigo ? `Código de anuncio detectado: ${codigo}` : undefined,
       mensajesBienvenida: bienvenida.length > 0 ? bienvenida : undefined,
     };
@@ -858,7 +906,7 @@ function calcularRespuestaBase(
   if (contieneAlguna(normalizado, NO_KEYWORDS)) {
     return {
       respuesta: "Está bien, aquí quedo por si más al rato se le antoja o le late pedirla 😊",
-      nuevoEstado: { fase: "conversando" },
+      nuevoEstado: conversando(estado),
     };
   }
   // Ya se le pidio el celular y contesta diciendo que si lo va a dar,
@@ -866,7 +914,7 @@ function calcularRespuestaBase(
   if (estado.celularPedidoTemprano && !estado.celular && contieneAlguna(normalizado, CELULAR_PROMETIDO_KEYWORDS)) {
     return {
       respuesta: "¡Claro! Nada más mándeme los 10 dígitos de su WhatsApp, por favor 📱",
-      nuevoEstado: { fase: "conversando" },
+      nuevoEstado: conversando(estado),
     };
   }
   // Confirmaciones genericas sobre el dolor (ej. "¿y sirve para todos
@@ -874,44 +922,44 @@ function calcularRespuestaBase(
   // palabra "dolor" ya haria que cayera en la respuesta normal (sin el
   // "¡Claro!" que si corresponde aqui porque de verdad preguntaron algo).
   if (contieneAlguna(normalizado, CONFIRMA_DOLOR_GENERAL_KEYWORDS)) {
-    return { respuesta: respuestaDolorGeneral(), nuevoEstado: { fase: "conversando" } };
+    return { respuesta: respuestaDolorGeneral(), nuevoEstado: conversando(estado) };
   }
   // La intencion de compra manda sobre el comentario de dolor -- si
   // alguien dice "la quiero porque me duele la pierna", lo correcto es
   // seguir derecho con el pedido, no volver a preguntar si la quiere.
   if (pareceQuererComprar(normalizado)) {
-    return iniciarPedido(normalizado);
+    return iniciarPedido(normalizado, estado);
   }
   if (contieneAlguna(normalizado, DOLOR_KEYWORDS)) {
-    return { respuesta: respuestaDolor(normalizado), nuevoEstado: { fase: "conversando" } };
+    return { respuesta: respuestaDolor(normalizado), nuevoEstado: conversando(estado) };
   }
   if (contieneAlguna(normalizado, ENTREGA_KEYWORDS)) {
-    return { respuesta: respuestaEntrega(), nuevoEstado: { fase: "conversando" } };
+    return { respuesta: respuestaEntrega(), nuevoEstado: conversando(estado) };
   }
   if (contieneAlguna(normalizado, HORARIO_ENTREGA_KEYWORDS)) {
-    return { respuesta: respuestaHorarioEntrega(), nuevoEstado: { fase: "conversando" } };
+    return { respuesta: respuestaHorarioEntrega(), nuevoEstado: conversando(estado) };
   }
   // El costo del envio se checa ANTES que PRECIO_KEYWORDS -- "cuanto
   // cuesta el envio" tambien dispara PRECIO_KEYWORDS (por "cuanto
   // cuesta"), pero si de verdad solo preguntan por el envio, la
   // respuesta correcta es nada mas esa, no el precio completo.
   if (parecePreguntaEnvio(normalizado)) {
-    return { respuesta: respuestaEnvio(), nuevoEstado: { fase: "conversando" } };
+    return { respuesta: respuestaEnvio(), nuevoEstado: conversando(estado) };
   }
   if (contieneAlguna(normalizado, INGREDIENTE_KEYWORDS)) {
     return {
       respuesta: `${INGREDIENTES_TEXT}\n\n¿Le gustaría que le hagamos su pedido?`,
-      nuevoEstado: { fase: "conversando" },
+      nuevoEstado: conversando(estado),
     };
   }
   if (contieneAlguna(normalizado, PRECIO_KEYWORDS)) {
-    return { respuesta: respuestaPrecio(), nuevoEstado: { fase: "conversando" } };
+    return { respuesta: respuestaPrecio(), nuevoEstado: conversando(estado) };
   }
   // Va DESPUES de DOLOR_KEYWORDS: si ya dijeron cual es su problema en
   // el mismo mensaje (ej. "necesidad, tengo fascitis plantar"), ya se
   // contesto arriba y no hace falta volver a preguntar.
   if (contieneAlguna(normalizado, NECESIDAD_SIN_DETALLE_KEYWORDS)) {
-    return { respuesta: respuestaNecesidadSinDetalle(), nuevoEstado: { fase: "conversando" } };
+    return { respuesta: respuestaNecesidadSinDetalle(), nuevoEstado: conversando(estado) };
   }
   // Afirmacion cortita (ej. contestando "¿le gustaria pedirla?") -- solo
   // cuenta si el mensaje es corto Y la frase aparece como palabra
@@ -919,20 +967,20 @@ function calcularRespuestaBase(
   // se exige el espacio alrededor, hace falso positivo adentro de
   // palabras como "necesidad").
   if (contieneFraseCompleta(normalizado, SI_KEYWORDS) && normalizado.split(" ").length <= 3) {
-    return iniciarPedido(normalizado);
+    return iniciarPedido(normalizado, estado);
   }
 
   if (canalPublico) {
     return {
       respuesta:
         "¡Con gusto le ayudo! 😊 ¿Le gustaría conocer más sobre la Pomada Barak Flex (para qué dolores ayuda, qué contiene, el precio), o ya quiere que le hagamos su pedido?",
-      nuevoEstado: { fase: "conversando" },
+      nuevoEstado: conversando(estado),
       nota: "no_entendido_publico",
     };
   }
   return {
     respuesta: "Mmm, no estoy seguro de cómo contestar eso todavía. Usa el botón de \"Enseñar respuesta\" de abajo para decirme qué debí haber dicho.",
-    nuevoEstado: { fase: "conversando" },
+    nuevoEstado: conversando(estado),
     nota: "sin_entrenar",
   };
 }
@@ -970,7 +1018,7 @@ export async function generarRespuestaPomada(args: {
   // medias.
   let resultado =
     estadoConCelular.fase !== "pidiendo" && pareceCatalogo(normalizado)
-      ? mostrarCatalogo()
+      ? mostrarCatalogo(estadoConCelular)
       : calcularRespuestaBase(mensaje, normalizado, estadoConCelular, canalPublico, anuncios, bienvenida);
 
   // Si Master ya ensenio exactamente que contestar ante este mensaje, se
