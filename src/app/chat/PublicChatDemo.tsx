@@ -1101,12 +1101,17 @@ export function PublicChatDemo({
                 // que pulsa de tenue a fuerte, para que no se le pase a la
                 // persona darle clic y de verdad se confirme la cita.
                 <div className="mt-3 rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-3">
-                  <p className="text-center text-sm font-semibold text-emerald-900">
+                  {/* Se agrando este texto y el boton (letra e icono) --
+                      Vic pidio que se vieran mas grandes porque buena
+                      parte de los clientes son personas mayores y se
+                      les pasaba de chiquito. Aplica igual a los dos
+                      bots (citas y pomada), es el mismo bloque. */}
+                  <p className="text-center text-lg font-bold text-emerald-900">
                     {m.agendado.tipo === "pedido"
                       ? "Para confirmar tu pedido por WhatsApp, da clic aquí"
                       : "Para confirmar y recordar tu cita por WhatsApp, da clic aquí"}
                   </p>
-                  <div className="flex justify-center text-xl leading-none text-emerald-500 animate-bounce" aria-hidden="true">
+                  <div className="flex justify-center text-2xl leading-none text-emerald-500 animate-bounce" aria-hidden="true">
                     ⬇️
                   </div>
                   <div className="flex justify-center">
@@ -1116,7 +1121,7 @@ export function PublicChatDemo({
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="relative flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white text-sm font-semibold px-5 py-2.5 shadow-lg hover:brightness-95"
+                      className="relative flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white text-lg font-bold px-6 py-3.5 shadow-lg hover:brightness-95"
                     >
                       <span
                         className="absolute inset-0 -z-10 rounded-full bg-emerald-400 opacity-75 animate-ping pointer-events-none"
