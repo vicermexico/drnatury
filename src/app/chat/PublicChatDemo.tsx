@@ -371,6 +371,18 @@ export function PublicChatDemo({
   // clic al icono o en cuanto manda su siguiente mensaje (si no volvio
   // a usar el pin, de todos modos ya escribio la direccion a mano).
   const [destacarUbicacion, setDestacarUbicacion] = useState(false);
+  // Velocidad de reproduccion de las notas de voz del chat (1x, 2x,
+  // 3x) -- Vic pidio que se pueda escuchar mas rapido, como en
+  // WhatsApp. Cada audio guarda su propio elemento (por su id de
+  // mensaje) para poder cambiarle la velocidad desde los botones de
+  // abajo sin afectar a los demas audios de la conversacion.
+  const audioRefs = useRef<Map<number, HTMLAudioElement>>(new Map());
+  const [velocidadesAudio, setVelocidadesAudio] = useState<Record<number, number>>({});
+  function cambiarVelocidadAudio(id: number, velocidad: number) {
+    const el = audioRefs.current.get(id);
+    if (el) el.playbackRate = velocidad;
+    setVelocidadesAudio((prev) => ({ ...prev, [id]: velocidad }));
+  }
   const [mostrarModalUbicacion, setMostrarModalUbicacion] = useState(false);
   const [estadoUbicacion, setEstadoUbicacion] = useState<"inicio" | "cargando" | "listo" | "guardada" | "error">("inicio");
   const [errorUbicacion, setErrorUbicacion] = useState("");
@@ -1022,7 +1034,7 @@ export function PublicChatDemo({
           ) : (
           <div key={m.id} className={`flex ${m.rol === "bot" ? "justify-start" : "justify-end"}`}>
             <div
-              className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap shadow-sm ${
+              className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-base font-medium whitespace-pre-wrap shadow-sm ${
                 m.audioUrl && !m.texto ? "w-72" : ""
               } ${
                 m.rol === "bot"
@@ -1031,9 +1043,47 @@ export function PublicChatDemo({
               }`}
             >
               {m.audioUrl && (
-                <audio controls preload="none" className="w-full mb-2 h-12">
-                  <source src={m.audioUrl} />
-                </audio>
+                <>
+                  <audio
+                    controls
+                    preload="none"
+                    className="w-full mb-1 h-12"
+                    ref={(el) => {
+                      if (el) {
+                        audioRefs.current.set(m.id, el);
+                        el.playbackRate = velocidadesAudio[m.id] ?? 1;
+                      } else {
+                        audioRefs.current.delete(m.id);
+                      }
+                    }}
+                  >
+                    <source src={m.audioUrl} />
+                  </audio>
+                  {/* Botones de velocidad (1x normal, 2x y 3x mas
+                      rapido) -- igual que en WhatsApp, para que el
+                      paciente no tenga que esperar oyendo todo el audio
+                      si ya le urge seguir. */}
+                  <div className="flex items-center gap-1.5 mb-2">
+                    {[1, 2, 3].map((velocidad) => (
+                      <button
+                        key={velocidad}
+                        type="button"
+                        onClick={() => cambiarVelocidadAudio(m.id, velocidad)}
+                        className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                          (velocidadesAudio[m.id] ?? 1) === velocidad
+                            ? m.rol === "bot"
+                              ? "bg-emerald-600 text-white border-emerald-600"
+                              : "bg-white text-emerald-700 border-white"
+                            : m.rol === "bot"
+                            ? "bg-gray-50 text-gray-600 border-gray-200"
+                            : "bg-emerald-700/40 text-white border-emerald-400/40"
+                        }`}
+                      >
+                        {velocidad}x
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
               {m.texto}
               {m.rol === "bot" && m.esBienvenida && !m.agendado && (m.texto || m.audioUrl) && (
