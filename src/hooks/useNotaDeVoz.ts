@@ -18,6 +18,7 @@ interface SpeechRecognitionLike {
   continuous: boolean;
   onresult: ((e: EventoReconocimiento) => void) | null;
   onerror: (() => void) | null;
+  onend: (() => void) | null;
   start: () => void;
   stop: () => void;
 }
@@ -170,17 +171,53 @@ export function useNotaDeVoz(alTerminar: (resultado: { blobUrl: string; texto: s
     setGrabando(false);
   }
 
+  // El problema de fondo que seguia hacienda que el bot "no entendiera"
+  // el audio (reportado por Vic incluso despues de arreglar el cierre
+  // de transcripcionParcial): al decirle "stop" al reconocimiento de
+  // voz, este NO termina de inmediato -- sigue un instante mas
+  // procesando el ultimo pedacito de lo que se dijo, y VARIOS
+  // reconocedores (sobre todo si la persona hablo de corrido, sin
+  // pausas) nada mas mandan su unico resultado "final" justo en ese
+  // momento, DESPUES de llamar stop(), nunca antes. Como aqui se
+  // paraba la grabadora de audio (y se mandaba el mensaje) AL MISMO
+  // TIEMPO que se le decia stop() al reconocimiento, la nota de voz se
+  // mandaba ANTES de que ese resultado final llegara -- el bot recibia
+  // el mensaje practicamente sin texto transcrito, como si no hubiera
+  // entendido nada, sin importar que tan claro se hablara. Por eso
+  // ahora se espera a que el reconocimiento avise que de verdad termino
+  // ("onend", o "onerror" si fallo) -- o como mucho 1.2 segundos, por
+  // si el navegador nunca avisa -- antes de parar la grabadora y mandar
+  // la nota de voz.
   function detenerYMandar() {
     if (!grabando) return;
-    try {
-      recoRef.current?.stop();
-    } catch {
-      // nada
-    }
+    const reco = recoRef.current;
     recoRef.current = null;
-    grabadoraRef.current?.stop();
-    grabadoraRef.current = null;
-    detenerTodo();
+
+    const finalizarGrabacion = () => {
+      grabadoraRef.current?.stop();
+      grabadoraRef.current = null;
+      detenerTodo();
+    };
+
+    if (!reco) {
+      finalizarGrabacion();
+      return;
+    }
+
+    let yaSiguio = false;
+    const seguir = () => {
+      if (yaSiguio) return;
+      yaSiguio = true;
+      finalizarGrabacion();
+    };
+    reco.onend = seguir;
+    reco.onerror = seguir;
+    setTimeout(seguir, 1200);
+    try {
+      reco.stop();
+    } catch {
+      seguir();
+    }
   }
 
   function cancelar() {
