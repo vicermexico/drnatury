@@ -1310,7 +1310,7 @@ export function PublicChatDemo({
       )}
 
       <div className="shrink-0 relative border-t border-gray-100 bg-white">
-        {mostrarEmojis && !cuadroAmpliado && (
+        {mostrarEmojis && (
           <div className="absolute bottom-full left-2 mb-2 grid grid-cols-6 gap-1 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg z-10">
             {EMOJIS_RAPIDOS.map((emoji) => (
               <button

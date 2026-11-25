@@ -1090,8 +1090,20 @@ function calcularRespuestaBase(
   // La intencion de compra manda sobre el comentario de dolor -- si
   // alguien dice "la quiero porque me duele la pierna", lo correcto es
   // seguir derecho con el pedido, no volver a preguntar si la quiere.
+  // Pero si en ese mismo mensaje tambien cuenta cual es su dolor (ej.
+  // "quisiera la pomada por un dolor de columna que no soporto"), antes
+  // de seguir con el pedido se le reconoce el dolor primero -- Vic
+  // reporto que el bot se brincaba directo a pedir el nombre sin
+  // comentarle nada sobre el dolor que acababa de decir, y se sentia
+  // frio/automatico.
   if (pareceQuererComprar(normalizado)) {
-    return iniciarPedido(normalizado, estado);
+    const resultado = iniciarPedido(normalizado, estado);
+    if (contieneAlguna(normalizado, DOLOR_KEYWORDS)) {
+      const parte = detectarParteMencionada(normalizado);
+      const empatia = `Lamento mucho ese dolor${parte ? ` en ${parte}` : ""}, la Pomada Barak Flex le va a ayudar muchísimo 💪\n\n`;
+      return { ...resultado, respuesta: empatia + resultado.respuesta };
+    }
+    return resultado;
   }
   if (contieneAlguna(normalizado, DOLOR_KEYWORDS)) {
     return { respuesta: respuestaDolor(normalizado), nuevoEstado: conversando(estado) };
