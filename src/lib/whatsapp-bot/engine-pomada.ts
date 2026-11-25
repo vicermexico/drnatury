@@ -417,8 +417,31 @@ function respuestaHorarioEntrega(): string {
 
 // Piden ver una foto/imagen de la pomada -- se le manda el catálogo
 // (que ya trae la foto, nombre y precio del producto), en vez de
-// inventar un mensaje nuevo solo de imagen.
-const FOTO_KEYWORDS = ["foto", "fotografia", "imagen"];
+// inventar un mensaje nuevo solo de imagen. Ademas de decir "foto" o
+// "imagen" directamente, Vic pidio reconocer tambien cuando preguntan
+// cual/como es la pomada sin usar esas palabras (ej. "cual es la
+// pomada", "como se ve"), ya que tambien ahi lo que quieren es verla.
+const FOTO_KEYWORDS = [
+  "foto",
+  "fotografia",
+  "imagen",
+  "cual es la pomada",
+  "cual es la pomada barak",
+  "como es la pomada",
+  "como se ve la pomada",
+  "como se ve",
+  "quiero ver la pomada",
+  "quiero ver como es",
+  "mandame la pomada",
+  "mandame foto",
+  "mandeme foto",
+  "pasame foto",
+  "pasame una foto",
+  "ensename la pomada",
+  "enseñame la pomada",
+  "ensename como es",
+  "enseñame como es",
+];
 
 // Respuesta para CUALQUIER dolor/molestia que mencionen (no solo
 // ciática -- aplica igual para espalda, rodillas, cervicales, etc., ver
