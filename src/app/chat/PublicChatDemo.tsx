@@ -364,6 +364,13 @@ export function PublicChatDemo({
   // ubicacionDatos aparezca (ver el useEffect mas abajo).
   const [ubicacionDatos, setUbicacionDatos] = useState<UbicacionDatos | null>(null);
   const [ubicacionPendiente, setUbicacionPendiente] = useState<{ lat: number; lng: number } | null>(null);
+  // El bot de la pomada (ver pedirUbicacion en engine-pomada.ts) marca
+  // este mensaje cuando le acaba de pedir la direccion mencionando el
+  // pin de ubicacion -- Vic pidio que ahi se vea una flechita señalando
+  // el icono, para que no se le pase por alto. Se apaga en cuanto le da
+  // clic al icono o en cuanto manda su siguiente mensaje (si no volvio
+  // a usar el pin, de todos modos ya escribio la direccion a mano).
+  const [destacarUbicacion, setDestacarUbicacion] = useState(false);
   const [mostrarModalUbicacion, setMostrarModalUbicacion] = useState(false);
   const [estadoUbicacion, setEstadoUbicacion] = useState<"inicio" | "cargando" | "listo" | "guardada" | "error">("inicio");
   const [errorUbicacion, setErrorUbicacion] = useState("");
@@ -593,6 +600,7 @@ export function PublicChatDemo({
     setEstadoUbicacion("inicio");
     setErrorUbicacion("");
     setMostrarModalUbicacion(true);
+    setDestacarUbicacion(false);
   }
 
   async function enviarMensaje() {
@@ -626,6 +634,7 @@ export function PublicChatDemo({
       }
       setEstado(data.nuevoEstado);
       if (data.ubicacion) setUbicacionDatos(data.ubicacion as UbicacionDatos);
+      setDestacarUbicacion(!!data.pedirUbicacion);
 
       // El saludo de bienvenida llega como varios mensajes (texto y/o
       // audio, en el orden que Master armo) -- se mandan uno por uno,
@@ -699,6 +708,7 @@ export function PublicChatDemo({
       }
       setEstado(data.nuevoEstado);
       if (data.ubicacion) setUbicacionDatos(data.ubicacion as UbicacionDatos);
+      setDestacarUbicacion(!!data.pedirUbicacion);
 
       const serieBienvenida = data.mensajesBienvenida as MensajeBienvenidaUI[] | undefined;
       if (serieBienvenida && serieBienvenida.length > 0) {
@@ -1281,13 +1291,29 @@ export function PublicChatDemo({
               )}
             </div>
             {!cuadroAmpliado && (
-              <button
-                onClick={abrirModalUbicacion}
-                title="Mandar mi ubicación actual"
-                className="rounded-full w-10 h-10 flex items-center justify-center shrink-0 shadow-sm bg-gray-100 hover:bg-gray-200"
-              >
-                <IconoUbicacion className="w-5 h-5" />
-              </button>
+              // Cuando el bot acaba de pedir la direccion mencionando el
+              // pin (ver destacarUbicacion), se le señala con una
+              // flechita que rebota encima del boton, para que no se le
+              // pase por alto -- pedido explicito de Vic.
+              <div className="relative shrink-0">
+                {destacarUbicacion && (
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5 animate-bounce pointer-events-none">
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-white px-1.5 py-0.5 rounded-full shadow whitespace-nowrap">
+                      Dé clic aquí
+                    </span>
+                    <span className="text-emerald-600 text-base leading-none">↓</span>
+                  </div>
+                )}
+                <button
+                  onClick={abrirModalUbicacion}
+                  title="Mandar mi ubicación actual"
+                  className={`rounded-full w-10 h-10 flex items-center justify-center shadow-sm ${
+                    destacarUbicacion ? "bg-emerald-100 ring-2 ring-emerald-400" : "bg-gray-100 hover:bg-gray-200"
+                  }`}
+                >
+                  <IconoUbicacion className="w-5 h-5" />
+                </button>
+              </div>
             )}
             {!cuadroAmpliado && notaDeVozSoportada && (
               // Nota de voz real (se manda el audio, como en WhatsApp) --

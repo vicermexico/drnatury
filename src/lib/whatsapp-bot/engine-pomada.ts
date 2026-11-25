@@ -60,6 +60,13 @@ export interface ResultadoRespuestaPomada {
   // pedido de verdad sigue siendo solo de la Pomada (Vic pidio dejar
   // pendiente "pedir cualquier producto" hasta que suba mas productos).
   mostrarCatalogo?: boolean;
+  // true cuando el bot le acaba de pedir su direccion mencionando que
+  // tambien puede darle clic al pin de ubicacion -- el chat publico
+  // (PublicChatDemo.tsx) usa esto para pintar una flechita señalando
+  // ese botón un rato, y que no se le pase por alto (Vic lo pidio
+  // explicitamente despues de ver que la gente seguia escribiendo su
+  // direccion a mano en vez de usar el pin).
+  pedirUbicacion?: boolean;
 }
 
 // Precio fijo por pomada (dato que dio Vic) -- se puede pedir mas de
@@ -75,6 +82,15 @@ function contieneAlguna(normalizado: string, frases: string[]): boolean {
 // venir sin acentos (normalizar() los quita), "texto" es como se
 // menciona de vuelta en la respuesta, con acentos, para que se lea bien.
 const PARTES_CUERPO: { claves: string[]; texto: string }[] = [
+  // Estas dos van ANTES que "talon" (el orden importa -- gana el
+  // primer grupo que haga match): Vic reporto un caso real de alguien
+  // que escribio "fascitis plantar... en el talon izquierdo" y el bot
+  // contesto solo "el talón de Aquiles", sin reconocer la fascitis que
+  // SI mencionaron -- asi, si aparecen las dos palabras, gana la mas
+  // especifica. "flacitis" queda a proposito (typo comun de voz a
+  // texto por "fascitis").
+  { claves: ["fascitis plantar", "fascitis", "flacitis plantar", "flacitis"], texto: "la fascitis plantar" },
+  { claves: ["espolon calcaneo", "espolon"], texto: "el espolón calcáneo" },
   { claves: ["ciatica"], texto: "la ciática" },
   { claves: ["lumbar"], texto: "la zona lumbar" },
   { claves: ["espalda"], texto: "la espalda" },
@@ -83,6 +99,7 @@ const PARTES_CUERPO: { claves: string[]; texto: string }[] = [
   { claves: ["cervical"], texto: "las cervicales" },
   { claves: ["cuello"], texto: "el cuello" },
   { claves: ["mano"], texto: "las manos" },
+  { claves: ["pierna", "piernas"], texto: "las piernas" },
   { claves: ["rodilla"], texto: "las rodillas" },
   { claves: ["talon de aquiles", "talon"], texto: "el talón de Aquiles" },
   { claves: ["planta de"], texto: "la planta del pie" },
@@ -132,6 +149,28 @@ const DOLOR_KEYWORDS = [
   "no puedo ni caminar",
   "no puedo caminar bien",
   "no puedo moverme",
+  // Sintomas generales (no necesariamente dolor) que Vic pidio
+  // reconocer tambien -- debilidad, cansancio, hormigueo, etc. ("entumec"
+  // y "hormig" quedan como raiz a proposito, para cubrir conjugaciones
+  // como "entumecido"/"entumecida" y "hormiguean"/"hormigueando".)
+  "debilidad",
+  "me siento debil",
+  "sin fuerza en las piernas",
+  "cansancio en las piernas",
+  "cansancio muscular",
+  "piernas cansadas",
+  "piernas dormidas",
+  "se me duermen las piernas",
+  "se me adormecen",
+  "entumec",
+  "hormig",
+  "rigidez",
+  "inflamacion",
+  "inflamado",
+  "inflamada",
+  "hinchazon",
+  "hinchado",
+  "hinchada",
 ];
 
 function detectarParteMencionada(normalizado: string): string | null {
@@ -139,6 +178,19 @@ function detectarParteMencionada(normalizado: string): string | null {
     if (grupo.claves.some((c) => normalizado.includes(c))) return grupo.texto;
   }
   return null;
+}
+
+// "si" es muy corto y aparece COMO SUBSTRING dentro de muchas palabras
+// que no tienen nada que ver (ej. "necesidad", "asistir", "decision"),
+// asi que para las afirmaciones cortas (ver SI_KEYWORDS) no basta con
+// buscar la frase en cualquier parte del mensaje -- hay que exigir que
+// aparezca como palabra completa (con espacio o inicio/fin de mensaje
+// a los lados). El resto de las listas de este archivo son frases de
+// varias palabras (mucho menos riesgo de que aparezcan "disfrazadas"
+// adentro de otra palabra), asi que esas se quedan con el chequeo de
+// siempre.
+function contieneFraseCompleta(normalizado: string, frases: string[]): boolean {
+  return frases.some((f) => new RegExp(`(^|\\s)${f}(\\s|$)`).test(normalizado));
 }
 
 // Descripcion breve de cada ingrediente, para cuando preguntan "que
@@ -192,6 +244,8 @@ const PRECIO_KEYWORDS = [
   "cuanto esta",
   "que precio tiene",
   "en cuanto sale",
+  "en cuanto me sale",
+  "cuanto me sale",
   "en cuanto la dan",
   "cuanto me cuesta",
   "cual es el costo",
@@ -206,6 +260,91 @@ function respuestaPrecio(): string {
     `¿Le gustaría que le hagamos su pedido?`
   );
 }
+
+// Pregunta especifica sobre el COSTO DEL ENVIO (no del precio general de
+// la pomada) -- Vic pidio que si solo preguntan por el envio, se
+// conteste nada mas eso (ya se menciona de nuevo en respuestaPrecio si
+// despues preguntan el precio completo). Se exige la palabra "envio" +
+// alguna palabra de costo/queja para no confundirse con otras frases
+// que solo mencionen el envio de pasada (ej. "¿y el envío cuánto tarda?"
+// tambien cae aqui, que es lo correcto).
+const ENVIO_PALABRAS_COSTO = ["cuesta", "costo", "cobran", "cobrar", "gratis", "caro", "aparte", "tiene"];
+
+function parecePreguntaEnvio(normalizado: string): boolean {
+  if (!normalizado.includes("envio")) return false;
+  return ENVIO_PALABRAS_COSTO.some((p) => normalizado.includes(p));
+}
+
+function respuestaEnvio(): string {
+  return "El envío es totalmente gratis 🚚 no se le cobra nada extra por mandársela. ¿Le gustaría que le hagamos su pedido?";
+}
+
+// Preguntan DONDE se entrega/recoge/compra (no el precio ni el
+// horario) -- Vic pidio dejar claro que es a domicilio, sin costo, y
+// que se paga hasta recibirla (por su seguridad).
+const ENTREGA_KEYWORDS = [
+  "en donde entregan",
+  "donde entregan",
+  "en donde entregas",
+  "donde entregas",
+  "como la recojo",
+  "como recojo",
+  "donde la recojo",
+  "donde recojo",
+  "donde la compro",
+  "en donde la compro",
+  "donde las venden",
+  "donde la venden",
+  "donde consigo",
+  "donde puedo comprar",
+  "tienen local",
+  "tienen tienda",
+  "tienda fisica",
+  "puedo pasar por ella",
+  "puedo ir por ella",
+  "la puedo recoger",
+];
+
+function respuestaEntrega(): string {
+  return (
+    "Barak Flex se entrega directo en su domicilio para su comodidad, ya que el envío es totalmente gratis 🚚 " +
+    "y el pago es contra entrega (paga hasta que la reciba, sin anticipo), para su seguridad. " +
+    "¿Le gustaría que le hagamos su pedido?"
+  );
+}
+
+// Preguntan los HORARIOS de entrega (no si ya quieren agendar la
+// entrega, eso ya se pregunta aparte dentro del pedido, ver paso
+// "horario_bloque") -- nada mas informar que se entrega en la mañana o
+// en la tarde.
+const HORARIO_ENTREGA_KEYWORDS = [
+  "horarios de entrega",
+  "horario de entrega",
+  "que horarios tienen",
+  "que horarios manejan",
+  "que horas entregan",
+  "a que hora entregan",
+  "a que horas entregan",
+  "a que horas vienen",
+  "a que hora vienen",
+  "a que hora llega",
+  "en que horario llega",
+  "cuando llega",
+  "en que horario entregan",
+  "que dias entregan",
+];
+
+function respuestaHorarioEntrega(): string {
+  return (
+    "Las entregas son en la mañana (8:00am a 2:00pm) o en la tarde (2:00pm a 8:00pm), usted elige la que le quede mejor 🙂 " +
+    "¿Le gustaría que le hagamos su pedido?"
+  );
+}
+
+// Piden ver una foto/imagen de la pomada -- se le manda el catálogo
+// (que ya trae la foto, nombre y precio del producto), en vez de
+// inventar un mensaje nuevo solo de imagen.
+const FOTO_KEYWORDS = ["foto", "fotografia", "imagen"];
 
 // Respuesta para CUALQUIER dolor/molestia que mencionen (no solo
 // ciática -- aplica igual para espalda, rodillas, cervicales, etc., ver
@@ -228,6 +367,34 @@ function respuestaDolor(normalizado: string): string {
   );
 }
 
+// Cuando YA preguntaron/comentaron un dolor especifico y luego
+// confirman con algo generico tipo "¿y sirve para todos esos dolores
+// que dice?" -- a diferencia de respuestaDolor, aqui SI tiene sentido
+// empezar con "¡Claro!" porque de verdad preguntaron algo.
+const CONFIRMA_DOLOR_GENERAL_KEYWORDS = [
+  "todos esos dolores",
+  "todos los dolores",
+  "cualquier dolor",
+  "cualquier malestar",
+  "todos los males",
+  "para todos los males",
+  "buena para lo que dicen",
+  "buena para lo que dice",
+  "es buena para eso",
+  "sirve para eso",
+  "sirve para cualquier dolor",
+  "ayuda para todos los males",
+  "es buena para lo que dicen",
+  "es buena para lo que dice",
+];
+
+function respuestaDolorGeneral(): string {
+  return (
+    "¡Claro! Ayuda para todos los dolores mencionados 💪, gracias a sus activos únicos de alta tecnología. " +
+    "¿Le gustaría hacer su pedido?"
+  );
+}
+
 // Frases fuertes de intencion de compra (ya saben que la quieren, sin
 // que se les tenga que preguntar "¿le gustaria pedirla?" antes).
 const COMPRAR_KEYWORDS = [
@@ -242,6 +409,7 @@ const COMPRAR_KEYWORDS = [
   "la quiero",
   "me interesa comprarla",
   "me interesa pedirla",
+  "me interesa comprar",
   "deseo comprarla",
   "deseo pedirla",
   "me gustaria pedirla",
@@ -257,6 +425,24 @@ const COMPRAR_KEYWORDS = [
   "mándenme",
   "quiero mandarla pedir",
 ];
+
+// Palabras de intencion de compra cuando se mencionan junto con la
+// palabra "pomada" o "producto" (ej. "quiero pomada", "me gustaria una
+// pomada", "me gustaria 1 pomada", "quiero el producto", "me interesa
+// el producto") -- en vez de listar cada combinacion posible de
+// articulo/cantidad, se checa que aparezca "pomada" o "producto" Y
+// ademas alguna de estas (mismo patron que pareceCatalogo).
+const INTENCION_COMPRA_PALABRAS = ["quiero", "quisiera", "deseo", "me gustaria", "dame", "mandenme", "envienme"];
+
+function pareceQuererComprar(normalizado: string): boolean {
+  if (contieneAlguna(normalizado, COMPRAR_KEYWORDS)) return true;
+  // Si en el mismo mensaje tambien preguntan algo informativo (ej.
+  // "quiero saber mas de la pomada", "quiero saber que contiene"), NO
+  // cuenta como intencion de compra -- que conteste eso primero.
+  if (contieneAlguna(normalizado, INGREDIENTE_KEYWORDS)) return false;
+  if (!normalizado.includes("pomada") && !normalizado.includes("producto")) return false;
+  return INTENCION_COMPRA_PALABRAS.some((p) => normalizado.includes(p));
+}
 
 // Afirmaciones cortas (ej. contestando "¿le gustaria pedirla?" o "¿le
 // parece bien ese horario?") -- igual que la regla del bot de citas,
@@ -303,6 +489,54 @@ const NO_KEYWORDS = [
   "lo pensare",
   "quizas despues",
   "al rato la pido",
+];
+
+// Cuando contestan que la quieren "por necesidad" (en vez de
+// prevencion, ver la pregunta de bienvenida que Vic armo en Master)
+// sin decir todavia cual es el problema -- se le pregunta cual es,
+// para poder contestar con el sintoma/parte del cuerpo correcto en
+// cuanto lo diga (ver DOLOR_KEYWORDS mas abajo).
+const NECESIDAD_SIN_DETALLE_KEYWORDS = [
+  "por necesidad",
+  "es por necesidad",
+  "si es necesidad",
+  "es necesidad",
+  "la necesito",
+  "si la necesito",
+  "porque la necesito",
+  "la ocupo",
+  "si la ocupo",
+  "porque la ocupo",
+  "tengo un problema",
+  "tengo una molestia",
+  "por un problema",
+  "por una molestia",
+];
+
+function respuestaNecesidadSinDetalle(): string {
+  return "¡Claro! ¿Y qué problema es el que padece? Así le puedo decir mejor cómo le puede ayudar 😊";
+}
+
+// Cuando ya se le pidio el celular (ver CELULAR_TEMPRANO_TEXT) y
+// contesta diciendo que si lo va a dar, pero el mensaje todavia no
+// trae los digitos de verdad (ej. "si te paso mi celular") -- antes
+// cafa en la respuesta generica de "no se que contestar"; ahora se le
+// pide directo que mande los 10 digitos.
+const CELULAR_PROMETIDO_KEYWORDS = [
+  "te paso mi celular",
+  "te doy mi celular",
+  "te mando mi celular",
+  "ahi te va mi celular",
+  "te paso mi numero",
+  "te doy mi numero",
+  "te mando mi numero",
+  "ahi te va mi numero",
+  "te lo paso",
+  "te lo doy",
+  "te lo mando",
+  "se lo paso",
+  "se lo doy",
+  "se lo mando",
 ];
 
 // Frases para cuando se queja de que el rango de 6 horas es mucho
@@ -377,6 +611,7 @@ const CATALOGO_PALABRAS_INTENCION = [
 
 function pareceCatalogo(normalizado: string): boolean {
   if (contieneAlguna(normalizado, CATALOGO_KEYWORDS)) return true;
+  if (contieneAlguna(normalizado, FOTO_KEYWORDS)) return true;
   if (!normalizado.includes("producto")) return false;
   return CATALOGO_PALABRAS_INTENCION.some((p) => normalizado.includes(p));
 }
@@ -500,6 +735,7 @@ function manejarPidiendo(mensaje: string, normalizado: string, estado: EstadoPed
         respuesta:
           "Perfecto. ¿Cuál es la dirección completa donde se la entregamos? (calle, número y colonia) -- también le puede dar clic al pin 📍 de abajo para mandarnos su ubicación actual.",
         nuevoEstado: { ...estado, paso: "direccion", nombre },
+        pedirUbicacion: true,
       };
     }
     return {
@@ -517,6 +753,7 @@ function manejarPidiendo(mensaje: string, normalizado: string, estado: EstadoPed
       respuesta:
         "Perfecto. ¿Cuál es la dirección completa donde se la entregamos? (calle, número y colonia) -- también le puede dar clic al pin 📍 de abajo para mandarnos su ubicación actual.",
       nuevoEstado: { ...estado, paso: "direccion", celular },
+      pedirUbicacion: true,
     };
   }
 
@@ -598,7 +835,7 @@ function calcularRespuestaBase(
         nota: "mensaje_no_de_anuncio",
       };
     }
-    if (contieneAlguna(normalizado, COMPRAR_KEYWORDS)) {
+    if (pareceQuererComprar(normalizado)) {
       return iniciarPedido(normalizado);
     }
     const codigo = detectarCodigoAnuncio(mensaje);
@@ -624,8 +861,42 @@ function calcularRespuestaBase(
       nuevoEstado: { fase: "conversando" },
     };
   }
+  // Ya se le pidio el celular y contesta diciendo que si lo va a dar,
+  // pero el mensaje todavia no trae los digitos (ver CELULAR_PROMETIDO_KEYWORDS).
+  if (estado.celularPedidoTemprano && !estado.celular && contieneAlguna(normalizado, CELULAR_PROMETIDO_KEYWORDS)) {
+    return {
+      respuesta: "¡Claro! Nada más mándeme los 10 dígitos de su WhatsApp, por favor 📱",
+      nuevoEstado: { fase: "conversando" },
+    };
+  }
+  // Confirmaciones genericas sobre el dolor (ej. "¿y sirve para todos
+  // esos dolores que dice?") van ANTES que DOLOR_KEYWORDS -- si no, la
+  // palabra "dolor" ya haria que cayera en la respuesta normal (sin el
+  // "¡Claro!" que si corresponde aqui porque de verdad preguntaron algo).
+  if (contieneAlguna(normalizado, CONFIRMA_DOLOR_GENERAL_KEYWORDS)) {
+    return { respuesta: respuestaDolorGeneral(), nuevoEstado: { fase: "conversando" } };
+  }
+  // La intencion de compra manda sobre el comentario de dolor -- si
+  // alguien dice "la quiero porque me duele la pierna", lo correcto es
+  // seguir derecho con el pedido, no volver a preguntar si la quiere.
+  if (pareceQuererComprar(normalizado)) {
+    return iniciarPedido(normalizado);
+  }
   if (contieneAlguna(normalizado, DOLOR_KEYWORDS)) {
     return { respuesta: respuestaDolor(normalizado), nuevoEstado: { fase: "conversando" } };
+  }
+  if (contieneAlguna(normalizado, ENTREGA_KEYWORDS)) {
+    return { respuesta: respuestaEntrega(), nuevoEstado: { fase: "conversando" } };
+  }
+  if (contieneAlguna(normalizado, HORARIO_ENTREGA_KEYWORDS)) {
+    return { respuesta: respuestaHorarioEntrega(), nuevoEstado: { fase: "conversando" } };
+  }
+  // El costo del envio se checa ANTES que PRECIO_KEYWORDS -- "cuanto
+  // cuesta el envio" tambien dispara PRECIO_KEYWORDS (por "cuanto
+  // cuesta"), pero si de verdad solo preguntan por el envio, la
+  // respuesta correcta es nada mas esa, no el precio completo.
+  if (parecePreguntaEnvio(normalizado)) {
+    return { respuesta: respuestaEnvio(), nuevoEstado: { fase: "conversando" } };
   }
   if (contieneAlguna(normalizado, INGREDIENTE_KEYWORDS)) {
     return {
@@ -636,12 +907,18 @@ function calcularRespuestaBase(
   if (contieneAlguna(normalizado, PRECIO_KEYWORDS)) {
     return { respuesta: respuestaPrecio(), nuevoEstado: { fase: "conversando" } };
   }
-  if (contieneAlguna(normalizado, COMPRAR_KEYWORDS)) {
-    return iniciarPedido(normalizado);
+  // Va DESPUES de DOLOR_KEYWORDS: si ya dijeron cual es su problema en
+  // el mismo mensaje (ej. "necesidad, tengo fascitis plantar"), ya se
+  // contesto arriba y no hace falta volver a preguntar.
+  if (contieneAlguna(normalizado, NECESIDAD_SIN_DETALLE_KEYWORDS)) {
+    return { respuesta: respuestaNecesidadSinDetalle(), nuevoEstado: { fase: "conversando" } };
   }
   // Afirmacion cortita (ej. contestando "¿le gustaria pedirla?") -- solo
-  // cuenta si el mensaje es corto, igual que en el bot de citas.
-  if (contieneAlguna(normalizado, SI_KEYWORDS) && normalizado.split(" ").length <= 3) {
+  // cuenta si el mensaje es corto Y la frase aparece como palabra
+  // completa (ver contieneFraseCompleta -- "si" es muy corto y si no
+  // se exige el espacio alrededor, hace falso positivo adentro de
+  // palabras como "necesidad").
+  if (contieneFraseCompleta(normalizado, SI_KEYWORDS) && normalizado.split(" ").length <= 3) {
     return iniciarPedido(normalizado);
   }
 
