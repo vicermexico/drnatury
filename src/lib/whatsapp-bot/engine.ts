@@ -238,6 +238,26 @@ function contieneAlguna(normalizado: string, frases: string[]): boolean {
   return frases.some((f) => normalizado.includes(f));
 }
 
+// Detecta cuando el paciente dice que el DIA que le ofrecimos (al
+// mostrarle los horarios) esta mal -- ej. "no es ese dia", "ese dia no
+// es", "espera, esta mal la fecha" -- en vez de estar contestando con
+// una hora. Se exige que mencione "dia" o "fecha" Y alguna palabra de
+// error/negacion, para no dispararse con cualquier mensaje raro que no
+// tenga nada que ver (ej. una hora escrita en letras).
+function pareceCorreccionDeDia(normalizado: string): boolean {
+  if (!/\b(dia|fecha)\b/.test(normalizado)) return false;
+  return contieneAlguna(normalizado, [
+    "no es",
+    "no era",
+    "no son",
+    "esta mal",
+    "equivocad",
+    "me equivoque",
+    "cambiar",
+    "cambie de",
+  ]);
+}
+
 // Distancia de edicion simple (cuantas letras hay que cambiar/agregar/
 // quitar para convertir una palabra en otra) -- sirve para tolerar
 // errores de dedo como "quiro" en vez de "quiero".
@@ -1219,7 +1239,10 @@ async function manejarDia(estado: EstadoAgendado, textoDia: string, normalizadoD
       opcionesHorario: horarios,
       hora: undefined,
     };
-    return { respuesta: `Tengo disponible hoy: ${muestrearHorarios(horarios).join(", ")}. ¿Cuál le queda mejor?`, nuevoEstado };
+    return {
+      respuesta: `Tengo disponible para el ${formatFechaBonita(fechaStr)}: ${muestrearHorarios(horarios).join(", ")}. ¿Cuál le queda mejor?`,
+      nuevoEstado,
+    };
   }
 
   // Si el mismo mensaje del dia ya deja claro el turno tambien (ej. "el
@@ -1274,7 +1297,10 @@ async function manejarDia(estado: EstadoAgendado, textoDia: string, normalizadoD
         opcionesHorario: horarios,
         hora: undefined,
       };
-      return { respuesta: `Tengo disponible: ${muestrearHorarios(horarios).join(", ")}. ¿Cuál le queda mejor?`, nuevoEstado };
+      return {
+        respuesta: `Tengo disponible para el ${formatFechaBonita(fechaStr)}: ${muestrearHorarios(horarios).join(", ")}. ¿Cuál le queda mejor?`,
+        nuevoEstado,
+      };
     }
   }
 
@@ -1481,7 +1507,10 @@ async function calcularRespuestaBase(
           horaPendiente: undefined,
           opcionesHorario: horarios,
         };
-        return { respuesta: `Tengo disponible: ${muestrearHorarios(horarios).join(", ")}. ¿Cuál le queda mejor?`, nuevoEstado };
+        return {
+          respuesta: `Tengo disponible para el ${formatFechaBonita(fechaStr)}: ${muestrearHorarios(horarios).join(", ")}. ¿Cuál le queda mejor?`,
+          nuevoEstado,
+        };
       }
       case "hora": {
         // Si contesta sin ningun numero pero mencionando otro dia (ej.
@@ -1493,6 +1522,28 @@ async function calcularRespuestaBase(
         const tieneDigito = /\d/.test(mensaje);
         if (!tieneDigito && interpretarFecha(normalizado)) {
           return await manejarDia(estado, mensaje, normalizado);
+        }
+
+        // Si dice que el dia que le ofrecimos esta mal (ej. "no es ese
+        // dia", "ese dia no es", "espera, esta mal la fecha") pero sin
+        // dar un dia nuevo en el mismo mensaje, se le pide de nuevo el
+        // dia en vez de intentar leer ese texto como una hora -- Vic lo
+        // reporto (ver pareceCorreccionDeDia). Por eso tambien se le
+        // pide SIEMPRE la fecha completa (dia, mes y año) junto con los
+        // horarios -- asi, si el bot entendio mal el dia, el paciente lo
+        // nota de una vez y lo puede corregir aqui mismo.
+        if (!tieneDigito && pareceCorreccionDeDia(normalizado)) {
+          const nuevoEstado: EstadoAgendado = {
+            ...estado,
+            paso: "dia",
+            fechaResuelta: undefined,
+            turnoResuelto: undefined,
+            turnoPendiente: undefined,
+            horaPendiente: undefined,
+            opcionesHorario: undefined,
+            hora: undefined,
+          };
+          return { respuesta: "Ok, perdón. ¿Para qué día sería entonces?", nuevoEstado };
         }
 
         let horaBonita = buscarEnOpcionesOfrecidas(mensaje, estado.opcionesHorario);
