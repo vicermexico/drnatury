@@ -208,6 +208,17 @@ function contieneFraseCompleta(normalizado: string, frases: string[]): boolean {
   return frases.some((f) => new RegExp(`(^|\\s)${f}(\\s|$)`).test(normalizado));
 }
 
+// La gente muchas veces alarga el "si" para enfatizar ("siii", "siiii",
+// "siiiii"...), y contieneFraseCompleta con la frase literal "si" no
+// detecta eso (porque exige la palabra exacta "si"). Esta funcion es un
+// envoltorio de contieneFraseCompleta(normalizado, SI_KEYWORDS) que
+// ademas reconoce cualquier variante alargada de "si"/"sii"/"siii" como
+// palabra completa.
+function esAfirmacion(normalizado: string, frases: string[]): boolean {
+  if (/(^|\s)si+(\s|$)/.test(normalizado)) return true;
+  return contieneFraseCompleta(normalizado, frases);
+}
+
 // Descripcion breve de cada ingrediente, para cuando preguntan "que
 // contiene", "para que sirve", etc. -- informacion general de para que
 // se usan normalmente estos ingredientes en pomadas para el dolor
@@ -928,7 +939,7 @@ function manejarPidiendo(mensaje: string, normalizado: string, estado: EstadoPed
 
   if (estado.paso === "dia_manana") {
     // Contesto que si a "mañana mismo".
-    if (contieneFraseCompleta(normalizado, SI_KEYWORDS) && normalizado.split(" ").length <= 4) {
+    if (esAfirmacion(normalizado, SI_KEYWORDS) && normalizado.split(" ").length <= 4) {
       const fecha = formatearFechaISO(sumarDias(hoyMexico(), 1));
       return {
         respuesta: "Perfecto, ¿la quiere en la mañana o en la tarde?",
@@ -1118,7 +1129,7 @@ function calcularRespuestaBase(
   // completa (ver contieneFraseCompleta -- "si" es muy corto y si no
   // se exige el espacio alrededor, hace falso positivo adentro de
   // palabras como "necesidad").
-  if (contieneFraseCompleta(normalizado, SI_KEYWORDS) && normalizado.split(" ").length <= 3) {
+  if (esAfirmacion(normalizado, SI_KEYWORDS) && normalizado.split(" ").length <= 3) {
     return iniciarPedido(normalizado, estado);
   }
 
