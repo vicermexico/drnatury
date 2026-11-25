@@ -14,6 +14,7 @@ interface Props {
   fotoInicial: string | null;
   facebookUrlInicial: string | null;
   mensajeInicialAnuncioInicial: string;
+  whatsappNumeroInicial: string;
 }
 
 type Status = "idle" | "loading" | "ok" | "error";
@@ -63,11 +64,13 @@ export function ChatPerfilEditor({
   fotoInicial,
   facebookUrlInicial,
   mensajeInicialAnuncioInicial,
+  whatsappNumeroInicial,
 }: Props) {
   const [nombre, setNombre] = useState(nombreInicial);
   const [foto, setFoto] = useState<string | null>(fotoInicial);
   const [facebookUrl, setFacebookUrl] = useState<string | null>(facebookUrlInicial);
   const [mensajeInicialAnuncio, setMensajeInicialAnuncio] = useState(mensajeInicialAnuncioInicial);
+  const [whatsappNumero, setWhatsappNumero] = useState(whatsappNumeroInicial);
 
   const [editandoNombre, setEditandoNombre] = useState(false);
   const [borradorNombre, setBorradorNombre] = useState(nombreInicial);
@@ -75,11 +78,14 @@ export function ChatPerfilEditor({
   const [borradorFacebook, setBorradorFacebook] = useState(facebookUrlInicial ?? "");
   const [editandoMensajeInicial, setEditandoMensajeInicial] = useState(false);
   const [borradorMensajeInicial, setBorradorMensajeInicial] = useState(mensajeInicialAnuncioInicial);
+  const [editandoWhatsapp, setEditandoWhatsapp] = useState(false);
+  const [borradorWhatsapp, setBorradorWhatsapp] = useState(whatsappNumeroInicial);
 
   const [statusNombre, setStatusNombre] = useState<Status>("idle");
   const [statusFoto, setStatusFoto] = useState<Status>("idle");
   const [statusFacebook, setStatusFacebook] = useState<Status>("idle");
   const [statusMensajeInicial, setStatusMensajeInicial] = useState<Status>("idle");
+  const [statusWhatsapp, setStatusWhatsapp] = useState<Status>("idle");
 
   const inputFotoRef = useRef<HTMLInputElement>(null);
 
@@ -119,6 +125,24 @@ export function ChatPerfilEditor({
       setStatusMensajeInicial("ok");
     } else {
       setStatusMensajeInicial("error");
+    }
+  }
+
+  async function guardarWhatsapp() {
+    const soloDigitos = borradorWhatsapp.replace(/\D/g, "");
+    if (soloDigitos.length < 10 || soloDigitos.length > 15) {
+      setStatusWhatsapp("error");
+      return;
+    }
+    setStatusWhatsapp("loading");
+    const ok = await guardarConfig(bot, { chat_whatsapp_numero: soloDigitos });
+    if (ok) {
+      setWhatsappNumero(soloDigitos);
+      setBorradorWhatsapp(soloDigitos);
+      setEditandoWhatsapp(false);
+      setStatusWhatsapp("ok");
+    } else {
+      setStatusWhatsapp("error");
     }
   }
 
@@ -285,9 +309,48 @@ export function ChatPerfilEditor({
             </div>
           )}
 
-          <div className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-500">
-            📲 Escribir por WhatsApp <span className="text-[10px] text-gray-400">(fijo, no se edita aquí)</span>
-          </div>
+          {!editandoWhatsapp ? (
+            <div className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5">
+              <p className="flex-1 min-w-0 text-sm text-gray-800 truncate">📲 {whatsappNumero}</p>
+              <Lapiz
+                title="Cambiar número de WhatsApp"
+                onClick={() => {
+                  setBorradorWhatsapp(whatsappNumero);
+                  setEditandoWhatsapp(true);
+                  setStatusWhatsapp("idle");
+                }}
+              />
+            </div>
+          ) : (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 space-y-2">
+              <p className="text-xs text-gray-500">
+                A este número se manda la confirmación por WhatsApp (y el botón nuevo de la cabecera). Con código de
+                país, ej. 528117105018.
+              </p>
+              <input
+                value={borradorWhatsapp}
+                onChange={(e) => setBorradorWhatsapp(e.target.value)}
+                placeholder="528117105018"
+                className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-sm"
+                autoFocus
+              />
+              {statusWhatsapp === "error" && (
+                <p className="text-xs text-red-600">Ese número no se ve completo -- revísalo e intenta de nuevo.</p>
+              )}
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setEditandoWhatsapp(false)} className="text-xs px-2 py-1 text-gray-500">
+                  Cancelar
+                </button>
+                <button
+                  onClick={guardarWhatsapp}
+                  disabled={statusWhatsapp === "loading"}
+                  className="text-xs px-3 py-1 rounded-lg bg-blue-600 text-white disabled:opacity-60"
+                >
+                  {statusWhatsapp === "loading" ? "Guardando..." : "Guardar"}
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="pt-2">
             <p className="text-xs font-medium text-gray-500 mb-1.5">

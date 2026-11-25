@@ -14,7 +14,7 @@ export default async function PerfilChatPage({
   const admin = createAdminClient();
   const { data: config } = await admin
     .from("whatsapp_bots")
-    .select("chat_perfil_nombre, chat_perfil_foto, anuncio_facebook_url, mensaje_inicial_anuncio")
+    .select("chat_perfil_nombre, chat_perfil_foto, anuncio_facebook_url, mensaje_inicial_anuncio, chat_whatsapp_numero")
     .eq("slug", bot)
     .maybeSingle();
 
@@ -35,6 +35,7 @@ export default async function PerfilChatPage({
         fotoInicial={config?.chat_perfil_foto ?? null}
         facebookUrlInicial={config?.anuncio_facebook_url ?? null}
         mensajeInicialAnuncioInicial={config?.mensaje_inicial_anuncio || "¡Hola! ¿Podrían darme más información?"}
+        whatsappNumeroInicial={config?.chat_whatsapp_numero || "528117105018"}
       />
     </div>
   );
