@@ -19,6 +19,7 @@ interface SpeechRecognitionLike {
   onresult: ((e: EventoReconocimiento) => void) | null;
   onerror: (() => void) | null;
   onend: (() => void) | null;
+  onstart: (() => void) | null;
   start: () => void;
   stop: () => void;
 }
@@ -100,6 +101,65 @@ export function useNotaDeVoz(alTerminar: (resultado: { blobUrl: string; texto: s
     textoFinalRef.current = "";
     transcripcionParcialRef.current = "";
     setTranscripcionParcial("");
+
+    // En varios celulares Android, el reconocimiento de voz (que agarra
+    // el microfono por su cuenta, aparte del "stream" que usa
+    // MediaRecorder para grabar) se queda sin poder escuchar NADA si el
+    // microfono ya estaba ocupado grabando el audio cuando el intenta
+    // entrar -- el celular solo deja un "consumidor" de audio a la vez,
+    // y gana el que haya pedido el microfono primero. Antes aqui se
+    // pedia el microfono PRIMERO para grabar (getUserMedia +
+    // MediaRecorder) y nada mas despues se prendia el reconocimiento de
+    // voz -- eso dejaba al reconocimiento sin poder escuchar nunca nada
+    // en esos celulares (Vic lo confirmo: ni una palabra se transcribia,
+    // ni la rayitas de "escuchando en vivo" se movian). Ahora se prende
+    // PRIMERO el reconocimiento de voz, y se le da un instante (su
+    // propio aviso "onstart", o como mucho 400ms) para que agarre el
+    // microfono el primero, y ya despues se empieza a grabar el audio.
+    const SR = (window as VentanaConVoz).SpeechRecognition || (window as VentanaConVoz).webkitSpeechRecognition;
+    if (SR) {
+      const r = new SR();
+      r.lang = "es-MX";
+      r.interimResults = true;
+      r.continuous = true;
+      r.onresult = (e) => {
+        let final = "";
+        let parcial = "";
+        for (let i = 0; i < e.results.length; i++) {
+          const texto = e.results[i][0]?.transcript ?? "";
+          if (e.results[i].isFinal) final += `${texto} `;
+          else parcial += texto;
+        }
+        if (final) textoFinalRef.current = `${textoFinalRef.current} ${final}`.trim();
+        const parcialCompleta = `${textoFinalRef.current} ${parcial}`.trim();
+        transcripcionParcialRef.current = parcialCompleta;
+        setTranscripcionParcial(parcialCompleta);
+      };
+      r.onerror = () => {
+        // Si el reconocimiento falla (ej. se corto por silencio
+        // largo), la grabacion del audio sigue de todas formas --
+        // nada mas no se reinicia la transcripcion.
+      };
+      recoRef.current = r;
+      try {
+        r.start();
+        await new Promise<void>((resolve) => {
+          let resuelto = false;
+          const terminarEspera = () => {
+            if (resuelto) return;
+            resuelto = true;
+            resolve();
+          };
+          r.onstart = terminarEspera;
+          setTimeout(terminarEspera, 400);
+        });
+      } catch {
+        // Si ya estaba corriendo otro, no pasa nada -- se sigue
+        // grabando el audio igual, nada mas sin transcripcion.
+        recoRef.current = null;
+      }
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -121,41 +181,14 @@ export function useNotaDeVoz(alTerminar: (resultado: { blobUrl: string; texto: s
       grabadoraRef.current = grabadora;
       grabadora.start();
 
-      const SR = (window as VentanaConVoz).SpeechRecognition || (window as VentanaConVoz).webkitSpeechRecognition;
-      if (SR) {
-        const r = new SR();
-        r.lang = "es-MX";
-        r.interimResults = true;
-        r.continuous = true;
-        r.onresult = (e) => {
-          let final = "";
-          let parcial = "";
-          for (let i = 0; i < e.results.length; i++) {
-            const texto = e.results[i][0]?.transcript ?? "";
-            if (e.results[i].isFinal) final += `${texto} `;
-            else parcial += texto;
-          }
-          if (final) textoFinalRef.current = `${textoFinalRef.current} ${final}`.trim();
-          const parcialCompleta = `${textoFinalRef.current} ${parcial}`.trim();
-          transcripcionParcialRef.current = parcialCompleta;
-          setTranscripcionParcial(parcialCompleta);
-        };
-        r.onerror = () => {
-          // Si el reconocimiento falla (ej. se corto por silencio
-          // largo), la grabacion del audio sigue de todas formas --
-          // nada mas no se reinicia la transcripcion.
-        };
-        recoRef.current = r;
-        try {
-          r.start();
-        } catch {
-          // Si ya estaba corriendo otro, no pasa nada -- se sigue
-          // grabando el audio igual.
-        }
-      }
-
       setGrabando(true);
     } catch {
+      try {
+        recoRef.current?.stop();
+      } catch {
+        // nada
+      }
+      recoRef.current = null;
       detenerTodo();
     }
   }
