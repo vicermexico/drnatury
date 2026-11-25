@@ -191,9 +191,12 @@ function nuevoIdConversacion(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-// Numero de WhatsApp de Vic -- a donde se manda la confirmacion final de
-// la cita (todavia no hay WhatsApp real conectado al bot, asi que el
-// paciente le da clic y el mismo manda el mensaje ya escrito).
+// Numero de WhatsApp de respaldo cuando el bot todavia no tiene uno
+// propio configurado (ver "whatsappNumero" mas abajo, editable por bot
+// en Master -> Perfil del chat) -- a donde se manda la confirmacion
+// final de la cita/pedido (todavia no hay WhatsApp real conectado al
+// bot, asi que el paciente le da clic y el mismo manda el mensaje ya
+// escrito).
 const VIC_WHATSAPP_NUMERO = "528117105018";
 
 // Link que SIEMPRE se agrega al final de lo que se comparte por
@@ -398,6 +401,11 @@ interface PublicChatDemoProps {
   // Mensaje editable en Master -> Perfil del chat (ver
   // ChatPerfilEditor.tsx); si no se manda, se usa el de siempre.
   mensajeInicialAnuncio?: string;
+  // Numero de WhatsApp (solo digitos, con codigo de pais) al que se
+  // manda la confirmacion final y el boton de la cabecera -- editable
+  // por bot en Master -> Perfil del chat; si no se manda, se usa el
+  // mismo de siempre (numero de prueba de Vic).
+  whatsappNumero?: string;
 }
 
 export function PublicChatDemo({
@@ -406,6 +414,7 @@ export function PublicChatDemo({
   perfilFoto = null,
   facebookUrl = null,
   mensajeInicialAnuncio = MENSAJE_INICIAL_ANUNCIO,
+  whatsappNumero = VIC_WHATSAPP_NUMERO,
 }: PublicChatDemoProps) {
   const [mensajes, setMensajes] = useState<MensajeUI[]>([]);
   const [estado, setEstado] = useState<EstadoAgendado>(ESTADO_INICIAL);
@@ -1017,7 +1026,7 @@ export function PublicChatDemo({
             mismo mensaje inicial pero por WhatsApp de verdad -- pedido
             explicito de Vic, al lado del icono de llamada. */}
         <a
-          href={`https://wa.me/${VIC_WHATSAPP_NUMERO}?text=${encodeURIComponent(mensajeInicial)}`}
+          href={`https://wa.me/${whatsappNumero}?text=${encodeURIComponent(mensajeInicial)}`}
           target="_blank"
           rel="noopener noreferrer"
           title="Mándanos un WhatsApp"
@@ -1135,7 +1144,7 @@ export function PublicChatDemo({
                 </a>
               )}
               <a
-                href={`https://wa.me/${VIC_WHATSAPP_NUMERO}`}
+                href={`https://wa.me/${whatsappNumero}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-800 hover:bg-gray-50"
@@ -1253,7 +1262,7 @@ export function PublicChatDemo({
                   </div>
                   <div className="flex justify-center">
                     <a
-                      href={`https://wa.me/${VIC_WHATSAPP_NUMERO}?text=${encodeURIComponent(
+                      href={`https://wa.me/${whatsappNumero}?text=${encodeURIComponent(
                         construirMensajeWhatsapp(m.agendado)
                       )}`}
                       target="_blank"

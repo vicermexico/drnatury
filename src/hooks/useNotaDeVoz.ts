@@ -55,6 +55,18 @@ export function useNotaDeVoz(alTerminar: (resultado: { blobUrl: string; texto: s
   const streamRef = useRef<MediaStream | null>(null);
   const recoRef = useRef<SpeechRecognitionLike | null>(null);
   const textoFinalRef = useRef("");
+  // Igual que textoFinalRef, pero con lo ultimo que se va oyendo (sin
+  // terminar de confirmar todavia) -- se usa como respaldo si nunca
+  // llego a marcarse nada como "final" antes de que se le diera a
+  // mandar (ver el "onstop" de abajo). Tiene que ser un ref, NO nomas
+  // el estado "transcripcionParcial": el "onstop" se define una sola
+  // vez, al EMPEZAR a grabar, asi que si leyera el estado de React en
+  // vez de un ref, siempre veria el valor viejo (vacio) de cuando
+  // empezo a grabar, nunca lo que se fue diciendo despues -- eso hacia
+  // que notas de voz cortas se mandaran sin texto y el bot contestara
+  // como si no hubiera entendido nada, aunque escribiendo lo mismo si
+  // funcionaba bien (lo reporto Vic).
+  const transcripcionParcialRef = useRef("");
   const audioCtxRef = useRef<AudioContext | null>(null);
   const animacionRef = useRef<number | null>(null);
 
@@ -85,6 +97,7 @@ export function useNotaDeVoz(alTerminar: (resultado: { blobUrl: string; texto: s
   async function iniciar() {
     if (grabando || !soportado) return;
     textoFinalRef.current = "";
+    transcripcionParcialRef.current = "";
     setTranscripcionParcial("");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -101,7 +114,7 @@ export function useNotaDeVoz(alTerminar: (resultado: { blobUrl: string; texto: s
         const blob = new Blob(trozosRef.current, { type: mime });
         trozosRef.current = [];
         const blobUrl = URL.createObjectURL(blob);
-        const texto = textoFinalRef.current.trim() || transcripcionParcial.trim();
+        const texto = textoFinalRef.current.trim() || transcripcionParcialRef.current.trim();
         alTerminar({ blobUrl, texto });
       };
       grabadoraRef.current = grabadora;
@@ -122,7 +135,9 @@ export function useNotaDeVoz(alTerminar: (resultado: { blobUrl: string; texto: s
             else parcial += texto;
           }
           if (final) textoFinalRef.current = `${textoFinalRef.current} ${final}`.trim();
-          setTranscripcionParcial(`${textoFinalRef.current} ${parcial}`.trim());
+          const parcialCompleta = `${textoFinalRef.current} ${parcial}`.trim();
+          transcripcionParcialRef.current = parcialCompleta;
+          setTranscripcionParcial(parcialCompleta);
         };
         r.onerror = () => {
           // Si el reconocimiento falla (ej. se corto por silencio

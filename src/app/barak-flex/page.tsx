@@ -11,7 +11,7 @@ export default async function BarakFlexPage() {
   const admin = createAdminClient();
   const { data: config } = await admin
     .from("whatsapp_bots")
-    .select("chat_perfil_nombre, chat_perfil_foto, anuncio_facebook_url, mensaje_inicial_anuncio")
+    .select("chat_perfil_nombre, chat_perfil_foto, anuncio_facebook_url, mensaje_inicial_anuncio, chat_whatsapp_numero")
     .eq("slug", "pomada")
     .maybeSingle();
 
@@ -24,6 +24,7 @@ export default async function BarakFlexPage() {
           perfilFoto={config?.chat_perfil_foto ?? null}
           facebookUrl={config?.anuncio_facebook_url ?? null}
           mensajeInicialAnuncio={config?.mensaje_inicial_anuncio || undefined}
+          whatsappNumero={config?.chat_whatsapp_numero || undefined}
         />
       </div>
     </div>

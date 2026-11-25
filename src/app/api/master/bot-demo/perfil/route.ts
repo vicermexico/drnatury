@@ -27,6 +27,7 @@ export async function PATCH(request: NextRequest) {
     anuncio_facebook_url?: string | null;
     catalogo_como_libro?: boolean;
     mensaje_inicial_anuncio?: string;
+    chat_whatsapp_numero?: string;
   };
   const slug = body.bot ?? "consultas";
   if (!esBotSlugValido(slug)) {
@@ -40,6 +41,17 @@ export async function PATCH(request: NextRequest) {
   if (body.catalogo_como_libro !== undefined) patch.catalogo_como_libro = body.catalogo_como_libro;
   if (body.mensaje_inicial_anuncio !== undefined) {
     patch.mensaje_inicial_anuncio = body.mensaje_inicial_anuncio.trim() || "¡Hola! ¿Podrían darme más información?";
+  }
+  if (body.chat_whatsapp_numero !== undefined) {
+    // Solo digitos (sin espacios, guiones ni "+") -- el mismo formato
+    // que ya se usa para armar los links de wa.me/<numero>. Se exige
+    // que traiga codigo de pais (ej. 52 de Mexico) + el numero, para
+    // que el link funcione bien.
+    const soloDigitos = body.chat_whatsapp_numero.replace(/\D/g, "");
+    if (soloDigitos.length < 10 || soloDigitos.length > 15) {
+      return NextResponse.json({ error: "NUMERO_INVALIDO" }, { status: 400 });
+    }
+    patch.chat_whatsapp_numero = soloDigitos;
   }
 
   const admin = createAdminClient();
