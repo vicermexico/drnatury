@@ -223,8 +223,8 @@ function respuestaDolor(normalizado: string): string {
   const parte = detectarParteMencionada(normalizado);
   return (
     `La Pomada Barak Flex le puede ayudar muchísimo${parte ? ` con ese dolor en ${parte}` : " con ese dolor"} 💪 ` +
-    `Trae Glucosamina, Condroitina, Citrato de Magnesio, Clavo, Ajo Negro, Alcanfor y Mentol. ` +
-    `¿Le gustaría saber más, o que le hagamos su pedido?`
+    `gracias a sus activos únicos de alta tecnología. ` +
+    `¿Le gustaría hacer su pedido?`
   );
 }
 
