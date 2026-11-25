@@ -203,6 +203,18 @@ const VIC_WHATSAPP_NUMERO = "528117105018";
 // viene y puede entrar directo a la pagina.
 const DRNATURY_LINK = "https://www.drnatury.com";
 
+// A que link publico manda cada bot (ver /chat y /barak-flex) -- se usa
+// para que, al compartir un producto del catalogo (ver RevistaChatCard
+// mas abajo), el link que se agregue sea el del CHAT de ese bot (para
+// que quien lo reciba pueda entrar a platicar y comprar), y no nada mas
+// la pagina principal. Es una copia liviana de BOT_LINK_PUBLICO (ver
+// src/lib/whatsapp-bot/bots.ts) -- ese archivo trae "server-only" y no
+// se puede importar aqui, que es un componente de cliente.
+const LINK_CHAT_POR_BOT: Record<string, string> = {
+  consultas: "https://www.drnatury.com/chat",
+  pomada: "https://www.drnatury.com/barak-flex",
+};
+
 // Abre WhatsApp (sin numero fijo, para que elijan a quien mandarlo)
 // con el contenido del mensaje ya escrito, mas el link de la pagina al
 // final -- lo usa el boton de "Compartir" de cada mensaje del bot.
@@ -1108,7 +1120,12 @@ export function PublicChatDemo({
         )}
         {mensajes.map((m) =>
           m.catalogo ? (
-            <RevistaChatCard key={m.id} productos={m.catalogo} comoLibro={m.catalogoComoLibro ?? true} />
+            <RevistaChatCard
+              key={m.id}
+              productos={m.catalogo}
+              comoLibro={m.catalogoComoLibro ?? true}
+              linkChat={LINK_CHAT_POR_BOT[bot] ?? DRNATURY_LINK}
+            />
           ) : m.videoUrl ? (
             // El video de bienvenida se ve grande, del ancho de todo
             // el chat -- no como una cajita chica igual que el audio o

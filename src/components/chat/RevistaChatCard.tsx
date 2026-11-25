@@ -33,12 +33,19 @@ function formatoPrecio(n: number) {
 export function RevistaChatCard({
   productos,
   comoLibro = true,
+  linkChat = "https://www.drnatury.com",
 }: {
   productos: ProductoRevista[];
   // false = modo "solo imagen" que pidio Vic: nada mas la foto, el
   // nombre, el precio y los botones, uno debajo del otro, sin libro
   // que se voltea (switch en Master -> Productos).
   comoLibro?: boolean;
+  // Link del chat de este bot (ej. drnatury.com/barak-flex para la
+  // pomada) que se agrega siempre al compartir un producto -- Vic
+  // pidio que quien reciba el producto compartido tambien pueda entrar
+  // directo a platicar con el bot y comprarlo, no nada mas ver la foto
+  // y el precio sueltos.
+  linkChat?: string;
 }) {
   const marcoRef = useRef<HTMLDivElement>(null);
   const libroRef = useRef<HTMLDivElement>(null);
@@ -178,16 +185,24 @@ export function RevistaChatCard({
     }
     libroEl.addEventListener("click", onClick);
     return () => libroEl.removeEventListener("click", onClick);
+    // "compartir" ya lee "linkChat" por closure -- no hace falta que
+    // este listener se vuelva a armar nada mas porque cambio el link,
+    // solo cuando cambian los productos o el modo libro/imagen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productos, comoLibro]);
 
   // Comparte nombre + precio + descripcion y, cuando el navegador lo
   // permite (Web Share API nivel 2, la mayoria de los Android), tambien
   // la foto del producto como archivo adjunto -- antes nada mas se
-  // compartia el texto.
+  // compartia el texto. Ahora SIEMPRE se agrega al final el link del
+  // chat (linkChat) -- Vic reporto que al compartir el producto no
+  // salia ningun link, y quien lo recibia no tenia forma de entrar a
+  // platicar con el bot y comprarlo, nada mas veia la foto y el precio
+  // sueltos.
   async function compartir(p: ProductoRevista) {
     const texto = `Mira "${p.nombre}" -- ${formatoPrecio(p.precio)}${
       p.descripcion ? `\n${p.descripcion}` : ""
-    }`;
+    }\n\n${linkChat}`;
     const fotoUrl = p.fotos[0]?.url;
 
     try {
@@ -207,14 +222,18 @@ export function RevistaChatCard({
 
     try {
       if (navigator.share) {
-        await navigator.share({ title: p.nombre, text: texto, url: fotoUrl });
+        await navigator.share({ title: p.nombre, text: texto, url: linkChat });
         return;
       }
     } catch {
       return;
     }
 
-    alert("Aquí se abre el menú para compartir por WhatsApp, etc.");
+    // Sin Web Share API (ej. en computadora): se abre WhatsApp con el
+    // texto ya armado (ya trae el link del chat adentro), igual que el
+    // boton "Compartir" del resto de los mensajes del bot (ver
+    // compartirPorWhatsapp en PublicChatDemo.tsx).
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank", "noopener,noreferrer");
   }
 
   if (productos.length === 0) return null;
