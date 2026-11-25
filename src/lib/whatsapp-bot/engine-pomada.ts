@@ -23,11 +23,26 @@ import {
 
 export interface EstadoPedido {
   fase: "inicio" | "conversando" | "pidiendo";
-  paso?: "cantidad" | "nombre" | "celular" | "direccion" | "horario_bloque" | "horario_confirmar" | "horario_mitad";
+  paso?:
+    | "cantidad"
+    | "nombre"
+    | "celular"
+    | "direccion"
+    | "dia_manana"
+    | "dia_cual"
+    | "horario_bloque"
+    | "horario_confirmar"
+    | "horario_mitad";
   cantidad?: number;
   nombre?: string;
   celular?: string;
   direccion?: string;
+  // El DIA de entrega (ISO yyyy-mm-dd) -- Vic pidio que primero se
+  // pregunte el dia (ofreciendo mañana mismo de entrada) y YA HASTA
+  // ENTONCES se pregunte mañana/tarde para ESE dia -- antes se
+  // preguntaba mañana/tarde sin saber todavia que dia era, lo cual no
+  // tiene sentido (el horario de entrega depende del dia).
+  fecha?: string;
   // En que mitad del dia quiere la entrega -- se pregunta primero esto
   // (manana u tarde) y luego, si se queja de que el rango de 6 horas es
   // mucho tiempo, se le ofrece partirlo a la mitad (ver paso "horario_mitad").
@@ -693,9 +708,99 @@ function interpretarEleccionMitad(normalizado: string): "A" | "B" | null {
   return null;
 }
 
+// --- Dia de entrega --------------------------------------------------
+// Vic pidio que primero se pregunte EL DIA (ofreciendo de entrada
+// "mañana mismo", que es lo que casi siempre se cierra), y ya hasta
+// entonces se pregunte mañana/tarde -- antes se preguntaba mañana/tarde
+// sin saber todavia que dia era, lo cual no tenia sentido porque el
+// horario de entrega depende del dia que se escoja.
+
+const DIAS_SEMANA = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
+const MESES = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+
+// "Hoy" segun la hora de Monterrey/CDMX -- el servidor corre en UTC,
+// asi que no basta con "new Date()" (podria ya ser otro dia alla).
+function hoyMexico(): Date {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Monterrey",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const valores: Record<string, string> = {};
+  for (const p of partes) valores[p.type] = p.value;
+  return new Date(`${valores.year}-${valores.month}-${valores.day}T00:00:00`);
+}
+
+function sumarDias(fecha: Date, dias: number): Date {
+  const copia = new Date(fecha);
+  copia.setDate(copia.getDate() + dias);
+  return copia;
+}
+
+function formatearFechaISO(fecha: Date): string {
+  const y = fecha.getFullYear();
+  const m = String(fecha.getMonth() + 1).padStart(2, "0");
+  const d = String(fecha.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+// "viernes 28 de noviembre de 2026" -- Vic pidio explicitamente que se
+// le diga dia, mes Y año, para que no quede ambiguo.
+function formatearFechaLegible(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const fecha = new Date(y, m - 1, d);
+  return `${DIAS_SEMANA[fecha.getDay()]} ${d} de ${MESES[m - 1]} de ${y}`;
+}
+
+// Interpreta un dia que mencionen en texto libre -- "mañana", "pasado
+// mañana", "hoy", o el nombre de un dia de la semana ("el viernes",
+// "mejor jueves"). Si el dia de la semana ya paso esta semana (o es
+// hoy mismo -- "hoy" se interpreta aparte, arriba), se asume el de la
+// PROXIMA semana. No intenta reconocer fechas exactas tipo "el 5 de
+// diciembre" (Vic pidio dejar eso fuera por ahora).
+// "permitirRelativos" se apaga cuando el mensaje ya trae una negacion
+// (ej. "no quiero mañana") -- si no, la palabra "mañana" se detectaria
+// como si la estuvieran ESCOGIENDO de dia, cuando en realidad la estan
+// RECHAZANDO. Los nombres de dias de la semana (lunes a domingo) se
+// siguen reconociendo igual, negacion o no (ej. "no, mejor el viernes").
+function interpretarDiaPedido(normalizado: string, permitirRelativos = true): string | null {
+  const hoy = hoyMexico();
+  if (permitirRelativos) {
+    if (/\bpasado manana\b/.test(normalizado)) return formatearFechaISO(sumarDias(hoy, 2));
+    if (/\bmanana\b/.test(normalizado)) return formatearFechaISO(sumarDias(hoy, 1));
+    if (/\bhoy\b/.test(normalizado) || /\bmismo dia\b/.test(normalizado)) return formatearFechaISO(hoy);
+  }
+  for (let i = 0; i < DIAS_SEMANA.length; i++) {
+    if (new RegExp(`\\b${DIAS_SEMANA[i]}\\b`).test(normalizado)) {
+      let delta = (i - hoy.getDay() + 7) % 7;
+      if (delta === 0) delta = 7;
+      return formatearFechaISO(sumarDias(hoy, delta));
+    }
+  }
+  return null;
+}
+
 function finalizarPedido(estado: EstadoPedido, horario: string): ResultadoRespuestaPomada {
   const cantidad = estado.cantidad ?? 1;
   const precioTotal = cantidad * PRECIO_UNITARIO;
+  // El dia ya se confirmo antes (ver paso "dia_manana"/"dia_cual"), asi
+  // que aqui se junta con el bloque de mañana/tarde para el resumen
+  // final completo.
+  const horarioConFecha = estado.fecha ? `${formatearFechaLegible(estado.fecha)}, ${horario}` : horario;
   const resumen =
     `¡Listo! Este es el resumen de su pedido:\n\n` +
     `• Producto: Pomada Barak Flex\n` +
@@ -703,7 +808,7 @@ function finalizarPedido(estado: EstadoPedido, horario: string): ResultadoRespue
     `• Nombre: ${estado.nombre}\n` +
     `• Celular: ${estado.celular}\n` +
     `• Dirección: ${estado.direccion}\n` +
-    `• Entrega: ${horario}\n` +
+    `• Entrega: ${horarioConFecha}\n` +
     `• Total a pagar (contra entrega): $${precioTotal} MXN\n\n` +
     `El pago es hasta que reciba su pedido, sin anticipo 😊`;
   return {
@@ -716,7 +821,7 @@ function finalizarPedido(estado: EstadoPedido, horario: string): ResultadoRespue
       precioUnitario: PRECIO_UNITARIO,
       precioTotal,
       direccion: estado.direccion ?? "",
-      horario,
+      horario: horarioConFecha,
     },
   };
 }
@@ -810,9 +915,56 @@ function manejarPidiendo(mensaje: string, normalizado: string, estado: EstadoPed
     if (direccion.length < 6) {
       return { respuesta: "¿Me puede mandar su dirección completa (calle, número y colonia)?", nuevoEstado: estado };
     }
+    // Primero se pregunta el DIA (ofreciendo de entrada "mañana
+    // mismo", que es lo que casi siempre se cierra) -- ya hasta
+    // entonces, en el paso "dia_manana"/"dia_cual" de abajo, se
+    // pregunta mañana/tarde PARA ESE DIA.
+    const manana = formatearFechaLegible(formatearFechaISO(sumarDias(hoyMexico(), 1)));
     return {
-      respuesta: "¿Prefiere que se la llevemos en la mañana o en la tarde?",
-      nuevoEstado: { ...estado, paso: "horario_bloque", direccion },
+      respuesta: `¿Le gustaría que se la entreguemos mañana mismo (${manana})?`,
+      nuevoEstado: { ...estado, paso: "dia_manana", direccion },
+    };
+  }
+
+  if (estado.paso === "dia_manana") {
+    // Contesto que si a "mañana mismo".
+    if (contieneFraseCompleta(normalizado, SI_KEYWORDS) && normalizado.split(" ").length <= 4) {
+      const fecha = formatearFechaISO(sumarDias(hoyMexico(), 1));
+      return {
+        respuesta: "Perfecto, ¿la quiere en la mañana o en la tarde?",
+        nuevoEstado: { ...estado, paso: "horario_bloque", fecha },
+      };
+    }
+    // Dijo de una vez que dia prefiere (ej. "mejor el viernes") en vez
+    // de solo decir que no -- no hace falta volver a preguntar. Si el
+    // mensaje trae una negacion (ej. "no quiero mañana"), no se cuenta
+    // la palabra "mañana" como si la estuviera escogiendo -- la esta
+    // rechazando (ver permitirRelativos en interpretarDiaPedido).
+    const diceQueNo = contieneFraseCompleta(normalizado, ["no"]) || contieneAlguna(normalizado, NO_KEYWORDS);
+    const fechaDirecta = interpretarDiaPedido(normalizado, !diceQueNo);
+    if (fechaDirecta) {
+      return {
+        respuesta: `Perfecto, el ${formatearFechaLegible(fechaDirecta)}. ¿La quiere en la mañana o en la tarde?`,
+        nuevoEstado: { ...estado, paso: "horario_bloque", fecha: fechaDirecta },
+      };
+    }
+    return {
+      respuesta: "¿Qué día le gustaría que se la entreguemos?",
+      nuevoEstado: { ...estado, paso: "dia_cual" },
+    };
+  }
+
+  if (estado.paso === "dia_cual") {
+    const fecha = interpretarDiaPedido(normalizado);
+    if (!fecha) {
+      return {
+        respuesta: 'No le entendí bien el día -- ¿me puede decir, por ejemplo, "el viernes" o "pasado mañana"?',
+        nuevoEstado: estado,
+      };
+    }
+    return {
+      respuesta: `Perfecto, el ${formatearFechaLegible(fecha)}. ¿La quiere en la mañana o en la tarde?`,
+      nuevoEstado: { ...estado, paso: "horario_bloque", fecha },
     };
   }
 
