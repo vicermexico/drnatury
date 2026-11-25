@@ -446,6 +446,12 @@ export function PublicChatDemo({
   // clic al icono o en cuanto manda su siguiente mensaje (si no volvio
   // a usar el pin, de todos modos ya escribio la direccion a mano).
   const [destacarUbicacion, setDestacarUbicacion] = useState(false);
+  // Igual que destacarUbicacion, pero para el botón de WhatsApp del
+  // encabezado -- el bot lo marca (ver pedirWhatsapp en engine.ts /
+  // engine-pomada.ts) cuando el paciente dijo que quiere hablar con una
+  // persona real o prefiere seguir por WhatsApp, para señalarle con una
+  // flechita el botón, igual que con el pin de ubicación.
+  const [destacarWhatsapp, setDestacarWhatsapp] = useState(false);
   // Velocidad de reproduccion de las notas de voz del chat (1x, 2x,
   // 3x) -- Vic pidio que se pueda escuchar mas rapido, como en
   // WhatsApp. Cada audio guarda su propio elemento (por su id de
@@ -721,6 +727,7 @@ export function PublicChatDemo({
       setEstado(data.nuevoEstado);
       if (data.ubicacion) setUbicacionDatos(data.ubicacion as UbicacionDatos);
       setDestacarUbicacion(!!data.pedirUbicacion);
+      setDestacarWhatsapp(!!data.pedirWhatsapp);
       setMensajes((prev) => [
         ...prev,
         { id: siguienteId++, rol: "paciente", texto: "📍 Ubicación compartida" },
@@ -765,6 +772,7 @@ export function PublicChatDemo({
       setEstado(data.nuevoEstado);
       if (data.ubicacion) setUbicacionDatos(data.ubicacion as UbicacionDatos);
       setDestacarUbicacion(!!data.pedirUbicacion);
+      setDestacarWhatsapp(!!data.pedirWhatsapp);
 
       // El saludo de bienvenida llega como varios mensajes (texto y/o
       // audio, en el orden que Master armo) -- se mandan uno por uno,
@@ -944,16 +952,32 @@ export function PublicChatDemo({
         </button>
         {/* Por si no le interesa seguir platicando aqui, le manda el
             mismo mensaje inicial pero por WhatsApp de verdad -- pedido
-            explicito de Vic, al lado del icono de llamada. */}
-        <a
-          href={`https://wa.me/${whatsappNumero}?text=${encodeURIComponent(mensajeInicial)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Mándanos un WhatsApp"
-          className="w-10 h-10 rounded-full flex items-center justify-center text-[#25D366] hover:bg-gray-100 shrink-0"
-        >
-          <IconoWhatsApp className="w-5 h-5" />
-        </a>
+            explicito de Vic, al lado del icono de llamada. Cuando el
+            bot detecta que quiere hablar con una persona real (ver
+            destacarWhatsapp/pedirWhatsapp), se le señala con una
+            flechita, igual que con el pin de ubicación. */}
+        <div className="relative shrink-0">
+          {destacarWhatsapp && (
+            <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5 animate-bounce pointer-events-none">
+              <span className="text-emerald-600 text-base leading-none">↑</span>
+              <span className="text-[10px] font-semibold text-emerald-700 bg-white px-1.5 py-0.5 rounded-full shadow whitespace-nowrap">
+                Dé clic aquí
+              </span>
+            </div>
+          )}
+          <a
+            href={`https://wa.me/${whatsappNumero}?text=${encodeURIComponent(mensajeInicial)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Mándanos un WhatsApp"
+            onClick={() => setDestacarWhatsapp(false)}
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-[#25D366] hover:bg-gray-100 shrink-0 ${
+              destacarWhatsapp ? "ring-2 ring-emerald-400" : ""
+            }`}
+          >
+            <IconoWhatsApp className="w-5 h-5" />
+          </a>
+        </div>
         {dictadoSoportado && (
           <button
             onClick={activarLlamada}

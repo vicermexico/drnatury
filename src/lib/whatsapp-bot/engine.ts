@@ -984,6 +984,48 @@ export interface ResultadoRespuesta {
   // (bot "pomada", ver engine-pomada.ts) -- mutuamente exclusivo con
   // "agendado" (una conversacion de citas nunca llena esto, y viceversa).
   pedido?: ResumenPedido;
+  // true cuando el cliente dijo que quiere hablar con una persona real o
+  // que prefiere seguir por WhatsApp (ver QUIERE_HUMANO_KEYWORDS) -- el
+  // chat publico (PublicChatDemo.tsx) usa esto para pintar una flechita
+  // señalando el botón de WhatsApp de arriba, igual que con el pin de
+  // ubicacion -- Vic lo pidio explicitamente.
+  pedirWhatsapp?: boolean;
+}
+
+// Frases con las que el cliente deja claro que ya no quiere seguir
+// platicando con el bot aqui -- quiere hablar con una persona real, no
+// le gusta el chat, o de plano pide que lo pasen a WhatsApp. En vez de
+// insistir en contestarle por aqui, se le manda derecho al boton de
+// WhatsApp de arriba (que ya existe en el encabezado del chat, ver
+// IconoWhatsApp en PublicChatDemo.tsx).
+const QUIERE_HUMANO_KEYWORDS = [
+  "hablar con alguien real",
+  "hablar con una persona",
+  "hablar con una persona real",
+  "hablar con un humano",
+  "hablar con alguien de verdad",
+  "persona real",
+  "persona de verdad",
+  "un humano",
+  "con un asesor",
+  "atencion humana",
+  "no me gusta este chat",
+  "no me gusta el chat",
+  "no me gusta hablar con un robot",
+  "no quiero hablar con un robot",
+  "eres un robot",
+  "hablar por whatsapp",
+  "quiero whatsapp",
+  "quiero hablar por whatsapp",
+  "pasarme a whatsapp",
+  "me pasas a whatsapp",
+  "comunicarme por whatsapp",
+  "seguir por whatsapp",
+  "prefiero whatsapp",
+];
+
+function respuestaQuiereHumano(): string {
+  return "¡Claro! No te preocupes 😊 Dale clic en el botón de WhatsApp 📲 que está arriba y ahí te enlazamos directo a nuestro WhatsApp.";
 }
 
 // El audio de bienvenida real que Vic ya tiene grabado (lo mismo que
@@ -1027,6 +1069,19 @@ export async function generarRespuesta(args: {
     usarBienvenidaGenerica = true,
   } = args;
   const normalizado = normalizar(mensaje);
+
+  // Pedido de hablar con una persona real / seguir por WhatsApp -- va
+  // antes que cualquier otra cosa, sin importar en que fase vaya la
+  // conversacion (incluso si es el primer mensaje), porque es una
+  // salida que el cliente pide de forma explicita y no tiene caso
+  // seguir el flujo normal en ese momento.
+  if (contieneAlguna(normalizado, QUIERE_HUMANO_KEYWORDS)) {
+    return {
+      respuesta: respuestaQuiereHumano(),
+      nuevoEstado: estado,
+      pedirWhatsapp: true,
+    };
+  }
 
   // 1) Primer mensaje de la conversacion.
   if (estado.fase === "inicio") {
