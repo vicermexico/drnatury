@@ -204,9 +204,19 @@ const DRNATURY_LINK = "https://www.drnatury.com";
 // Abre WhatsApp (sin numero fijo, para que elijan a quien mandarlo)
 // con el contenido del mensaje ya escrito, mas el link de la pagina al
 // final -- lo usa el boton de "Compartir" de cada mensaje del bot.
-function compartirPorWhatsapp(contenido: string) {
+// "ventana" es opcional: si ya se habia abierto una pestana de antemano
+// (ver compartirAudio, que la abre ANTES de cualquier "await" para que
+// el navegador no la bloquee), se reutiliza esa en vez de abrir una
+// nueva -- para el resto de los casos (texto, video), que son
+// sincronos, no hace falta y se abre una nueva como siempre.
+function compartirPorWhatsapp(contenido: string, ventana?: Window | null) {
   const mensaje = `${contenido}\n\n${DRNATURY_LINK}`;
-  window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, "_blank", "noopener,noreferrer");
+  const url = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+  if (ventana) {
+    ventana.location.href = url;
+  } else {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
 }
 
 // Para los mensajes de audio, en vez de nomas mandar el link, se
@@ -219,6 +229,20 @@ function compartirPorWhatsapp(contenido: string) {
 async function compartirAudio(audioUrl: string, texto?: string) {
   const soportaCompartirArchivos =
     typeof navigator !== "undefined" && "share" in navigator && "canShare" in navigator;
+
+  // Si de perdida vamos a necesitar abrir WhatsApp como respaldo (ej.
+  // porque el celular no deja compartir el audio como archivo tal
+  // cual), la pestana se abre DE UNA VEZ aqui, todavia dentro del mismo
+  // clic del usuario -- varios navegadores (sobre todo en iPhone)
+  // bloquean en silencio cualquier pestana nueva que se intente abrir
+  // DESPUES de un "await" (como el fetch de abajo), porque para ese
+  // momento ya no se considera algo que el usuario pidio directamente.
+  // Sin esto, cuando fallaba el intentar compartir el archivo, ya era
+  // demasiado tarde para abrir WhatsApp y "Compartir" no hacia nada --
+  // Vic lo reporto (pasaba con el audio, no con el texto, que es
+  // sincrono y nunca tuvo este problema).
+  const pestanaRespaldo = soportaCompartirArchivos ? window.open("", "_blank") : null;
+
   if (soportaCompartirArchivos) {
     try {
       const respuesta = await fetch(audioUrl);
@@ -227,15 +251,19 @@ async function compartirAudio(audioUrl: string, texto?: string) {
         type: datos.type || "audio/ogg",
       });
       if (navigator.canShare({ files: [archivo] })) {
+        pestanaRespaldo?.close();
         await navigator.share({ files: [archivo], text: DRNATURY_LINK });
         return;
       }
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return; // el usuario cancelo, no insistir
+      if (err instanceof Error && err.name === "AbortError") {
+        pestanaRespaldo?.close();
+        return; // el usuario cancelo, no insistir
+      }
       console.error("No se pudo compartir el audio como nota de voz, se manda el link:", err);
     }
   }
-  compartirPorWhatsapp(`🎤 Escucha este audio:\n${audioUrl}${texto ? `\n\n${texto}` : ""}`);
+  compartirPorWhatsapp(`🎤 Escucha este audio:\n${audioUrl}${texto ? `\n\n${texto}` : ""}`, pestanaRespaldo);
 }
 
 // Boton de "Compartir" -- se repite en cada mensaje del bot (texto,

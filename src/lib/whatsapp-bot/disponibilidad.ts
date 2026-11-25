@@ -154,6 +154,17 @@ export function interpretarFecha(textoNormalizado: string, ahoraCST: Date = new 
     return fecha.toISOString().slice(0, 10);
   }
 
+  // "pasado mañana" tiene que ir ANTES del checar "manana" sola -- la
+  // palabra "manana" tambien aparece completa dentro de "pasado manana",
+  // asi que sin este caso se leia como "manana" a secas (un dia de
+  // menos). Vic lo reporto: pidio "pasado mañana" un miercoles y el bot
+  // le agendo para el jueves (manana), cuando debia ser el viernes.
+  if (/\bpasado\s+manana\b/.test(textoNormalizado)) {
+    const [y, m, d] = hoyStr.split("-").map(Number);
+    const pasadoManana = new Date(Date.UTC(y, m - 1, d + 2, 12));
+    return pasadoManana.toISOString().slice(0, 10);
+  }
+
   if (/\bmanana\b/.test(textoNormalizado) && !textoNormalizado.includes("por la manana") && !textoNormalizado.includes("en la manana")) {
     const [y, m, d] = hoyStr.split("-").map(Number);
     const manana = new Date(Date.UTC(y, m - 1, d + 1, 12));
