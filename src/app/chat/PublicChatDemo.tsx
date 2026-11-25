@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useDictado } from "@/hooks/useDictado";
 import { useNotaDeVoz } from "@/hooks/useNotaDeVoz";
 import { MENSAJE_INICIAL_ANUNCIO } from "@/lib/whatsapp-bot/mensajes";
@@ -130,6 +130,17 @@ function hablar(texto: string, opts?: { alTerminar?: () => void }) {
 }
 
 const ESTADO_INICIAL: EstadoAgendado = { fase: "inicio" };
+
+// EstadoAgendado solo tipa las fases genericas de citas ("inicio" /
+// "conversando" / "agendando") -- el bot de la pomada (ver EstadoPedido
+// en engine-pomada.ts) usa sus propias fases/pasos ("pidiendo" /
+// "direccion") que viajan dentro del mismo objeto gracias al indice
+// [key: string]: unknown. Este helper nada mas checa, de forma segura,
+// si el paciente esta en el paso de "direccion" de un pedido.
+function enPasoDeDireccionDePedido(estado: EstadoAgendado): boolean {
+  const e = estado as { fase: string; paso?: string };
+  return e.fase === "pidiendo" && e.paso === "direccion";
+}
 
 // Cuando entran por el boton "Agenda tu cita" de la pagina de inicio
 // (/chat?origen=inicio), en vez del mensaje de anuncio se manda este
@@ -291,6 +302,22 @@ function IconoMicrofono({ className }: { className?: string }) {
 // Icono de "pin" de ubicacion con la misma forma de gota que usan Google
 // Maps y Waze (en vez del emoji 📍, que se ve distinto segun el celular)
 // -- pedido explicitamente por Vic con un ejemplo de referencia.
+// El bot menciona el icono de ubicacion dentro de su texto (ej.
+// "también le puede dar clic al pin 📍 de abajo") usando el emoji 📍 --
+// pero el boton de verdad usa este icono de gota con forma de Google
+// Maps/Waze (ver IconoUbicacion abajo), que se ve distinto. Vic pidio
+// que fueran el MISMO icono, asi que aqui se reemplaza el emoji por el
+// icono real dentro del texto del mensaje.
+function renderizarTextoConIconoUbicacion(texto: string): ReactNode {
+  if (!texto.includes("📍")) return texto;
+  return texto.split("📍").map((parte, i, arr) => (
+    <span key={i}>
+      {parte}
+      {i < arr.length - 1 && <IconoUbicacion className="inline-block w-4 h-4 align-text-bottom mx-0.5" />}
+    </span>
+  ));
+}
+
 function IconoUbicacion({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
@@ -309,8 +336,9 @@ let siguienteId = 1;
 // instante), el bot siempre se tarda al menos esto en contestar -- si
 // la respuesta de verdad llega mas rapido, se espera lo que falte; si
 // ya se tardo mas que esto (por ejemplo por internet lento), no se le
-// suma nada extra.
-const RESPUESTA_DEMORA_MIN_MS = 1500;
+// suma nada extra. Vic pidio que fuera mas rapido ("que conteste al
+// segundo"), bajado de 1500ms.
+const RESPUESTA_DEMORA_MIN_MS = 1000;
 
 // Emojis rapidos junto al cuadro de mensaje, para que el paciente no
 // tenga que salir al teclado de su celular a buscarlos.
@@ -577,6 +605,7 @@ export function PublicChatDemo({
         if (!ubicacionDatos) {
           setUbicacionPendiente({ lat: pos.coords.latitude, lng: pos.coords.longitude });
           setEstadoUbicacion("guardada");
+          void continuarPedidoTrasUbicacion();
           return;
         }
         try {
@@ -613,6 +642,63 @@ export function PublicChatDemo({
     setErrorUbicacion("");
     setMostrarModalUbicacion(true);
     setDestacarUbicacion(false);
+  }
+
+  // Si el paciente abre la pantalla emergente del pin pero se regresa
+  // al chat SIN mandar su ubicacion (ni exito ni error, nada mas se
+  // sale), antes no pasaba nada -- Vic pidio que, si estaba en medio
+  // del paso de direccion del pedido de la pomada, el bot le ofrezca
+  // ayuda en vez de quedarse callado.
+  function cerrarModalUbicacion() {
+    const yaLaMando = estadoUbicacion === "listo" || estadoUbicacion === "guardada";
+    setMostrarModalUbicacion(false);
+    if (!yaLaMando && bot === "pomada" && enPasoDeDireccionDePedido(estado)) {
+      setMensajes((prev) => [
+        ...prev,
+        {
+          id: siguienteId++,
+          rol: "bot",
+          texto: "¿Le ayudo a mandar su ubicación o prefiere pasarme su dirección por escrito?",
+        },
+      ]);
+    }
+  }
+
+  // Cuando comparte su ubicacion por el pin mientras el bot de la
+  // pomada esta en el paso de direccion, se trata igual que si hubiera
+  // escrito su direccion a mano -- se manda un mensaje al bot para que
+  // siga la conversacion (la pregunta de "manana mismo?", etc.) en vez
+  // de quedarse esperando a que tambien escriba algo (Vic lo reporto:
+  // "si la mando, el bot debe de mandarle mensaje de continuacion...
+  // porque ahi ya se freno").
+  async function continuarPedidoTrasUbicacion() {
+    if (bot !== "pomada" || !enPasoDeDireccionDePedido(estado)) return;
+    const mensajeSintetico = "Ubicación compartida por GPS 📍";
+    setEnviando(true);
+    const inicio = Date.now();
+    try {
+      const res = await fetch("/api/public/asistente-whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mensaje: mensajeSintetico, estado, conversacionId, origen, codigoAnuncio, bot }),
+      });
+      const data = await res.json().catch(() => null);
+      const demoraRestante = RESPUESTA_DEMORA_MIN_MS - (Date.now() - inicio);
+      if (demoraRestante > 0) await esperar(demoraRestante);
+      if (!res.ok || !data) return;
+      setEstado(data.nuevoEstado);
+      if (data.ubicacion) setUbicacionDatos(data.ubicacion as UbicacionDatos);
+      setDestacarUbicacion(!!data.pedirUbicacion);
+      setMensajes((prev) => [
+        ...prev,
+        { id: siguienteId++, rol: "paciente", texto: "📍 Ubicación compartida" },
+        ...(data.respuesta || data.audioUrl
+          ? [{ id: siguienteId++, rol: "bot" as const, texto: data.respuesta, audioUrl: data.audioUrl, agendado: data.agendado }]
+          : []),
+      ]);
+    } finally {
+      setEnviando(false);
+    }
   }
 
   async function enviarMensaje() {
@@ -1085,7 +1171,7 @@ export function PublicChatDemo({
                   </div>
                 </>
               )}
-              {m.texto}
+              {renderizarTextoConIconoUbicacion(m.texto)}
               {m.rol === "bot" && m.esBienvenida && !m.agendado && (m.texto || m.audioUrl) && (
                 <div>
                   {m.audioUrl ? (
@@ -1106,12 +1192,12 @@ export function PublicChatDemo({
                       parte de los clientes son personas mayores y se
                       les pasaba de chiquito. Aplica igual a los dos
                       bots (citas y pomada), es el mismo bloque. */}
-                  <p className="text-center text-lg font-bold text-emerald-900">
+                  <p className="text-center text-xl font-bold text-emerald-900">
                     {m.agendado.tipo === "pedido"
                       ? "Para confirmar tu pedido por WhatsApp, da clic aquí"
                       : "Para confirmar y recordar tu cita por WhatsApp, da clic aquí"}
                   </p>
-                  <div className="flex justify-center text-2xl leading-none text-emerald-500 animate-bounce" aria-hidden="true">
+                  <div className="flex justify-center text-3xl leading-none text-emerald-500 animate-bounce" aria-hidden="true">
                     ⬇️
                   </div>
                   <div className="flex justify-center">
@@ -1121,7 +1207,7 @@ export function PublicChatDemo({
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="relative flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white text-lg font-bold px-6 py-3.5 shadow-lg hover:brightness-95"
+                      className="relative flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white text-xl font-bold px-8 py-4 shadow-lg hover:brightness-95"
                     >
                       <span
                         className="absolute inset-0 -z-10 rounded-full bg-emerald-400 opacity-75 animate-ping pointer-events-none"
@@ -1142,7 +1228,7 @@ export function PublicChatDemo({
       {mostrarModalUbicacion && (
         <div
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4 sm:pb-0"
-          onClick={() => setMostrarModalUbicacion(false)}
+          onClick={cerrarModalUbicacion}
         >
           <div
             className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl space-y-4"
@@ -1162,7 +1248,7 @@ export function PublicChatDemo({
                       : "En cuanto termine de agendarse su cita a domicilio, se la agregamos a la agenda de DrNatury."}
                 </p>
                 <button
-                  onClick={() => setMostrarModalUbicacion(false)}
+                  onClick={cerrarModalUbicacion}
                   className="mt-2 text-xs text-gray-500 underline"
                 >
                   Cerrar
@@ -1185,7 +1271,7 @@ export function PublicChatDemo({
                 )}
                 <div className="flex justify-end gap-2 pt-1">
                   <button
-                    onClick={() => setMostrarModalUbicacion(false)}
+                    onClick={cerrarModalUbicacion}
                     className="text-xs px-3 py-2 rounded-full text-gray-500 hover:bg-gray-100"
                   >
                     Cancelar
