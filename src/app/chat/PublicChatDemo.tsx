@@ -299,6 +299,17 @@ function IconoMicrofono({ className }: { className?: string }) {
   );
 }
 
+// Icono real de WhatsApp (el "telefono dentro de un globo de texto"),
+// para el boton de "mandame un WhatsApp" de la cabecera del chat --
+// Vic pidio el icono de verdad, no un emoji generico.
+function IconoWhatsApp({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M12 2C6.477 2 2 6.477 2 12c0 1.9.53 3.68 1.45 5.19L2 22l4.95-1.3A9.94 9.94 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18c-1.63 0-3.14-.44-4.44-1.2l-.32-.19-3.07.8.82-2.99-.2-.31A7.93 7.93 0 0 1 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8zm4.29-5.71c-.23-.12-1.36-.67-1.57-.75-.21-.08-.36-.12-.51.12-.15.23-.59.75-.72.9-.13.15-.27.17-.5.06-.23-.12-.96-.35-1.83-1.12-.68-.6-1.14-1.34-1.27-1.57-.13-.23-.01-.36.1-.47.11-.11.23-.27.35-.4.12-.13.15-.23.23-.38.08-.15.04-.29-.02-.4-.06-.12-.51-1.23-.7-1.68-.18-.44-.37-.38-.51-.39h-.44c-.15 0-.4.06-.6.29-.21.23-.8.78-.8 1.9 0 1.12.82 2.21.94 2.36.12.15 1.62 2.48 3.93 3.48.55.24.98.38 1.31.49.55.17 1.05.15 1.45.09.44-.07 1.36-.56 1.55-1.1.19-.54.19-1 .13-1.1-.05-.1-.2-.16-.43-.27z" />
+    </svg>
+  );
+}
+
 // Icono de "pin" de ubicacion con la misma forma de gota que usan Google
 // Maps y Waze (en vez del emoji 📍, que se ve distinto segun el celular)
 // -- pedido explicitamente por Vic con un ejemplo de referencia.
@@ -974,6 +985,18 @@ export function PublicChatDemo({
             <p className="text-[11px] text-gray-500 leading-tight">{enviando ? "escribiendo..." : "en línea"}</p>
           </div>
         </button>
+        {/* Por si no le interesa seguir platicando aqui, le manda el
+            mismo mensaje inicial pero por WhatsApp de verdad -- pedido
+            explicito de Vic, al lado del icono de llamada. */}
+        <a
+          href={`https://wa.me/${VIC_WHATSAPP_NUMERO}?text=${encodeURIComponent(mensajeInicial)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Mándanos un WhatsApp"
+          className="w-10 h-10 rounded-full flex items-center justify-center text-[#25D366] hover:bg-gray-100 shrink-0"
+        >
+          <IconoWhatsApp className="w-5 h-5" />
+        </a>
         {dictadoSoportado && (
           <button
             onClick={activarLlamada}
