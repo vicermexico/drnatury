@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAvailableSlots, getDayKey, cstToUTC, formatCSTTime } from "@/lib/appointments/availability";
+import { getDomicilioExtraMinutes } from "@/lib/appointments/domicilioConfig";
 import type { WeeklySchedule, DaySchedule } from "@/types";
 
 // Consulta horarios libres DE VERDAD contra el calendario (mismo motor
@@ -9,7 +10,6 @@ import type { WeeklySchedule, DaySchedule } from "@/types";
 // en vez de inventarlo o depender de una respuesta fija.
 
 const QUICK_SERVICE_NAME = "Consulta rapida (link)";
-const DOMICILIO_EXTRA_MINUTES = 90;
 const DOMICILIO_SCHEDULE: DaySchedule = { open: true, morning_start: "08:00", morning_end: "20:00" };
 
 export type Turno = "manana" | "tarde" | null;
@@ -62,7 +62,7 @@ export async function obtenerHorariosDisponibles(
   let slots: { starts_at: string; ends_at: string }[];
 
   if (modalidad === "DOMICILIO") {
-    const duration_minutes = servicio.duration_minutes + DOMICILIO_EXTRA_MINUTES;
+    const duration_minutes = servicio.duration_minutes + (await getDomicilioExtraMinutes());
     const blocked = (blockedData ?? []).filter((b) => b.branch_id === null);
     if (blocked.some((b) => b.all_day)) return [];
     const blockedHours = blocked.filter((b) => !b.all_day && b.start_time && b.end_time).map((b) => ({ start_time: b.start_time!, end_time: b.end_time! }));

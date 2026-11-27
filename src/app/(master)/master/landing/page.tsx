@@ -48,7 +48,7 @@ export default async function LandingPage() {
   return (
     <div className="max-w-3xl space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Editar página de inicio</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Editar página antes de login</h1>
         <p className="text-sm text-gray-500 mt-1">
           Configura lo que ven los pacientes antes de entrar
         </p>

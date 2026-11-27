@@ -6,6 +6,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { createGoogleCalendarEvent } from "@/lib/calendar/google-events";
 import { buildConfirmUrl, buildUbicacionUrl } from "@/lib/appointments/tokens";
 import { ensureGoogleContact } from "@/lib/contacts/google-contacts";
+import { getDomicilioExtraMinutes } from "@/lib/appointments/domicilioConfig";
 
 // Agendado rapido de Master, sin login — protegido por un codigo secreto
 // en el header x-quick-secret (ver src/lib/quick-link/secret.ts). Reusa
@@ -20,7 +21,6 @@ import { ensureGoogleContact } from "@/lib/contacts/google-contacts";
 // quick_name, no en un paciente de verdad.
 
 const QUICK_SERVICE_NAME = "Consulta rapida (link)";
-const DOMICILIO_EXTRA_MINUTES = 90;
 
 export async function POST(request: NextRequest) {
   try {
@@ -98,7 +98,8 @@ export async function POST(request: NextRequest) {
       if (!branchId) return NextResponse.json({ error: "NOT_FOUND", message: "No hay sucursal activa" }, { status: 404 });
     }
 
-    const durationMinutes = (servicio.duration_minutes ?? 30) + (esDomicilio ? DOMICILIO_EXTRA_MINUTES : 0);
+    const domicilioExtraMinutes = esDomicilio ? await getDomicilioExtraMinutes() : 0;
+    const durationMinutes = (servicio.duration_minutes ?? 30) + domicilioExtraMinutes;
     const startsAt = cstToUTC(fecha, hora);
     const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
 

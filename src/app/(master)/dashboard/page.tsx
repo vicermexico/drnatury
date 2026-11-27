@@ -48,7 +48,7 @@ export default async function MasterDashboard() {
           { label: "Sucursales activas",      value: stats.branches,   href: "/master/sucursales" },
           { label: "Terapeutas",              value: stats.therapists, href: "/master/terapeutas" },
           { label: "Servicios",               value: stats.services,   href: "/master/servicios" },
-          { label: "Productos vendidos hoy",  value: stats.soldToday,  href: "/master/reportes" },
+          { label: "Productos vendidos hoy",  value: stats.soldToday,  href: "/master/dashboard" },
         ].map(({ label, value, href }) => (
           <Link
             key={label}

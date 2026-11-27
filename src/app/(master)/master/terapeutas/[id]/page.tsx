@@ -47,7 +47,7 @@ export default async function TherapistDetailPage({
       {/* Breadcrumb */}
       <div>
         <div className="flex items-center gap-2 text-sm mb-3">
-          <Link href="/master/configuracion" className="text-gray-400 hover:text-gray-600">Configuración</Link>
+          <Link href="/master/terapeutas" className="text-gray-400 hover:text-gray-600">Terapeutas</Link>
           <span className="text-gray-300">/</span>
           <Link href="/master/terapeutas" className="text-gray-400 hover:text-gray-600">Terapeutas</Link>
           <span className="text-gray-300">/</span>

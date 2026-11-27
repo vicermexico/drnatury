@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AppointmentCard, type AppointmentData } from "@/components/agenda/AppointmentCard";
 import { DateNav } from "@/components/ui/DateNav";
+import { SearchInput } from "@/components/ui/SearchInput";
 import type { AppointmentStatus } from "@/types";
 
 async function getBranches() {
@@ -49,9 +50,9 @@ const STATUS_LABEL: Record<AppointmentStatus, string> = {
 export default async function CitasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; branch_id?: string }>;
+  searchParams: Promise<{ date?: string; branch_id?: string; q?: string }>;
 }) {
-  const { date: dateParam, branch_id } = await searchParams;
+  const { date: dateParam, branch_id, q } = await searchParams;
   const todayCst = new Date().toLocaleDateString("en-CA", { timeZone: "America/Monterrey" });
   const date = dateParam ?? todayCst;
 
@@ -70,7 +71,24 @@ export default async function CitasPage({
     therapist: { id: string; name: string } | null;
   };
 
-  const appts = rawAppts as unknown as ApptRow[];
+  const rawAppts2 = rawAppts as unknown as ApptRow[];
+
+  // Buscador de texto: filtra por nombre/telefono de paciente, servicio o
+  // terapeuta -- se aplica despues de traer las citas del dia/sucursal,
+  // porque son pocas y cruzan varias tablas relacionadas.
+  const term = q?.trim().toLowerCase();
+  const appts = term
+    ? rawAppts2.filter((a) => {
+        const patient = Array.isArray(a.patient) ? a.patient[0] : a.patient;
+        const service = Array.isArray(a.services) ? a.services[0] : a.services;
+        const therapist = Array.isArray(a.therapist) ? a.therapist[0] : a.therapist;
+        const campos = [
+          a.quick_name, patient?.name, patient?.phone,
+          service?.name, therapist?.name,
+        ];
+        return campos.some((c) => c?.toLowerCase().includes(term));
+      })
+    : rawAppts2;
 
   const byBranch = new Map<string, { branchName: string; items: { appt: AppointmentData; id: string }[] }>();
   for (const a of appts) {
@@ -116,6 +134,10 @@ export default async function CitasPage({
         <DateNav branches={branches} />
       </Suspense>
 
+      <Suspense>
+        <SearchInput placeholder="Buscar por nombre, teléfono, servicio o terapeuta…" />
+      </Suspense>
+
       {appts.length > 0 && (
         <div className="flex flex-wrap gap-2">
           <span className="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full font-medium">
@@ -131,10 +153,16 @@ export default async function CitasPage({
 
       {appts.length === 0 ? (
         <div className="rounded-2xl bg-white border border-dashed border-gray-300 p-10 text-center">
-          <p className="text-gray-500 text-sm mb-2">Sin citas para este dia</p>
-          <Link href="/master/citas/nueva" className="text-blue-600 text-sm underline">
-            Agendar una cita
-          </Link>
+          {term ? (
+            <p className="text-gray-500 text-sm">Sin resultados para &ldquo;{q}&rdquo; en este día</p>
+          ) : (
+            <>
+              <p className="text-gray-500 text-sm mb-2">Sin citas para este dia</p>
+              <Link href="/master/citas/nueva" className="text-blue-600 text-sm underline">
+                Agendar una cita
+              </Link>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-8">
