@@ -51,6 +51,16 @@ function formatDate(iso: string) {
   });
 }
 
+// Mismo patron de link a WhatsApp que ya se uso en los pedidos cerrados
+// por chat (ver asistente-whatsapp/mensajes) -- toma los ultimos 10
+// digitos del telefono guardado y arma el link wa.me con el 52 de Mexico.
+function linkWhatsApp(phone: string | null): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 10) return null;
+  return `https://wa.me/52${digits.slice(-10)}`;
+}
+
 function getAge(birthDate: string | null, age: number | null): string | null {
   if (birthDate) {
     const birth = new Date(birthDate);
@@ -127,13 +137,13 @@ export default async function PacientesPage({
           {patients.map((p) => {
             const branch = Array.isArray(p.branches) ? p.branches[0] : p.branches as { name: string } | null;
             const ageStr = getAge(p.birth_date as string | null, p.age as number | null);
+            const waLink = linkWhatsApp(p.phone as string | null);
             return (
-              <Link
+              <div
                 key={p.id}
-                href={`/master/pacientes/${p.id}`}
-                className="flex items-center justify-between rounded-xl bg-white border border-gray-200 px-5 py-4 hover:border-blue-300 hover:shadow-sm transition"
+                className="flex items-center justify-between gap-2 rounded-xl bg-white border border-gray-200 px-5 py-4 hover:border-blue-300 hover:shadow-sm transition"
               >
-                <div className="min-w-0">
+                <Link href={`/master/pacientes/${p.id}`} className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold text-gray-900 truncate">{p.name}</p>
                     {!p.is_active && (
@@ -148,9 +158,16 @@ export default async function PacientesPage({
                     {branch ? ` · ${branch.name}` : ""}
                     {p.city ? ` · ${p.city}` : ""}
                   </p>
-                </div>
-                <p className="text-xs text-gray-400 shrink-0 ml-4">{formatDate(p.created_at)}</p>
-              </Link>
+                </Link>
+                {waLink && (
+                  <a href={waLink} target="_blank" rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="shrink-0 text-xl hover:scale-110 transition" title="Abrir WhatsApp">
+                    💬
+                  </a>
+                )}
+                <p className="text-xs text-gray-400 shrink-0">{formatDate(p.created_at)}</p>
+              </div>
             );
           })}
         </div>

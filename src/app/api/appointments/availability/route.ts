@@ -1,6 +1,7 @@
 ﻿import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAvailableSlots, getDayKey, cstToUTC } from "@/lib/appointments/availability";
+import { getDomicilioExtraMinutes } from "@/lib/appointments/domicilioConfig";
 import type { WeeklySchedule, DaySchedule } from "@/types";
 
 // Horario fijo usado para citas a domicilio: no dependen de una
@@ -10,10 +11,6 @@ const DOMICILIO_SCHEDULE: DaySchedule = {
   morning_start: "08:00",
   morning_end: "20:00",
 };
-// Tiempo extra que se bloquea en una cita a domicilio (traslado/instalacion)
-// ademas de la duracion propia del servicio.
-const DOMICILIO_EXTRA_MINUTES = 90;
-
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const branchId  = searchParams.get("branch_id");
@@ -31,7 +28,7 @@ export async function GET(request: NextRequest) {
   if (modalidad === "DOMICILIO") {
     const { data: svc } = await admin.from("services").select("duration_minutes").eq("id", serviceId).single();
     if (!svc) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
-    const duration_minutes = (svc.duration_minutes ?? 60) + DOMICILIO_EXTRA_MINUTES;
+    const duration_minutes = (svc.duration_minutes ?? 60) + (await getDomicilioExtraMinutes());
     // Solo se respetan los bloqueos globales (sin sucursal especifica),
     // ya que domicilio no pertenece a ninguna sucursal en particular.
     const { data: blockedData } = await admin.from("blocked_slots").select("all_day, start_time, end_time, branch_id").eq("date", dateStr).is("branch_id", null);

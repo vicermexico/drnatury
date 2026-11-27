@@ -171,7 +171,7 @@ function DeleteButton({ branchId, branchName }: { branchId: string; branchName: 
         setConfirming(false);
         return;
       }
-      router.push("/master/configuracion");
+      router.push("/master/sucursales");
     });
   }
 

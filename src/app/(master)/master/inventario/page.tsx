@@ -99,7 +99,7 @@ export default async function MasterInventarioPage() {
     <div className="max-w-5xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Inventario general</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Inventarios</h1>
           <p className="text-sm text-gray-500 mt-0.5">{products.length} productos</p>
         </div>
         <Link href="/master/inventario/nuevo"

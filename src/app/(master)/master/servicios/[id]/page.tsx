@@ -70,7 +70,7 @@ export default async function ServiceDetailPage({
       {/* Breadcrumb */}
       <div>
         <div className="flex items-center gap-2 text-sm mb-3">
-          <Link href="/master/configuracion" className="text-gray-400 hover:text-gray-600">ConfiguraciÃ³n</Link>
+          <Link href="/master/servicios" className="text-gray-400 hover:text-gray-600">Servicios</Link>
           <span className="text-gray-300">/</span>
           <Link href="/master/servicios" className="text-gray-400 hover:text-gray-600">Servicios</Link>
           <span className="text-gray-300">/</span>

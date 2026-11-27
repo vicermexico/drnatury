@@ -72,6 +72,19 @@ export default async function SucursalesPage() {
           ))}
         </div>
       )}
+
+      {/* Antes vivia suelto en Configuracion -- se queda aqui porque es lo
+          mas cercano (la conexion de Google Calendar es por sucursal). */}
+      <Link
+        href="/master/calendario"
+        className="flex items-center justify-between rounded-2xl bg-white border border-gray-200 px-5 py-4 hover:border-blue-300 hover:shadow-sm transition group"
+      >
+        <div>
+          <p className="text-sm font-semibold text-gray-900 group-hover:text-blue-700">Google Calendar</p>
+          <p className="text-xs text-gray-400 mt-0.5">Conecta o revisa la sincronización con Google Calendar</p>
+        </div>
+        <span className="text-gray-300 group-hover:text-blue-400">›</span>
+      </Link>
     </div>
   );
 }

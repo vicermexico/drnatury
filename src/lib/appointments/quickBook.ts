@@ -4,6 +4,7 @@ import { cstToUTC } from "./availability";
 import { createGoogleCalendarEvent } from "@/lib/calendar/google-events";
 import { buildConfirmUrl, buildUbicacionUrl } from "./tokens";
 import { ensureGoogleContact } from "@/lib/contacts/google-contacts";
+import { getDomicilioExtraMinutes } from "./domicilioConfig";
 
 // Registra una cita "rapida" (sin cuenta de paciente de verdad) usando el
 // mismo RPC book_appointment() que ya usa el resto de la app -- por lo
@@ -19,7 +20,6 @@ import { ensureGoogleContact } from "@/lib/contacts/google-contacts";
 // quick_name/quick_phone, no en un paciente de verdad todavia.
 
 const QUICK_SERVICE_NAME = "Consulta rapida (link)";
-const DOMICILIO_EXTRA_MINUTES = 90;
 
 export interface CitaRapidaInput {
   nombre: string;
@@ -99,7 +99,8 @@ export async function crearCitaRapida(
     if (!branchId) return { ok: false, error: "NOT_FOUND" };
   }
 
-  const durationMinutes = (servicio.duration_minutes ?? 30) + (esDomicilio ? DOMICILIO_EXTRA_MINUTES : 0);
+  const domicilioExtraMinutes = esDomicilio ? await getDomicilioExtraMinutes() : 0;
+  const durationMinutes = (servicio.duration_minutes ?? 30) + domicilioExtraMinutes;
   const startsAt = cstToUTC(input.fechaISO, input.hora24);
   const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
 

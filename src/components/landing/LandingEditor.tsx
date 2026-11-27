@@ -290,7 +290,9 @@ export function LandingEditor({ config, services, fondos, personajes }: Props) {
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">1. Logo (emblema)</label>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+              ✏️ 1. Logo (emblema)
+            </label>
             <button type="button" onClick={() => setMostrarLogo((v) => !v)} className={`px-3 py-1 rounded-lg text-xs font-semibold border transition ${mostrarLogo ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-gray-500 border-gray-200"}`}>
               {mostrarLogo ? "Se muestra" : "Oculto"}
             </button>
@@ -307,7 +309,9 @@ export function LandingEditor({ config, services, fondos, personajes }: Props) {
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">2. Nombre (letras &quot;DrNatury&quot;)</label>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+              ✏️ 2. Nombre (letras &quot;DrNatury&quot;)
+            </label>
             <button type="button" onClick={() => setMostrarNombre((v) => !v)} className={`px-3 py-1 rounded-lg text-xs font-semibold border transition ${mostrarNombre ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-gray-500 border-gray-200"}`}>
               {mostrarNombre ? "Se muestra" : "Oculto"}
             </button>

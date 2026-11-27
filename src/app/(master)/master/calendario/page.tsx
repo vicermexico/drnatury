@@ -9,7 +9,7 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
   return (
     <div className="max-w-xl space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/master/configuracion" className="text-gray-400 hover:text-gray-600 text-sm">
+        <Link href="/master/sucursales" className="text-gray-400 hover:text-gray-600 text-sm">
           ← Configuración
         </Link>
       </div>
