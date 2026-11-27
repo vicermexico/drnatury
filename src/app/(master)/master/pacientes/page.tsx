@@ -161,7 +161,6 @@ export default async function PacientesPage({
                 </Link>
                 {waLink && (
                   <a href={waLink} target="_blank" rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
                     className="shrink-0 text-xl hover:scale-110 transition" title="Abrir WhatsApp">
                     💬
                   </a>
